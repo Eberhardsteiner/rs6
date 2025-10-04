@@ -427,7 +427,7 @@ export default function App({ onBackToHome }: AppProps) {
       window.removeEventListener('admin:kpi:add', onKpiAdd);
       window.removeEventListener('admin:reset', onReset as EventListener);
     };
-  }, []);
+  }, [state.playerRoles, state.playerRole, state.day]);
 
   // Endbewertung
   React.useEffect(() => {
@@ -700,7 +700,10 @@ export default function App({ onBackToHome }: AppProps) {
     () => [...newsBase, ...(newsRandomVisible as any[])],
     [newsBase, newsRandomVisible]
   );
-  const myRolesView = state.playerRoles?.length ? state.playerRoles : [state.playerRole];
+  const myRolesView = React.useMemo(
+    () => state.playerRoles?.length ? state.playerRoles : [state.playerRole],
+    [state.playerRoles, state.playerRole]
+  );
   const blocks = blocksAll.filter(b => myRolesView.includes(b.role));
 
   // Heutige Auswahl pro Block (Hervorhebung)
