@@ -1873,10 +1873,10 @@ try {
         </div>
       )}
                     {/* Attachment-Modal (Inhalte aus attachmentContents) */}
-      {showAttachment && attachmentContents as Record<string, { title: string; content: string; type?: string }>[showAttachment] && (
+      {showAttachment && (attachmentContents as Record<string, { title: string; content: string; type?: string }>)[showAttachment] && (
         <AttachmentModal
-          title={attachmentContents as Record<string, { title: string; content: string; type?: string }>[showAttachment].title}
-          content={attachmentContents as Record<string, { title: string; content: string; type?: string }>[showAttachment].content}
+          title={(attachmentContents as Record<string, { title: string; content: string; type?: string }>)[showAttachment].title}
+          content={(attachmentContents as Record<string, { title: string; content: string; type?: string }>)[showAttachment].content}
           onClose={() => setShowAttachment(null)}
         />
       )}
