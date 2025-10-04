@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/services/supabaseClient';
 import type { KPI, RoleId, DecisionBlock, DayNewsItem } from '@/core/models/domain';
+import { errorHandler } from '@/utils/errorHandler';
 
 // --- PDF-Export (pdfmake inkl. Fonts) ---
 import pdfMake from 'pdfmake/build/pdfmake.js';
@@ -514,16 +515,16 @@ const copyGameId = useCallback(async () => {
         .single();
       if (gErr) throw gErr;
 
-      console.log('[TrainerDashboard] Geladene Spielstanddaten:', gameData);
+      errorHandler.debug('[TrainerDashboard] Geladene Spielstanddaten', undefined, { category: 'NETWORK', component: 'TrainerDashboard', action: 'load-game-data', metadata: { gameData } });
 
       const kpiValues = gameData?.kpi_values as KPI | null | undefined;
-      console.log('[TrainerDashboard] KPI-Werte aus DB:', kpiValues);
+      errorHandler.debug('[TrainerDashboard] KPI-Werte aus DB', undefined, { category: 'NETWORK', component: 'TrainerDashboard', action: 'load-game-data', metadata: { kpiValues } });
 
       setCurrentDay((gameData?.current_day as number | undefined) || 1);
 
       // Validierung und Initialisierung der KPI-Werte
       if (!kpiValues || typeof kpiValues !== 'object' || Object.keys(kpiValues).length === 0) {
-        console.warn('[TrainerDashboard] Keine oder ungültige KPI-Werte gefunden. Initialisiere mit Standardwerten...');
+        errorHandler.warn('[TrainerDashboard] Keine oder ungültige KPI-Werte gefunden. Initialisiere mit Standardwerten...', undefined, { category: 'VALIDATION', component: 'TrainerDashboard', action: 'load-game-data' });
 
         // Versuche, die KPI-Werte in der Datenbank zu initialisieren
         const initialKpis = {
@@ -542,15 +543,15 @@ const copyGameId = useCallback(async () => {
             .eq('id', gameId);
 
           if (updateErr) {
-            console.error('[TrainerDashboard] KPI-Update fehlgeschlagen:', updateErr);
+            errorHandler.error('[TrainerDashboard] KPI-Update fehlgeschlagen', updateErr, { category: 'NETWORK', component: 'TrainerDashboard', action: 'initialize-kpi' });
           } else {
-            console.log('[TrainerDashboard] KPI-Werte erfolgreich initialisiert');
+            errorHandler.debug('[TrainerDashboard] KPI-Werte erfolgreich initialisiert', undefined, { category: 'NETWORK', component: 'TrainerDashboard', action: 'initialize-kpi' });
             setGameKpis(initialKpis as KPI);
             setIsLoadingKpis(false);
             return;
           }
         } catch (updateError) {
-          console.error('[TrainerDashboard] Fehler beim KPI-Update:', updateError);
+          errorHandler.error('[TrainerDashboard] Fehler beim KPI-Update', updateError, { category: 'NETWORK', component: 'TrainerDashboard', action: 'initialize-kpi' });
         }
 
         setGameKpis(null);
@@ -560,7 +561,7 @@ const copyGameId = useCallback(async () => {
 
       setIsLoadingKpis(false);
     } catch (e: unknown) {
-      console.error('[TrainerDashboard] Fehler beim Laden der Daten:', e);
+      errorHandler.error('[TrainerDashboard] Fehler beim Laden der Daten', e, { category: 'NETWORK', component: 'TrainerDashboard', action: 'load-game-data' });
       const error = e as { message?: string };
       setError(error?.message || 'Zugriff verweigert (RLS?)');
       setIsLoadingKpis(false);
@@ -715,7 +716,7 @@ try {
     // Einmalig am Ende setzen (leer, falls useRandomNews=false)
     setRandomNewsForDay(dayRandomNews);
   } catch (e) {
-    console.warn('[Trainer] Randoms/RandomNews konnten nicht berechnet werden:', e);
+    errorHandler.warn('[Trainer] Randoms/RandomNews konnten nicht berechnet werden', e, { category: 'UNEXPECTED', component: 'TrainerDashboard', action: 'compute-day-randoms' });
     setDailyRandoms(null);
     setRandomNewsForDay([]);
   }
@@ -746,7 +747,7 @@ try {
 
         setHintDrafts((prev) => ({ ...prev, [playerId]: '' }));
       } catch (e: unknown) {
-        console.error('[TrainerHint] insert failed', e);
+        errorHandler.error('[TrainerHint] insert failed', e, { category: 'NETWORK', component: 'TrainerDashboard', action: 'send-hint' });
         const error = e as { message?: string };
         setError(error?.message || 'Hinweis konnte nicht gesendet werden.');
       }
@@ -776,7 +777,7 @@ try {
 
       setBroadcastAll('');
     } catch (e: unknown) {
-      console.error('[TrainerHint] broadcast failed', e);
+      errorHandler.error('[TrainerHint] broadcast failed', e, { category: 'NETWORK', component: 'TrainerDashboard', action: 'send-hint' });
       const error = e as { message?: string };
       setError(error?.message || 'Broadcast konnte nicht gesendet werden.');
     }

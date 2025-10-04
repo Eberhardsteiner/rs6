@@ -7,6 +7,7 @@ import { NotificationService } from './notificationService';
 import { supabase } from './supabaseClient';
 import type { QueuedDecision } from './decisionQueueService';
 import type { ChatMessage } from './chatService';
+import { errorHandler } from '@/utils/errorHandler';
 
 export interface SyncStatus {
   isSyncing: boolean;
@@ -86,13 +87,13 @@ export class OfflineSyncManager {
 
   // === Event Handlers ===
   private async handleOnline() {
-    console.log('Going online, starting sync...');
+    errorHandler.info('Going online, starting sync...', undefined, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'handle-online' });
     this.startPeriodicSync();
     await this.syncAll();
   }
 
   private handleOffline() {
-    console.log('Going offline, stopping sync...');
+    errorHandler.info('Going offline, stopping sync...', undefined, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'handle-offline' });
     this.stopPeriodicSync();
   }
 
@@ -124,12 +125,12 @@ export class OfflineSyncManager {
     this.syncStatus.syncErrors = [];
     
     try {
-      console.log('Starting sync...');
+      errorHandler.debug('Starting sync...', undefined, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'start-sync' });
       
       // Get game ID
       const gameId = this.mpService.getCurrentGameId();
       if (!gameId) {
-        console.log('No game ID, skipping sync');
+        errorHandler.debug('No game ID, skipping sync', undefined, { category: 'VALIDATION', component: 'OfflineSyncManager', action: 'start-sync' });
         return;
       }
       
@@ -150,7 +151,7 @@ export class OfflineSyncManager {
       
       this.syncStatus.lastSyncTime = new Date();
       
-      console.log('Sync completed successfully');
+      errorHandler.info('Sync completed successfully', undefined, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'start-sync' });
       
       if (this.syncStatus.conflictResolutions.length > 0) {
         this.notificationService.warning(
@@ -160,7 +161,7 @@ export class OfflineSyncManager {
       }
       
     } catch (error) {
-      console.error('Sync failed:', error);
+      errorHandler.error('Sync failed', error, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'start-sync' });
       this.syncStatus.syncErrors.push(error instanceof Error ? error.message : 'Unknown error');
       
       this.notificationService.error(
@@ -178,11 +179,11 @@ export class OfflineSyncManager {
     const queueItems = await this.persistence.getOfflineQueue(gameId);
     this.syncStatus.pendingItems = queueItems.length;
     
-    console.log(`Processing ${queueItems.length} offline queue items...`);
+    errorHandler.info(`Processing ${queueItems.length} offline queue items...`, undefined, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'process-queue', metadata: { count: queueItems.length } });
     
     for (const item of queueItems) {
       if (item.retryCount >= this.MAX_RETRY_ATTEMPTS) {
-        console.error(`Max retries reached for item ${item.id}, removing from queue`);
+        errorHandler.warn(`Max retries reached for item ${item.id}, removing from queue`, undefined, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'process-queue', metadata: { itemId: item.id } });
         await this.persistence.removeFromOfflineQueue(item.id);
         continue;
       }
@@ -207,7 +208,7 @@ export class OfflineSyncManager {
         this.syncStatus.pendingItems--;
         
       } catch (error) {
-        console.error(`Failed to sync item ${item.id}:`, error);
+        errorHandler.error(`Failed to sync item ${item.id}`, error, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'process-queue', metadata: { itemId: item.id } });
         await this.persistence.updateQueueItemRetry(item.id);
       }
     }
@@ -286,7 +287,7 @@ export class OfflineSyncManager {
       try {
         await this.syncQueuedDecision(decision);
       } catch (error) {
-        console.error('Failed to sync decision:', error);
+        errorHandler.error('Failed to sync decision', error, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'sync-decision' });
       }
     }
     
@@ -362,7 +363,7 @@ export class OfflineSyncManager {
     localDecision: QueuedDecision,
     serverDecision: any
   ): Promise<void> {
-    console.log('Resolving decision conflict...');
+    errorHandler.info('Resolving decision conflict...', undefined, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'resolve-conflict' });
     
     switch (this.CONFLICT_STRATEGY) {
       case 'local_first':
@@ -422,7 +423,7 @@ export class OfflineSyncManager {
       try {
         await this.syncQueuedDecision(decision);
       } catch (error) {
-        console.error('Failed to sync decision:', error);
+        errorHandler.error('Failed to sync decision', error, { category: 'NETWORK', component: 'OfflineSyncManager', action: 'sync-decision' });
         
         // 4. Add to offline queue for later sync
         await this.persistence.addToOfflineQueue({

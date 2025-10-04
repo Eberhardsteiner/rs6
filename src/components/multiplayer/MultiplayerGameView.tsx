@@ -76,6 +76,7 @@ import { exportSimulationReport } from '@/services/pdfReport';
 // Import makeRng for random value generation
 import { makeRng } from '@/core/utils/prng';
 import { generateRandomNewsForDay } from '@/core/engine/randomNews';
+import { errorHandler } from '@/utils/errorHandler';
 
 
 
@@ -122,7 +123,7 @@ const TrainerDashboard = React.lazy(async () => {
  try {
     return await import('./TrainerDashboard');
   } catch (e) {
-   console.error('TrainerDashboard lazy import failed:', e);
+   errorHandler.error('TrainerDashboard lazy import failed', e, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'lazy-import' });
     return { default: ({ onLeave }: { onLeave: () => void }) => (
       <div style={{ padding: 20, color: '#b91c1c' }}>
         Fehler beim Laden des Trainer‑Dashboards. Bitte die Seite neu laden.
@@ -473,14 +474,14 @@ function ExportReportButtonMP({
           const own = (state.log || []).slice().reverse().find(e => e.blockId === `COMMS_${role}` && e.day === state.day && e.role === role);
           (run as Record<string, unknown> & { meta?: Record<string, unknown> }).meta.commsSelf = { role, day: state.day, text: own?.customText || '' };
         } catch (e) {
-          console.warn('Could not attach communications to report:', e);
+          errorHandler.warn('Could not attach communications to report', e, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'export-report' });
         }
 
       }
       
       await exportSimulationReport(pdfMake, run, fileName);
     } catch (error) {
-      console.error('Export failed:', error);
+      errorHandler.error('Export failed', error, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'export-report' });
       alert('Fehler beim Export: ' + (error as { message?: string })?.message);
     } finally {
       setIsExporting(false);
@@ -607,7 +608,7 @@ useEffect(() => {
         .update({ kpi_values: kpi })
         .eq('id', gameId);
     } catch (err) {
-      console.warn('[MP] admin:kpi:set failed:', err);
+      errorHandler.warn('[MP] admin:kpi:set failed', err, { category: 'EVENT', component: 'MultiplayerGameView', action: 'admin-kpi-set' });
     }
   };
 
@@ -630,7 +631,7 @@ useEffect(() => {
         .update({ kpi_values: next })
         .eq('id', gameId);
     } catch (err) {
-      console.warn('[MP] admin:kpi:add failed:', err);
+      errorHandler.warn('[MP] admin:kpi:add failed', err, { category: 'EVENT', component: 'MultiplayerGameView', action: 'admin-kpi-add' });
     }
   };
 
@@ -658,7 +659,7 @@ useEffect(() => {
         .update({ current_day: newDay })
         .eq('id', gameId);
     } catch (err) {
-      console.warn('[MP] admin:set-day failed:', err);
+      errorHandler.warn('[MP] admin:set-day failed', err, { category: 'EVENT', component: 'MultiplayerGameView', action: 'admin-set-day' });
     }
   };
 
@@ -673,7 +674,7 @@ useEffect(() => {
         .update({ current_day: next })
         .eq('id', gameId);
     } catch (err) {
-      console.warn('[MP] admin:advance-day failed:', err);
+      errorHandler.warn('[MP] admin:advance-day failed', err, { category: 'EVENT', component: 'MultiplayerGameView', action: 'admin-advance-day' });
     }
   };
 
@@ -745,7 +746,7 @@ useEffect(() => {
       if (showToast) alert(`Gespeichert in Slot ${slot} (Tag ${state.day}).`);
     } catch (e) {
       alert('Speichern fehlgeschlagen.');
-      console.warn('saveSlot failed:', e);
+      errorHandler.warn('saveSlot failed', e, { category: 'STORAGE', component: 'MultiplayerGameView', action: 'save-slot' });
     }
   }, [state, gameId, role, playerName, refreshSlotsMeta]);
 
@@ -769,13 +770,13 @@ useEffect(() => {
           .update({ current_day: Number(saved.day || 1), kpi_values: saved.kpi })
           .eq('id', gameId);
       } catch (dbErr) {
-        console.warn('DB-Sync beim Laden fehlgeschlagen:', dbErr);
+        errorHandler.warn('DB-Sync beim Laden fehlgeschlagen', dbErr, { category: 'NETWORK', component: 'MultiplayerGameView', action: 'load-slot' });
       }
 
       alert(`Spielstand aus Slot ${slot} geladen (Tag ${saved.day ?? '?'}).`);
     } catch (e) {
       alert('Laden fehlgeschlagen.');
-      console.warn('loadSlot failed:', e);
+      errorHandler.warn('loadSlot failed', e, { category: 'STORAGE', component: 'MultiplayerGameView', action: 'load-slot' });
     }
   }, [gameId, dispatch]);
 
@@ -1010,7 +1011,7 @@ useEffect(() => {
         
         if (gameInfo.settings?.seed) {
           const seed = gameInfo.settings.seed;
-          console.log('[MP] Using game seed:', seed);
+          errorHandler.debug('[MP] Using game seed', undefined, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game', metadata: { seed } });
           
           globalThis.__gameSeed = seed;
           
@@ -1098,7 +1099,7 @@ if (globalThis.__randomNews) {
           }
         });
       } catch (error) {
-        console.error('Error initializing game:', error);
+        errorHandler.error('Error initializing game', error, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game' });
         // FIX: Set fallback currentDate on error
         dispatch({
           type: 'INIT', 
@@ -1146,7 +1147,7 @@ useEffect(() => {
           const meta = state.engineMeta as Record<string, unknown> | undefined;
           
           if (meta.dailyRandomValues && meta.dailyRandomValues[game.current_day]) {
-            console.log('[MP] Using pre-generated random values for day', game.current_day);
+            errorHandler.debug('[MP] Using pre-generated random values for day', undefined, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game', metadata: { day: game.current_day } });
             
             if (meta.seed) {
               const dayRng = makeRng(meta.seed + game.current_day * 1000);
@@ -1163,7 +1164,7 @@ useEffect(() => {
               }
             });
           } else {
-            console.warn('[MP] No pre-generated values for day', game.current_day);
+            errorHandler.warn('[MP] No pre-generated values for day', undefined, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game', metadata: { day: game.current_day } });
 
             // Setze tages-spezifische RNG auch im Fallback deterministisch:
             const seed = (meta?.seed ?? globalThis.__gameSeed) as number | undefined;
@@ -1228,7 +1229,7 @@ useEffect(() => {
         (Object.keys(map) as RoleId[]).forEach(r => map[r].sort((a,b) => a.day - b.day));
         setCommsByRole(map);
       } catch (e) {
-        console.warn('Could not load communications:', e);
+        errorHandler.warn('Could not load communications', e, { category: 'NETWORK', component: 'MultiplayerGameView', action: 'load-communications' });
       } finally {
         setLoadingComms(false);
       }
@@ -1399,14 +1400,14 @@ function computeInvariantDelta(nextKpi: KPI, history: KPI[]): Partial<KPI> {
       .update({ current_day: newDay, kpi_values: resultKpi })
       .eq('id', gameId);
   } catch (dbErr) {
-    console.warn('DB‑Sync beim Tageswechsel (Invarianten) fehlgeschlagen:', dbErr);
+    errorHandler.warn('DB‑Sync beim Tageswechsel (Invarianten) fehlgeschlagen', dbErr, { category: 'NETWORK', component: 'MultiplayerGameView', action: 'advance-day' });
   }
 
   // 8) Reporting aktualisieren (best effort)
   try {
     ReportStore.updateFromState(state);
   } catch (err) {
-    console.warn('ReportStore update failed:', err);
+    errorHandler.warn('ReportStore update failed', err, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'advance-day' });
   }
 };
 
@@ -1425,7 +1426,7 @@ const handleExportReport = useCallback(() => {
     const exportBtn = document.querySelector('[title*="Gesamtprotokoll"]') as HTMLButtonElement | null;
     if (exportBtn) exportBtn.click();
   } catch (err) {
-    console.warn('Export-Button nicht gefunden oder nicht klickbar:', err);
+    errorHandler.warn('Export-Button nicht gefunden oder nicht klickbar', err, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'export-click' });
   }
 }, []);
 
@@ -1462,7 +1463,7 @@ const handleCreditTaken = async (amount: number) => {
        .update({ kpi_values: nextKpi })
        .eq('id', gameId);
    } catch (e) {
-     console.error('KPI‑Update fehlgeschlagen:', e);
+     errorHandler.error('KPI‑Update fehlgeschlagen', e, { category: 'NETWORK', component: 'MultiplayerGameView', action: 'update-kpi' });
    }
  };
 
@@ -1482,7 +1483,7 @@ const saveRoleComms = useCallback(async (text: string) => {
       decision_metadata: { type: 'role_communication', role, ts: Date.now() }
     });
   } catch (err) {
-    console.warn('[MP] saveRoleComms failed:', err);
+    errorHandler.warn('[MP] saveRoleComms failed', err, { category: 'NETWORK', component: 'MultiplayerGameView', action: 'save-comms' });
   }
 }, [gameId, commsBlockId, role, state.day]);
 
@@ -1567,7 +1568,7 @@ await supabase.from('games').update({ kpi_values: nextKpi }).eq('id', gameId);
 
       setCreditAmount('');
     } catch (err: unknown) {
-      console.error('Credit draw failed:', err);
+      errorHandler.error('Credit draw failed', err, { category: 'NETWORK', component: 'MultiplayerGameView', action: 'credit-draw' });
       setCreditError(err?.message || 'Fehler bei der Kreditaufnahme.');
     } finally {
       setCreditBusy(false);
@@ -1599,7 +1600,7 @@ const handleDecisionMade = useCallback(async (...args: unknown[]) => {
     }
 
     if (!blockId) {
-      console.warn('[MP] onDecisionMade ohne blockId – übergebene Argumente:', args);
+      errorHandler.warn('[MP] onDecisionMade ohne blockId – übergebene Argumente', undefined, { category: 'VALIDATION', component: 'MultiplayerGameView', action: 'decision-made', metadata: { args } });
       return;
     }
 
@@ -1614,7 +1615,7 @@ const handleDecisionMade = useCallback(async (...args: unknown[]) => {
       decision_metadata: decisionMeta
     });
   } catch (err) {
-    console.error('[MP] upsertDecision fehlgeschlagen:', err);
+    errorHandler.error('[MP] upsertDecision fehlgeschlagen', err, { category: 'NETWORK', component: 'MultiplayerGameView', action: 'upsert-decision' });
   }
 }, [gameId, state.day]);
 
@@ -1667,7 +1668,7 @@ const runPreview = useCallback(async () => {
       
       setPreview({ delta: filteredDelta, nextKpi: filteredNext });
     } catch (err) {
-      console.warn('Preview failed:', err);
+      errorHandler.warn('Preview failed', err, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'run-preview' });
       setPreview(null);
     }
   }, [state, whatIfEnabled, role, gameId]);
@@ -1980,7 +1981,7 @@ React.useEffect(() => {
       localStorage.setItem('scenario:overrides', JSON.stringify(ov || {}));
       window.dispatchEvent(new Event('scenario:overrides:updated'));
     } catch (e) {
-      console.warn('[MP] getScenarioOverrides failed:', e);
+      errorHandler.warn('[MP] getScenarioOverrides failed', e, { category: 'NETWORK', component: 'MultiplayerGameView', action: 'get-scenario-overrides' });
     }
   })();
 
@@ -2067,9 +2068,9 @@ React.useEffect(() => {
       localStorage.setItem('scenario:overrides', JSON.stringify(merged));
       // 2) Event wie im SP-Editor feuern
       window.dispatchEvent(new CustomEvent('admin:scenario:import', { detail: merged }));
-      console.log('[MP] scenario overrides applied (merged)');
+      errorHandler.debug('[MP] scenario overrides applied (merged)', undefined, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'apply-scenario-overrides' });
     } catch (e) {
-      console.error('[MP] scenario overrides apply failed', e);
+      errorHandler.error('[MP] scenario overrides apply failed', e, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'apply-scenario-overrides' });
     }
   };
 
@@ -2669,7 +2670,7 @@ return (
                   meta: state.engineMeta 
                 });
               } catch (error) {
-                console.warn('Error calling expandedText function:', error);
+                errorHandler.warn('Error calling expandedText function', error, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'render-news' });
                 displayText = beat.summary;
               }
             } else if (typeof expandedText === 'string') {

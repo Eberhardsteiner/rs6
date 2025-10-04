@@ -186,10 +186,10 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             gameId = rpcId;
           }
         } else {
-          console.warn('[join_game] RPC warn:', error.message ?? error);
+          errorHandler.warn('[join_game] RPC warn', error, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'join-game' });
         }
       } catch (e) {
-        console.warn('[join_game] RPC exception:', e);
+        errorHandler.warn('[join_game] RPC exception', e, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'join-game' });
       }
       if (!gameId) {
         setOccupiedRoles(new Set());
@@ -204,7 +204,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         .not('role', 'is', null);
 
       if (pErr) {
-        console.error('Error fetching players:', pErr);
+        errorHandler.error('Error fetching players', pErr, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'fetch-players' });
         setOccupiedRoles(new Set());
         return;
       }
@@ -224,7 +224,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       setOccupiedRoles(occ);
       setCurrentGameId(gameId);
     } catch (e) {
-      console.error('Error in fetchOccupiedRoles:', e);
+      errorHandler.error('Error in fetchOccupiedRoles', e, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'fetch-roles' });
       setOccupiedRoles(new Set());
     }
   };
@@ -267,7 +267,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
               filter: `game_id=eq.${game.id}`
             },
             async (payload) => {
-              console.log('Player change detected:', payload);
+              errorHandler.debug('Player change detected', undefined, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'players-subscription', metadata: { payload } });
               if (isMounted) {
                 // Bei jeder Änderung die Rollen neu laden
                 await fetchOccupiedRoles(code);
@@ -304,7 +304,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         .eq('role', role);
 
       if (existingErr) {
-        console.error('Error checking role before reserving:', existingErr);
+        errorHandler.error('Error checking role before reserving', existingErr, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'reserve-role' });
         return false;
       }
       if ((existingPlayers || []).length > 0) {
@@ -320,13 +320,13 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('Error reserving role:', error);
+        errorHandler.error('Error reserving role', error, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'reserve-role' });
         return false;
       }
 
       return true;
     } catch (err) {
-      console.error('Error in reserveRole:', err);
+      errorHandler.error('Error in reserveRole', err, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'reserve-role' });
       return false;
     }
   };
@@ -1728,7 +1728,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
               user_id: user.id
             });
           } catch (e) {
-            console.warn('Trainer membership upsert failed:', e);
+            errorHandler.warn('Trainer membership upsert failed', e, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'preset-join' });
           }
 
           localStorage.setItem('mp_current_game', finalGameId);
