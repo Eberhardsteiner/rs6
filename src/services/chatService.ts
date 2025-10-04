@@ -67,7 +67,7 @@ export class ChatService {
       .from('players')
       .select('name, role')
       .eq('id', this.playerId)
-      .single();
+      .maybeSingle();
 
     const message = {
       game_id: this.gameId,
@@ -92,7 +92,10 @@ export class ChatService {
           role
         )
       `)
-      .single();
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Failed to create message');
 
     if (error) throw error;
     
@@ -187,7 +190,7 @@ export class ChatService {
               )
             `)
             .eq('id', payload.new.id)
-            .single();
+            .maybeSingle();
           
           if (data) {
             this.messageCache.set(data.id, data);

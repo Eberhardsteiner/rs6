@@ -217,6 +217,8 @@ export class MultiplayerService {
       const { data: game, error: gameError } = await supabase
         .from('games')
         .insert({
+          name: params.name,
+          created_by: user.id,
           session_code: sessionCode,
           host_id: user.id,
           status: 'waiting',
@@ -235,7 +237,12 @@ export class MultiplayerService {
           }
         })
         .select()
-        .single();
+        .maybeSingle();
+
+      if (gameError || !game) {
+        console.error('Game creation error:', gameError);
+        throw new Error('Spiel konnte nicht erstellt werden: ' + (gameError?.message || 'Unknown error'));
+      }
 
       if (gameError) {
         console.error('Game creation error:', gameError);
@@ -248,13 +255,20 @@ export class MultiplayerService {
         .insert({
           game_id: game.id,
           user_id: user.id,
+          name: this.currentPlayerName || 'Host',
           role: (this.currentRole || 'CEO').toLowerCase(),
           display_name: this.currentPlayerName || 'Host',
           is_ready: false,
           game_state: {}
         })
         .select()
-        .single();
+        .maybeSingle();
+
+      if (playerError || !player) {
+        // Cleanup: Game löschen wenn Player nicht erstellt werden kann
+        await supabase.from('games').delete().eq('id', game.id);
+        throw new Error('Spieler konnte nicht erstellt werden: ' + (playerError?.message || 'Unknown error'));
+      }
 
       if (playerError) {
         // Cleanup: Game löschen wenn Player nicht erstellt werden kann
@@ -316,13 +330,19 @@ export class MultiplayerService {
           .insert({
             game_id: gameId,
             user_id: user.id,
+            name: playerName,
             role: (role || 'CEO').toLowerCase(),
             display_name: playerName,
             is_ready: false,
             game_state: {}
           })
           .select()
-          .single();
+          .maybeSingle();
+
+        if (error || !player) {
+          console.error('Join game error:', error);
+          throw new Error('Beitritt fehlgeschlagen: ' + (error?.message || 'Unknown error'));
+        }
 
         if (error) {
           console.error('Join game error:', error);
@@ -398,7 +418,9 @@ export class MultiplayerService {
         .from('games')
         .select()
         .eq('id', this.gameId)
-        .single();
+        .maybeSingle();
+
+      if (gameError || !game) throw new Error('Game not found: ' + (gameError?.message || 'Unknown'));
 
       if (gameError) throw gameError;
 
@@ -576,7 +598,7 @@ export class MultiplayerService {
       .from('players')
       .select('is_gm')
       .eq('id', this.playerId)
-      .single();
+      .maybeSingle();
     
     return data?.is_gm || false;
   }
@@ -610,7 +632,8 @@ export class MultiplayerService {
       .from('games')
       .select('kpi_values, current_day')
       .eq('id', gameId)
-      .single();
+      .maybeSingle();
+    if (selErr || !game) throw new Error('Game not found');
     if (selErr) throw selErr;
 
     const prev: KPI = {
@@ -690,7 +713,8 @@ export class MultiplayerService {
       .from('games')
       .select('id, current_day, kpi_values')
       .eq('id', gameId)
-      .single();
+      .maybeSingle();
+    if (selErr || !game) throw new Error('Game not found');
     if (selErr) throw selErr;
 
     const prevDay = Number((game as any)?.current_day) || 1;
@@ -756,8 +780,8 @@ export class MultiplayerService {
       .from('games')
       .select('id, current_day, kpi_values')
       .eq('id', gameId)
-      .single();
-    if (selErr) throw selErr;
+      .maybeSingle();
+    if (selErr || !game) throw new Error('Game not found');
 
     const prevDay = Number((game as any)?.current_day) || 1;
     const kpi: KPI = {
@@ -868,11 +892,11 @@ export class MultiplayerService {
     if (!gameId) throw new Error('gameId required');
 
     const { data, error } = await supabase
-  .from('game_scenario_overrides')
-  .select('action,overrides,updated_at') // <-- Geändert zu 'updated_at'
-  .eq('game_id', gameId)
-  .order('updated_at', { ascending: true }); // <-- Geändert zu 'updated_at'
-
+      .from('game_injected_news')
+      .select('id, day, title, content, source, severity, roles, created_at')
+      .eq('game_id', gameId)
+      .eq('day', day)
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
     return (data || []).map(r => Object.assign(this.mapInjectedRow(r), { roles: r.roles as RoleId[] | null }));
@@ -974,11 +998,11 @@ export class MultiplayerService {
   async fetchMergedScenarioOverrides(gameId: string): Promise<Record<string, any>> {
     if (!gameId) throw new Error('gameId required');
 
-  const { data, error } = await supabase
-  .from('game_scenario_overrides')
-  .select('action,overrides,updated_at') // <-- Geändert zu 'updated_at'
-  .eq('game_id', gameId)
-  .order('updated_at', { ascending: true }); // <-- Geändert zu 'updated_at'
+    const { data, error } = await supabase
+      .from('game_scenario_overrides')
+      .select('action, overrides, created_at')
+      .eq('game_id', gameId)
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
 

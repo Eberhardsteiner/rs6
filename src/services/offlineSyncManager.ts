@@ -242,7 +242,7 @@ export class OfflineSyncManager {
       .from('messages')
       .select('id')
       .eq('id', message.id)
-      .single();
+      .maybeSingle();
     
     if (!existing) {
       await supabase
@@ -329,7 +329,7 @@ export class OfflineSyncManager {
       .from('games')
       .select('*')
       .eq('id', gameId)
-      .single();
+      .maybeSingle();
     
     if (!serverGame) return;
     
