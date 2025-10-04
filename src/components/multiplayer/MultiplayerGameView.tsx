@@ -61,7 +61,9 @@ import { day14Blocks, day14News } from '@/data/scenario_day_14';
 // Import PDF functionality  
 import pdfMake from 'pdfmake/build/pdfmake.js';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts.js';
-(pdfMake as any).vfs = (pdfFonts as any).default?.pdfMake?.vfs || (pdfFonts as any).pdfMake?.vfs;
+type PdfMakeWithVfs = typeof pdfMake & { vfs?: Record<string, string> };
+type PdfFontsModule = { default?: { pdfMake?: { vfs: Record<string, string> } }; pdfMake?: { vfs: Record<string, string> }; vfs?: Record<string, string> };
+(pdfMake as PdfMakeWithVfs).vfs = (pdfFonts as PdfFontsModule).default?.pdfMake?.vfs || (pdfFonts as PdfFontsModule).pdfMake?.vfs;
 
 // Thema laden
 import GameThemeBackground, { type GameTheme } from './GameThemeBackground';
@@ -83,7 +85,7 @@ import { generateRandomNewsForDay } from '@/core/engine/randomNews';
 
 function getAdminGameTheme(): GameTheme {
   try {
-    const g: any = (globalThis as any).__multiplayerSettings
+    const g = globalThis.__multiplayerSettings
       || JSON.parse(localStorage.getItem('admin:multiplayer') || '{}');
     return (g?.gameSettings?.backgroundTheme ?? 'dynamic') as GameTheme;
   } catch { return 'dynamic'; }
@@ -91,7 +93,7 @@ function getAdminGameTheme(): GameTheme {
 
 function allowUserOverride(): boolean {
   try {
-    const g: any = (globalThis as any).__multiplayerSettings
+    const g = globalThis.__multiplayerSettings
       || JSON.parse(localStorage.getItem('admin:multiplayer') || '{}');
     return !!g?.gameSettings?.allowUserOverride;
   } catch { return false; }
@@ -121,7 +123,7 @@ const TrainerDashboard = React.lazy(async () => {
     return await import('./TrainerDashboard');
   } catch (e) {
    console.error('TrainerDashboard lazy import failed:', e);
-    return { default: ({ onLeave }: any) => (
+    return { default: ({ onLeave }: { onLeave: () => void }) => (
       <div style={{ padding: 20, color: '#b91c1c' }}>
         Fehler beim Laden des Trainer‑Dashboards. Bitte die Seite neu laden.
         <div style={{ marginTop: 12 }}>
@@ -185,13 +187,13 @@ function TrainerPresenceLamp({ gameId }: { gameId: string }) {
 
 
 function computeRoundSecondsForDay(day: number): number {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const mode = g.__roundTimeMode || 'off';
   if (mode === 'global' && typeof g.__roundTimeGlobalSec === 'number' && g.__roundTimeGlobalSec > 0) {
     return g.__roundTimeGlobalSec;
   }
   if (mode === 'matrix' && g.__roundTimeMatrix && typeof g.__roundTimeMatrix === 'object') {
-    const row = (g.__roundTimeMatrix as any)[day] || {};
+    const row = g.__roundTimeMatrix[day] || {};
     const total = RT_ROLES.reduce((s, r) => s + (Number(row[r]) || 0), 0);
     if (total > 0) return total;
   }
@@ -199,15 +201,15 @@ function computeRoundSecondsForDay(day: number): number {
   return 300;
 }
 function readGraceSeconds(): number {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const n = Number(g.__roundTimeGraceSec);
   return Number.isFinite(n) && n >= 0 ? n : 180;
 }
 
 /** ── Szenario-Übersteuerung (vom ScenarioEditor) ─────────────────────────── */
-function readScenarioOverride(kind: 'blocks'|'news', day: number): any[] | null {
+function readScenarioOverride(kind: 'blocks'|'news', day: number): unknown[] | null {
   try {
-    const g: any = globalThis as any;
+    const g = globalThis;
     const byDay = g?.__scenarioOverrides?.[kind];
     if (byDay && Array.isArray(byDay[day])) return byDay[day];
     // Fallback: aus LocalStorage lesen (vom Editor persistiert)
@@ -233,7 +235,7 @@ type SoftScoringWeights = {
 };
 
 function getScoringWeightsSafe(): SoftScoringWeights {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const w = g.__scoringWeights || { bankTrust: 25, publicPerception: 25, customerLoyalty: 25, workforceEngagement: 25 };
   return {
     bankTrust: Number(w.bankTrust || 25),
@@ -244,7 +246,7 @@ function getScoringWeightsSafe(): SoftScoringWeights {
 }
 
 /** Grobe Nutzenfunktion für Optionsbewertung (weiche KPIs gewichtet, Cash/P&L leicht gewichtet). */
-function scoreOptionByKpiDelta(opt: any): number {
+function scoreOptionByKpiDelta(opt: unknown): number {
   const d = (opt?.kpiDelta || {}) as Partial<KPI>;
   const w = getScoringWeightsSafe();
   const soft =
@@ -258,7 +260,7 @@ function scoreOptionByKpiDelta(opt: any): number {
 }
 
 function readBaseErrorByDifficulty(): number {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const diff = (g.__npcDifficulty || g.__mode || 'normal') as ('easy'|'normal'|'hard');
   switch (diff) {
     case 'easy': return 0.08;
@@ -268,8 +270,8 @@ function readBaseErrorByDifficulty(): number {
 }
 
 /** Ermittelt adaptiven Skalierungsfaktor (0.9..1.2) aus den letzten zwei Tagen (weiche KPIs). */
-function computeAdaptiveFactorFromSnapshots(snapshots: any[]): number {
-  const g: any = globalThis as any;
+function computeAdaptiveFactorFromSnapshots(snapshots: unknown[]): number {
+  const g = globalThis;
   if (!g.__adaptiveDifficultyLightEnabled) return 1.0;
 
   try {
@@ -289,7 +291,7 @@ function computeAdaptiveFactorFromSnapshots(snapshots: any[]): number {
 }
 
 async function computeAdaptiveFactor(gameId: string): Promise<number> {
-  const g: any = globalThis as any;
+  const g = globalThis;
   if (!g.__adaptiveDifficultyLightEnabled) return 1.0;
   try {
     const { data } = await supabase
@@ -305,7 +307,7 @@ async function computeAdaptiveFactor(gameId: string): Promise<number> {
 }
 
 function getRng(): () => number {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const r = g.__rng;
   return typeof r === 'function' ? r : Math.random;
 }
@@ -318,13 +320,13 @@ function chooseNpcOptionWithDifficulty(
   adaptiveFactor = 1.0,
   rng: () => number = Math.random
 ): string {
-  const options = (b as any)?.options || [];
+  const options = b.options || [];
   if (!options?.length) return pickOptionForBlock(b, role, kpi);
 
   // Optionen nach Heuristik bewerten
   const scored = options
-    .map((o: any) => ({ id: o.id, opt: o, score: scoreOptionByKpiDelta(o) }))
-    .sort((a: any, b: any) => b.score - a.score);
+    .map((o: unknown) => ({ id: o.id, opt: o, score: scoreOptionByKpiDelta(o) }))
+    .sort((a: { score: number }, b: { score: number }) => b.score - a.score);
 
   const bestId = scored[0]?.id ?? pickOptionForBlock(b, role, kpi);
 
@@ -466,10 +468,10 @@ function ExportReportButtonMP({
             }
             (Object.keys(commsAll) as Array<keyof typeof commsAll>).forEach(r => commsAll[r].sort((a,b)=>a.day-b.day));
           }
-          (run as any).meta = (run as any).meta || {};
-          (run as any).meta.commsAll = commsAll;
+          (run as Record<string, unknown> & { meta?: Record<string, unknown> }).meta = (run as Record<string, unknown> & { meta?: Record<string, unknown> }).meta || {};
+          (run as Record<string, unknown> & { meta?: Record<string, unknown> }).meta.commsAll = commsAll;
           const own = (state.log || []).slice().reverse().find(e => e.blockId === `COMMS_${role}` && e.day === state.day && e.role === role);
-          (run as any).meta.commsSelf = { role, day: state.day, text: own?.customText || '' };
+          (run as Record<string, unknown> & { meta?: Record<string, unknown> }).meta.commsSelf = { role, day: state.day, text: own?.customText || '' };
         } catch (e) {
           console.warn('Could not attach communications to report:', e);
         }
@@ -479,7 +481,7 @@ function ExportReportButtonMP({
       await exportSimulationReport(pdfMake, run, fileName);
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Fehler beim Export: ' + (error as any)?.message);
+      alert('Fehler beim Export: ' + (error as { message?: string })?.message);
     } finally {
       setIsExporting(false);
     }
@@ -535,7 +537,7 @@ const [themeMode, setThemeMode] = useState<ThemeMode>('classic');
 useEffect(() => {
   const applyTheme = () => {
     try {
-      const s: any = (globalThis as any).__multiplayerSettings;
+      const s = globalThis.__multiplayerSettings;
       const bg = s?.gameSettings?.backgroundTheme || 'minimal';
       const mapped = bg === 'corporate' ? 'business' : (bg === 'dynamic' ? 'dynamic' : 'classic');
       setThemeMode(mapped as ThemeMode);
@@ -543,8 +545,8 @@ useEffect(() => {
   };
   applyTheme();
   const handler = () => applyTheme();
-  window.addEventListener('admin:settings', handler as any);
-  return () => window.removeEventListener('admin:settings', handler as any);
+  window.addEventListener('admin:settings', handler);
+  return () => window.removeEventListener('admin:settings', handler);
 }, []);
 
 
@@ -569,7 +571,7 @@ useEffect(() => {
   } as GameState);
 
   const [isGM, setIsGM] = useState(false);
-  const [otherPlayers, setOtherPlayers] = useState<any[]>([]);
+  const [otherPlayers, setOtherPlayers] = useState<Array<{ id: string; name: string; role: RoleId }>>([]);
   const [showHistoryKey, setShowHistoryKey] = useState<keyof KPI | null>(null);
   const [showDecisionHistory, setShowDecisionHistory] = useState(false);
   const [openNewsId, setOpenNewsId] = useState<string | null>(null);
@@ -618,7 +620,7 @@ useEffect(() => {
       (Object.keys(delta) as (keyof KPI)[]).forEach((k) => {
         const dv = delta[k];
         if (typeof dv === 'number') {
-          (next as any)[k] = Number((state.kpi as any)[k] || 0) + dv;
+          (next as Record<string, number>)[k] = Number(state.kpi[k] || 0) + dv;
         }
       });
       // Lokales UI sofort aktualisieren
@@ -635,8 +637,8 @@ useEffect(() => {
   window.addEventListener('admin:kpi:set', onKpiSet as EventListener);
   window.addEventListener('admin:kpi:add', onKpiAdd as EventListener);
   return () => {
-    window.removeEventListener('admin:kpi:set', onKpiSet as any);
-    window.removeEventListener('admin:kpi:add', onKpiAdd as any);
+    window.removeEventListener('admin:kpi:set', onKpiSet);
+    window.removeEventListener('admin:kpi:add', onKpiAdd);
   };
 }, [gameId, state.kpi]);
 
@@ -644,7 +646,7 @@ useEffect(() => {
 useEffect(() => {
   const onSetDay = async (e: Event) => {
     try {
-      const detail = (e as CustomEvent<any>).detail;
+      const detail = (e as CustomEvent<unknown>).detail;
       const raw = (typeof detail === 'number') ? detail : detail?.day;
       const newDay = Number(raw);
       if (!Number.isFinite(newDay) || newDay < 1) return;
@@ -678,8 +680,8 @@ useEffect(() => {
   window.addEventListener('admin:set-day', onSetDay as EventListener);
   window.addEventListener('admin:advance-day', onAdvanceDay as EventListener);
   return () => {
-    window.removeEventListener('admin:set-day', onSetDay as any);
-    window.removeEventListener('admin:advance-day', onAdvanceDay as any);
+    window.removeEventListener('admin:set-day', onSetDay);
+    window.removeEventListener('admin:advance-day', onAdvanceDay);
   };
 }, [gameId, state.day]);
 
@@ -692,9 +694,9 @@ useEffect(() => {
   const [finalEnding, setFinalEnding] = useState<EndingResult | null>(null);
    const [kpiEstimates, setKpiEstimates] = useState<KpiEstimate[]>([]);
   const [currentKpiInputs, setCurrentKpiInputs] = useState<Partial<KPI>>({});
-  const [creditSettings, setCreditSettings] = useState<any>(null);
+  const [creditSettings, setCreditSettings] = useState<unknown>(null);
   const [mpDifficulty, setMpDifficulty] = useState<'easy'|'normal'|'hard'>(
-    (globalThis as any).__mpDifficulty || 'normal'
+    globalThis.__mpDifficulty || 'normal'
   );
 
    // --- Save/Load (MP) – lokal (localStorage) + DB-Sync (Supabase 'games') ---
@@ -717,7 +719,7 @@ useEffect(() => {
 
   const refreshSlotsMeta = React.useCallback(() => {
     const m: Record<string, { ts: number; day: number }> = {};
-    [...saveSlots, '__autosave__' as any].forEach((s: any) => {
+    [...saveSlots, '__autosave__'].forEach((s: string) => {
       const meta = readSlotMeta(s);
       if (meta) m[s] = meta;
     });
@@ -788,7 +790,7 @@ useEffect(() => {
   useEffect(() => {
     const readSaveLoad = () => {
       try {
-        const g: any = globalThis as any;
+        const g = globalThis;
         setSaveLoadEnabled(!!g.__featureSaveLoadMenu); // Flag kommt aus AdminPanel.applyGlobals
       } catch {}
     };
@@ -811,8 +813,8 @@ useEffect(() => {
 
   
   // States for optional components
-  const [CoachController, setCoachController] = useState<any>(null);
-  const [InfoButtons, setInfoButtons] = useState<any>(() => () => null);
+  const [CoachController, setCoachController] = useState<unknown>(null);
+  const [InfoButtons, setInfoButtons] = useState<unknown>(() => () => null);
 
   const mpService = MultiplayerService.getInstance();
   const dqService = DecisionQueueService.getInstance();
@@ -848,7 +850,7 @@ useEffect(() => {
 // Load credit settings from global multiplayer settings
 useEffect(() => {
   const loadCreditSettings = () => {
-    const mpSettings = (globalThis as any).__multiplayerSettings;
+    const mpSettings = globalThis.__multiplayerSettings;
     if (mpSettings?.creditSettings?.enabled) {
       setCreditSettings(mpSettings.creditSettings); // Jetzt funktioniert das
     }
@@ -879,7 +881,7 @@ useEffect(() => {
   useEffect(() => {
     const readAllowCredit = () => {
       try {
-        const g: any = globalThis as any;
+        const g = globalThis;
         if (typeof g.__mpAllowCredit === 'boolean') {
           setAllowCreditMP(!!g.__mpAllowCredit);
           return;
@@ -921,7 +923,7 @@ useEffect(() => {
   useEffect(() => {
     const checkWhatIf = () => {
       try {
-        const g: any = globalThis as any;
+        const g = globalThis;
         if (typeof g.__featureWhatIfPreview === 'boolean') {
           setWhatIfEnabled(g.__featureWhatIfPreview);
           return;
@@ -962,7 +964,7 @@ useEffect(() => {
    // Auto-Save: bei Tageswechsel in __autosave__ sichern (wenn aktiviert)
   useEffect(() => {
     try {
-      const g: any = globalThis as any;
+      const g = globalThis;
       if (g.__featureAutoSave) {
         saveSlot('__autosave__', false);
       }
@@ -977,10 +979,10 @@ useEffect(() => {
         const gameInfo = await mpService.getGameInfo();
         
         const currentPlayerId = mpService.getCurrentPlayerId();
-        const currentPlayer = gameInfo.players.find((p: any) => p.id === currentPlayerId);
+        const currentPlayer = gameInfo.players.find((p: { id: string; name: string; role: RoleId }) => p.id === currentPlayerId);
         setIsGM(currentPlayer?.is_gm || false);
         
-        setOtherPlayers(gameInfo.players.filter((p: any) => p.id !== currentPlayerId));
+        setOtherPlayers(gameInfo.players.filter((p: { id: string; name: string; role: RoleId }) => p.id !== currentPlayerId));
         
         // FIX: Ensure currentDate is properly set
         const gameDate = new Date();
@@ -1003,19 +1005,19 @@ useEffect(() => {
 
         
         // SYNCHRONIZED RANDOM VALUES using Seed
-        let allRandomValues: Record<number, any> = {};
-        let randomNews: Record<number, any> = {};
+        let allRandomValues: Record<number, Partial<KPI>> = {};
+        let randomNews: Record<number, Partial<KPI>> = {};
         
         if (gameInfo.settings?.seed) {
           const seed = gameInfo.settings.seed;
           console.log('[MP] Using game seed:', seed);
           
-          (globalThis as any).__gameSeed = seed;
+          globalThis.__gameSeed = seed;
           
           for (let day = 1; day <= 14; day++) {
             const daySpecificSeed = seed + day * 1000;
             const dayRng = makeRng(daySpecificSeed);
-            (globalThis as any).__rng = dayRng;
+            globalThis.__rng = dayRng;
             
             const baseKpi = day === 1 
               ? (gameInfo.game.kpi_values?.cashEUR || company.initialKPI.cashEUR)
@@ -1026,8 +1028,8 @@ useEffect(() => {
             
  // Zufalls‑News (MP) aus newsPool via SP‑Generator – inkl. KPI‑Impact
           
-if ((globalThis as any).__randomNews) {
-  const g: any = globalThis as any;
+if (globalThis.__randomNews) {
+  const g = globalThis;
 
   // Admin-Eventintensität (Skalar) → Generator-Intensität (low/normal/high)
   const useIntensity = !!g.__featureEventIntensity;
@@ -1038,12 +1040,12 @@ if ((globalThis as any).__randomNews) {
   const mpDiff = (g.__mpDifficulty || g.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
 
   // Duplikat-Vermeidung über Tage (nach Titel)
-  (globalThis as any).__playedNewsTitles = (globalThis as any).__playedNewsTitles || [];
-  const played: string[] = (globalThis as any).__playedNewsTitles;
+  globalThis.__playedNewsTitles = globalThis.__playedNewsTitles || [];
+  const played: string[] = globalThis.__playedNewsTitles;
 
   // RNG für News deterministisch (Seed + Tages-Offset + 500)
-  const prevRng = (globalThis as any).__rng;
-  (globalThis as any).__rng = makeRng(daySpecificSeed + 500);
+  const prevRng = globalThis.__rng;
+  globalThis.__rng = makeRng(daySpecificSeed + 500);
 
   // Pool-basierte News erzeugen (inkl. KPI + optional roles)
   const items = generateRandomNewsForDay(undefined, {
@@ -1055,21 +1057,21 @@ if ((globalThis as any).__randomNews) {
   });
 
   // RNG wiederherstellen
-  (globalThis as any).__rng = prevRng;
+  globalThis.__rng = prevRng;
 
   // In DayNewsItem-Form bringen (UI-Severity + Quelle + optional roles)
-  const dayNews = (items as any[]).map((n: any) => ({
+  const dayNews = (items as Array<{ id: string; title: string; text: string; category: string; severity: string; impact: Partial<KPI>; roles?: string[] }>).map((n) => ({
     id: n.id,
     title: n.title,
     text: n.text,
     source: n.category,                 // Kategorie als Quelle
     severity: mapSeverityForUi(n.severity),
     impact: n.impact,                   // KPI-Wirkung bleibt erhalten
-    roles: (n as any).roles ?? null     // ← rollenspezifische Sichtbarkeit
+    roles: n.roles ?? null     // ← rollenspezifische Sichtbarkeit
   }));
 
   randomNews[day] = dayNews;
-  played.push(...(items as any[]).map(n => n.title));
+  played.push(...items.map((n: { title: string }) => n.title));
 }
 
 
@@ -1077,11 +1079,11 @@ if ((globalThis as any).__randomNews) {
           }
 
           const currentDayRng = makeRng(ensuredSeed + gameInfo.game.current_day * 1000);
-          (globalThis as any).__rng = currentDayRng;
+          globalThis.__rng = currentDayRng;
         }
 
         // Einheitlich den effektiven Seed ermitteln (DB-Seed oder ensuredSeed)
-        const effectiveSeed = gameInfo.settings?.seed ?? (globalThis as any).__gameSeed;
+        const effectiveSeed = gameInfo.settings?.seed ?? globalThis.__gameSeed;
 
         dispatch({
           type: 'INIT',
@@ -1125,7 +1127,7 @@ useEffect(() => {
   // Subscribe to game updates
   useEffect(() => {
     mpService.subscribeToGameUpdates(
-      (game: any) => {
+      (game: { kpi_values?: KPI; current_day?: number; [key: string]: unknown }) => {
         // FIX: Calculate proper currentDate based on day
         const updatedDate = new Date();
         updatedDate.setHours(9 + (game.current_day - 1) * 24, 0, 0, 0);
@@ -1141,14 +1143,14 @@ useEffect(() => {
         });
         
         if (game.current_day !== state.day && state.engineMeta) {
-          const meta = state.engineMeta as any;
+          const meta = state.engineMeta as Record<string, unknown> | undefined;
           
           if (meta.dailyRandomValues && meta.dailyRandomValues[game.current_day]) {
             console.log('[MP] Using pre-generated random values for day', game.current_day);
             
             if (meta.seed) {
               const dayRng = makeRng(meta.seed + game.current_day * 1000);
-              (globalThis as any).__rng = dayRng;
+              globalThis.__rng = dayRng;
             }
             
             dispatch({
@@ -1164,10 +1166,10 @@ useEffect(() => {
             console.warn('[MP] No pre-generated values for day', game.current_day);
 
             // Setze tages-spezifische RNG auch im Fallback deterministisch:
-            const seed = (meta?.seed ?? (globalThis as any).__gameSeed) as number | undefined;
+            const seed = (meta?.seed ?? globalThis.__gameSeed) as number | undefined;
             if (seed != null) {
               const dayRng = makeRng(seed + game.current_day * 1000);
-              (globalThis as any).__rng = dayRng;
+              globalThis.__rng = dayRng;
             }
 
             
@@ -1189,9 +1191,9 @@ useEffect(() => {
           }
         }
       },
-      (players: any) => {
+      (players: Array<{ id: string; name: string; role: RoleId }>) => {
         const currentPlayerId = mpService.getCurrentPlayerId();
-        setOtherPlayers(players.filter((p: any) => p.id !== currentPlayerId));
+        setOtherPlayers(players.filter((p: { id: string; name: string; role: RoleId }) => p.id !== currentPlayerId));
       }
     );
 
@@ -1246,8 +1248,8 @@ type SoftKpi = 'customerLoyalty'|'bankTrust'|'workforceEngagement'|'publicPercep
 
 function clampSoft(v: number): number { return Math.max(0, Math.min(100, Math.round(v))); }
 
-function readOptionalInv(): any {
-  try { return ((globalThis as any).__invariants?.optional) || {}; } catch { return {}; }
+function readOptionalInv(): Record<string, boolean> {
+  try { return (globalThis.__invariants?.optional) || {}; } catch { return {}; }
 }
 
   function mapIntensity(factor: number): 'low'|'normal'|'high' {
@@ -1263,9 +1265,9 @@ function mapSeverityForUi(s: 'low'|'mid'|'high'): 'low'|'medium'|'high' {
 
   
 function mergeDelta(a: Partial<KPI>, b: Partial<KPI>): Partial<KPI> {
-   const out: any = { ...(a || {}) };
+   const out: Record<string, unknown> = { ...(a || {}) };
    (Object.keys(b || {}) as (keyof KPI)[]).forEach((k) => {
-     const bv = (b as any)[k];
+     const bv = (b as Record<string, unknown>)[k];
      if (typeof bv === 'number') out[k] = (out[k] ?? 0) + bv;
    });
    return out;
@@ -1290,17 +1292,17 @@ function sumNewsImpact(list: Array<{ impact?: Partial<KPI> }>): Partial<KPI> {
   for (const it of (list || [])) {
     if (!it?.impact) continue;
     (Object.keys(it.impact) as (keyof KPI)[]).forEach((k) => {
-      const v = (it.impact as any)[k];
-      if (typeof v === 'number') (acc as any)[k] = ((acc as any)[k] || 0) + v;
+      const v = (it.impact as Partial<KPI>)[k as keyof KPI];
+      if (typeof v === 'number') (acc as Record<string, number>)[k] = ((acc as Record<string, number>)[k] || 0) + v;
     });
   }
   return acc;
 }
 
 function applyDeltaToKpi(base: KPI, delta: Partial<KPI>): KPI {
-  const next: any = { ...base };
+  const next: Partial<KPI> = { ...base };
   (Object.keys(delta) as (keyof KPI)[]).forEach((k) => {
-    const v = (delta as any)[k];
+    const v = (delta as Record<string, number>)[k];
     if (typeof v === 'number') next[k] = Number(next[k] || 0) + v;
   });
   // Weiche KPIs clampen, um Ausreißer zu vermeiden
@@ -1316,19 +1318,19 @@ function computeInvariantDelta(nextKpi: KPI, history: KPI[]): Partial<KPI> {
 
   // Negative Liquidität → Strafen
   if (Number(nextKpi.cashEUR) < 0) {
-    if (opt.pp_penalty_on_neg_cash)            (delta as any).publicPerception     = ((delta as any).publicPerception     || 0) - 5;
-    if (opt.loyalty_penalty_on_neg_cash)       (delta as any).customerLoyalty      = ((delta as any).customerLoyalty      || 0) - 2;
-    if (opt.payroll_delay_we_minus10)          (delta as any).workforceEngagement  = ((delta as any).workforceEngagement  || 0) - 10;
+    if (opt.pp_penalty_on_neg_cash)            delta.publicPerception     = (delta.publicPerception     || 0) - 5;
+    if (opt.loyalty_penalty_on_neg_cash)       delta.customerLoyalty      = (delta.customerLoyalty      || 0) - 2;
+    if (opt.payroll_delay_we_minus10)          delta.workforceEngagement  = (delta.workforceEngagement  || 0) - 10;
   }
 
   // Banktrust Schwellen
   if (Number(nextKpi.bankTrust) < 10) {
-    if (opt.banktrust_lt10_workengagement_minus10) (delta as any).workforceEngagement  = ((delta as any).workforceEngagement  || 0) - 10;
-    if (opt.banktrust_lt10_publicperception_minus10)(delta as any).publicPerception     = ((delta as any).publicPerception     || 0) - 10;
+    if (opt.banktrust_lt10_workengagement_minus10) delta.workforceEngagement  = (delta.workforceEngagement  || 0) - 10;
+    if (opt.banktrust_lt10_publicperception_minus10)delta.publicPerception     = (delta.publicPerception     || 0) - 10;
   }
   if (Number(nextKpi.bankTrust) > 80) {
-    if (opt.banktrust_gt80_workengagement_plus10)  (delta as any).workforceEngagement  = ((delta as any).workforceEngagement  || 0) + 10;
-    if (opt.banktrust_gt80_publicperception_plus80) (delta as any).publicPerception     = ((delta as any).publicPerception     || 0) + 80;
+    if (opt.banktrust_gt80_workengagement_plus10)  delta.workforceEngagement  = (delta.workforceEngagement  || 0) + 10;
+    if (opt.banktrust_gt80_publicperception_plus80) delta.publicPerception     = (delta.publicPerception     || 0) + 80;
   }
 
   // 5× Verlust / 5× Profit (letzte 5 Perioden betrachten)
@@ -1339,14 +1341,14 @@ function computeInvariantDelta(nextKpi: KPI, history: KPI[]): Partial<KPI> {
     const allProfit = pl.every(v => v > 0);
 
     if (allLoss) {
-      if (opt.loss5_banktrust_minus8)           (delta as any).bankTrust         = ((delta as any).bankTrust         || 0) - 8;
-      if (opt.loss5_publicperception_minus5)    (delta as any).publicPerception  = ((delta as any).publicPerception  || 0) - 5;
-      if (opt.loss5_customerloyalty_minus5)     (delta as any).customerLoyalty   = ((delta as any).customerLoyalty   || 0) - 5;
+      if (opt.loss5_banktrust_minus8)           delta.bankTrust         = (delta.bankTrust         || 0) - 8;
+      if (opt.loss5_publicperception_minus5)    delta.publicPerception  = (delta.publicPerception  || 0) - 5;
+      if (opt.loss5_customerloyalty_minus5)     delta.customerLoyalty   = (delta.customerLoyalty   || 0) - 5;
     }
     if (allProfit) {
-      if (opt.profit5_banktrust_plus8)          (delta as any).bankTrust         = ((delta as any).bankTrust         || 0) + 8;
-      if (opt.profit5_publicperception_plus8)   (delta as any).publicPerception  = ((delta as any).publicPerception  || 0) + 8;
-      if (opt.profit5_customerloyalty_plus8)    (delta as any).customerLoyalty   = ((delta as any).customerLoyalty   || 0) + 8;
+      if (opt.profit5_banktrust_plus8)          delta.bankTrust         = (delta.bankTrust         || 0) + 8;
+      if (opt.profit5_publicperception_plus8)   delta.publicPerception  = (delta.publicPerception  || 0) + 8;
+      if (opt.profit5_customerloyalty_plus8)    delta.customerLoyalty   = (delta.customerLoyalty   || 0) + 8;
     }
   }
   return delta;
@@ -1369,7 +1371,7 @@ function computeInvariantDelta(nextKpi: KPI, history: KPI[]): Partial<KPI> {
   });
 
   // 1b) KPI‑Δ aus heutigen Zufalls‑News hinzumischen
-  const todaysNews = ((state.engineMeta as any)?.randomNews?.[state.day] || []) as Array<{ impact?: Partial<KPI> }>;
+  const todaysNews = ((state.engineMeta as Record<string, unknown>)?.randomNews?.[state.day] || []) as Array<{ impact?: Partial<KPI> }>;
   const newsDelta = sumNewsImpact(todaysNews);
   const mergedDelta = mergeDelta(kpiDelta || {}, newsDelta);
 
@@ -1469,7 +1471,7 @@ const saveRoleComms = useCallback(async (text: string) => {
     // Update local log immediately
     dispatch({ type: 'SET_CUSTOM_TEXT', blockId: commsBlockId, day: state.day, role, text });
     // Persist to DB (idempotent via upsert)
-    await upsertDecision(supabase as any, {
+    await upsertDecision(supabase, {
       game_id: gameId,
       player_id: mpService.getCurrentPlayerId()!,
       day: state.day,
@@ -1541,7 +1543,7 @@ const [creditError, setCreditError] = useState<string | null>(null);
  
 
       // 1) Entscheidung protokollieren (Upsert)
-      await upsertDecision(supabase as any, {
+      await upsertDecision(supabase, {
         game_id: gameId,
         player_id: mpService.getCurrentPlayerId(),
         day: state.day,
@@ -1564,7 +1566,7 @@ await supabase.from('games').update({ kpi_values: nextKpi }).eq('id', gameId);
       dispatch({ type: 'ADMIN_ADD_KPI', delta: { cashEUR: amt } });
 
       setCreditAmount('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Credit draw failed:', err);
       setCreditError(err?.message || 'Fehler bei der Kreditaufnahme.');
     } finally {
@@ -1575,13 +1577,13 @@ await supabase.from('games').update({ kpi_values: nextKpi }).eq('id', gameId);
 
   
 // --- PATCH: Persistiere Entscheidungen robust via Upsert (DB hat UNIQUE auf game_id,player_id,day,block_id) ---
-const handleDecisionMade = useCallback(async (...args: any[]) => {
+const handleDecisionMade = useCallback(async (...args: unknown[]) => {
   try {
     const playerId = mpService.getCurrentPlayerId();
     let blockId: string | undefined;
     let optionId: string | undefined;
-    let kpiDelta: any = null;
-    let decisionMeta: any = {};
+    let kpiDelta: Partial<KPI> | null = null;
+    let decisionMeta: Record<string, unknown> = {};
 
     const a0 = args[0];
     if (a0 && typeof a0 === 'object') {
@@ -1601,7 +1603,7 @@ const handleDecisionMade = useCallback(async (...args: any[]) => {
       return;
     }
 
-    await upsertDecision(supabase as any, {
+    await upsertDecision(supabase, {
       game_id: gameId,
       player_id: playerId,
       day: state.day,
@@ -1639,13 +1641,13 @@ const runPreview = useCallback(async () => {
         if (!npcRoles.includes(b.role)) continue;
         const optId = pickOptionForBlock(b, b.role, state.kpi);
         const opt = b.options.find(o => o.id === optId);
-        if (opt && (opt as any).kpiDelta) {
-          npcDeltas.push((opt as any).kpiDelta as Partial<KPI>);
+        if (opt && opt.kpiDelta) {
+          npcDeltas.push(opt.kpiDelta as Partial<KPI>);
         }
       }
 
 
-      const result = simulateNext(state as any, npcDeltas);
+      const result = simulateNext(state as GameState, npcDeltas);
       
       const visibleKpis = MultiplayerService.getRoleKpiVisibility(role);
       const filteredDelta: Partial<KPI> = {};
@@ -1659,7 +1661,7 @@ const runPreview = useCallback(async () => {
       
       Object.keys(filteredNext).forEach(key => {
         if (!visibleKpis.includes(key as keyof KPI)) {
-          (filteredNext as any)[key] = '???';
+          (filteredNext as Record<string, unknown>)[key] = '???';
         }
       });
       
@@ -1692,7 +1694,7 @@ const runPreview = useCallback(async () => {
 
   const getVisibleKpi = (): KPI => {
     const visibleKpis = MultiplayerService.getRoleKpiVisibility(role);
-    const filtered: any = {};
+    const filtered: Record<string, unknown> = {};
     Object.keys(state.kpi).forEach(key => {
       const kpiKey = key as keyof KPI;
       if (visibleKpis.includes(kpiKey)) {
@@ -1710,11 +1712,11 @@ const runPreview = useCallback(async () => {
   const allBlocks = getBlocksForDay(state.day);
   const roleBlocks = allBlocks.filter(b => b.role === role);
   const newsBase = getNewsForDay(state.day);
-const newsRandomAll = (state.engineMeta as any)?.randomNews?.[state.day] || [];
+const newsRandomAll = ((state.engineMeta as Record<string, unknown>)?.randomNews?.[state.day] || []);
 
 // Nur globale News (ohne roles) oder solche für die eigene Rolle
 const newsRandom = useMemo(() => {
-  return (newsRandomAll as any[]).filter((n: any) => {
+  return (newsRandomAll as Array<DayNewsItem & { roles?: string[] }>).filter((n) => {
     const rs: string[] | null = n?.roles ?? null;
     return !rs || rs.includes(role);
   });
@@ -1743,7 +1745,7 @@ const newsRandom = useMemo(() => {
 
   // Nur Nachrichten anzeigen, die global sind (roles==null) oder die eigene Rolle enthalten
   const newsInjected = useMemo(() => {
-    return (injectedNews || []).filter((n: any) => {
+    return (injectedNews || []).filter((n: DayNewsItem & { roles?: string[] }) => {
       const rs: string[] | null = n?.roles ?? null;
       return !rs || rs.includes(role);
     });
@@ -1763,7 +1765,7 @@ const news = useMemo(() => [...newsBase, ...newsInjected, ...newsRandom], [newsB
   const beat = useMemo(() => {
     if (!beatRaw) return null;
     if (beatRaw.relatedDecisionIds?.length) return beatRaw;
-    return { ...beatRaw, relatedDecisionIds: inferRelatedDecisionIds((beatRaw as any).category, allBlocks) };
+    return { ...beatRaw, relatedDecisionIds: inferRelatedDecisionIds(beatRaw.category, allBlocks) };
   }, [beatRaw, allBlocks]);
 
   const rolesWithNotes: RoleId[] = useMemo(() => {
@@ -1954,14 +1956,14 @@ React.useEffect(() => {
   const onAdmin = () => sync();
 
   window.addEventListener('storage', onStorage);
-  window.addEventListener('admin:settings', onAdmin as any);
+  window.addEventListener('admin:settings', onAdmin);
 
   // initialer Sync (falls AdminPanel offen war)
   sync();
 
   return () => {
     window.removeEventListener('storage', onStorage);
-    window.removeEventListener('admin:settings', onAdmin as any);
+    window.removeEventListener('admin:settings', onAdmin);
   };
 }, []);
 
@@ -1986,7 +1988,7 @@ React.useEffect(() => {
     .channel(`scenario-overrides-${gameId}`)
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'game_scenario_overrides', filter: `game_id=eq.${gameId}` },
-      (payload: any) => {
+      (payload: { new?: Record<string, unknown>; old?: Record<string, unknown>; eventType?: string }) => {
         const row = payload?.new || payload?.old || {};
         const ov = row?.overrides || {};
         localStorage.setItem('scenario:overrides', JSON.stringify(ov || {}));
@@ -2008,15 +2010,15 @@ React.useEffect(() => {
     .channel(`game-updates-${gameId}`)
     .on('postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-      (payload: any) => {
+      (payload: { new?: Record<string, unknown>; old?: Record<string, unknown>; eventType?: string }) => {
         if (!active) return;
-        const row: any = payload?.new || {};
+        const row = payload?.new || {};
         const newDay = Number(row?.current_day) || 1;
 
         if (newDay !== state.day) {
           // Tages-Randoms für newDay sicherstellen
-          const meta: any = state.engineMeta || {};
-          const daily: Record<number, any> = (meta?.dailyRandomValues || {}) as any;
+          const meta = state.engineMeta || {};
+          const daily: Record<number, Partial<KPI>> = (meta?.dailyRandomValues || {});
           let currentDayRandoms = daily[newDay];
 
           if (!currentDayRandoms) {
@@ -2058,7 +2060,7 @@ React.useEffect(() => {
   const svc = MultiplayerService.getInstance();
   let disposed = false;
 
-  const apply = (merged: Record<string, any>) => {
+  const apply = (merged: Record<string, unknown>) => {
     if (disposed) return;
     try {
       // 1) Kompatibilität: localStorage setzen
@@ -2192,7 +2194,7 @@ return (
         <Shell gameCodeToDisplay={gameId}>
         {/* Coach System */}
 
-        {CoachController && (globalThis as any).__featureCoach && (
+        {CoachController && globalThis.__featureCoach && (
           <CoachController
             getState={() => state}
             controlsBeforeSelector="[data-coach-controls-anchor]"
@@ -2647,7 +2649,7 @@ return (
           </div>
 
           {(() => {
-            const expandedText = (selectedNews as any).expandedText;
+            const expandedText = selectedNews.expandedText;
             if (!expandedText) {
               return (
                 <>
