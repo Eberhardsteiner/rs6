@@ -1,199 +1,217 @@
-import type { RoleId, KPI } from '@/core/models/domain';
-import type { InsolvencyRuleLite } from '@/admin/adminBridge';
+// src/types/global.d.ts
+/**
+ * Globale Type-Definitionen für Runtime-Globals und externe Libraries
+ */
 
-type Difficulty = 'easy' | 'normal' | 'hard';
-type InsolvencyMode = 'hard' | 'soft' | 'off';
-type RoundTimeMode = 'off' | 'global' | 'matrix';
-type NPCProfile = 'aggressive' | 'balanced' | 'conservative';
+import type { KPI, RoleId } from '@/core/models/domain';
 
-interface BankSettings {
-  creditLineEUR?: number;
-  interestRatePct?: number;
+// pdfMake Types
+declare module 'pdfmake/build/pdfmake.js' {
+  const pdfMake: {
+    vfs?: Record<string, string>;
+    createPdf: (documentDefinition: unknown) => {
+      download: (fileName?: string) => void;
+      open: () => void;
+      print: () => void;
+    };
+  };
+  export default pdfMake;
 }
 
-interface ScoringWeights {
+declare module 'pdfmake/build/vfs_fonts.js' {
+  export const pdfMake: {
+    vfs: Record<string, string>;
+  };
+  export default {
+    pdfMake: {
+      vfs: Record<string, string>;
+    };
+  };
+}
+
+// Erweiterte Window/GlobalThis-Typen für Runtime-Konfiguration
+export interface AdminInvariants {
+  optional: {
+    pp_penalty_on_neg_cash?: boolean;
+    loyalty_penalty_on_neg_cash?: boolean;
+    payroll_delay_we_minus10?: boolean;
+    loss5_banktrust_minus8?: boolean;
+    loss5_publicperception_minus5?: boolean;
+    loss5_customerloyalty_minus5?: boolean;
+    banktrust_lt10_workengagement_minus10?: boolean;
+    banktrust_lt10_publicperception_minus10?: boolean;
+    profit5_banktrust_plus8?: boolean;
+    profit5_publicperception_plus8?: boolean;
+    profit5_customerloyalty_plus8?: boolean;
+    banktrust_gt80_workengagement_plus10?: boolean;
+    banktrust_gt80_publicperception_plus80?: boolean;
+  };
+}
+
+export interface InsolvencyRule {
+  key: string;
+  enabled: boolean;
+  threshold: number;
+}
+
+export interface BankSettings {
+  creditLineEUR: number;
+  interestRatePct: number;
+}
+
+export interface ScoringWeights {
   bankTrust: number;
   publicPerception: number;
   customerLoyalty: number;
   workforceEngagement: number;
 }
 
-interface Invariants {
-  optional: {
-    pp_penalty_on_neg_cash: boolean;
-    loyalty_penalty_on_neg_cash: boolean;
-    payroll_delay_we_minus10: boolean;
-    loss5_banktrust_minus8: boolean;
-    loss5_publicperception_minus5: boolean;
-    loss5_customerloyalty_minus5: boolean;
-    banktrust_lt10_workengagement_minus10: boolean;
-    banktrust_lt10_publicperception_minus10: boolean;
-    profit5_banktrust_plus8: boolean;
-    profit5_publicperception_plus8: boolean;
-    profit5_customerloyalty_plus8: boolean;
-    banktrust_gt80_workengagement_plus10: boolean;
-    banktrust_gt80_publicperception_plus80: boolean;
+export interface RoundTimeMatrix {
+  [day: number]: {
+    CEO: number;
+    CFO: number;
+    OPS: number;
+    HRLEGAL: number;
   };
 }
 
+export interface MultiplayerSettings {
+  authMode?: 'email' | 'name-only' | 'preset-credentials';
+  allowEarlyEntry?: boolean;
+  forceAllPlayersForAdvance?: boolean;
+  autoStartWhenReady?: boolean;
+  autoStartDelaySeconds?: number;
+  lobbyCountdownSeconds?: number;
+  dayDurationMin?: number;
+  roundMinutes?: number;
+  gameSettings?: {
+    backgroundTheme?: 'dynamic' | 'minimal' | 'corporate';
+    allowUserOverride?: boolean;
+  };
+  creditSettings?: {
+    enabled: boolean;
+    creditLineEUR: number;
+    interestRatePct: number;
+  };
+  [key: string]: unknown;
+}
+
+export interface ScenarioOverrides {
+  blocks?: Record<number, unknown[]>;
+  news?: Record<number, unknown[]>;
+  attachments?: Record<number, unknown[]>;
+}
+
+// Erweiterte GlobalThis-Typen
 declare global {
   interface Window {
-    __featureCoach?: boolean;
-    __featureBankMechanics?: boolean;
-    __featureSaveLoadMenu?: boolean;
-    __featureAutoSave?: boolean;
-    __featureWhatIfPreview?: boolean;
-    __featureEventIntensity?: boolean;
-
-    __insolvencyMode?: InsolvencyMode;
-    __insolvencyRules?: Record<string, InsolvencyRuleLite>;
-
-    __mpDifficulty?: Difficulty;
-    __npcDifficulty?: Difficulty;
-    __mode?: string;
-
-    __randomNews?: boolean;
-    __roleBasedRandomNews?: boolean;
-    __difficultyAffectsRandoms?: boolean;
-    __difficultyAffectsScoring?: boolean;
-
-    __bankCreditLineEUR?: number;
-    __bankInterestRatePct?: number;
-    __bankSettings?: BankSettings;
-    __usedCreditEUR?: number;
-    __bankPendingDrawEUR?: number;
-
-    __roundTimeMode?: RoundTimeMode;
-    __roundTimeGlobalSec?: number;
-    __roundTimeGraceSec?: number;
-    __roundTimeMatrix?: Record<number, Partial<Record<RoleId, number>>>;
-
-    __npcProfile?: NPCProfile;
-    __leakageRole?: Record<string, number>;
-
-    __eventIntensityByDay?: number[];
-
-    __adaptiveDifficultyLightEnabled?: boolean;
-    __scoringWeights?: ScoringWeights;
-
-    __invariants?: Invariants;
-
-    __rng?: () => number;
-
-    __playerIdleToday?: boolean;
+    __admin?: {
+      setKpi?: (k: KPI) => void;
+      addDelta?: (d: Partial<KPI>) => void;
+      setDay?: (n: number) => void;
+      advanceDay?: () => void;
+      message?: (s: string) => void;
+    };
   }
 
-  var __featureCoach: boolean | undefined;
-  var __featureBankMechanics: boolean | undefined;
-  var __featureSaveLoadMenu: boolean | undefined;
-  var __featureAutoSave: boolean | undefined;
-  var __featureWhatIfPreview: boolean | undefined;
-  var __featureEventIntensity: boolean | undefined;
-
-  var __insolvencyMode: InsolvencyMode | undefined;
-  var __insolvencyRules: Record<string, InsolvencyRuleLite> | undefined;
-
-  var __mpDifficulty: Difficulty | undefined;
-  var __npcDifficulty: Difficulty | undefined;
-  var __mode: string | undefined;
-
-  var __randomNews: boolean | undefined;
-  var __roleBasedRandomNews: boolean | undefined;
-  var __difficultyAffectsRandoms: boolean | undefined;
-  var __difficultyAffectsScoring: boolean | undefined;
-
-  var __bankCreditLineEUR: number | undefined;
-  var __bankInterestRatePct: number | undefined;
-  var __bankSettings: BankSettings | undefined;
-  var __usedCreditEUR: number | undefined;
-  var __bankPendingDrawEUR: number | undefined;
-
-  var __roundTimeMode: RoundTimeMode | undefined;
+  // eslint-disable-next-line no-var
+  var __insolvencyMode: 'hard' | 'soft' | 'off';
+  // eslint-disable-next-line no-var
+  var __mode: 'easy' | 'normal' | 'hard';
+  // eslint-disable-next-line no-var
+  var __npcDifficulty: 'easy' | 'normal' | 'hard';
+  // eslint-disable-next-line no-var
+  var __mpDifficulty: 'easy' | 'normal' | 'hard';
+  // eslint-disable-next-line no-var
+  var __randomNews: boolean;
+  // eslint-disable-next-line no-var
+  var __adaptiveDifficultyLightEnabled: boolean;
+  // eslint-disable-next-line no-var
+  var __roleBasedRandomNews: boolean;
+  // eslint-disable-next-line no-var
+  var __insolvencyRules: Record<string, InsolvencyRule>;
+  // eslint-disable-next-line no-var
+  var __scoringWeights: ScoringWeights;
+  // eslint-disable-next-line no-var
+  var __roundTimeMode: 'off' | 'global' | 'matrix';
+  // eslint-disable-next-line no-var
   var __roundTimeGlobalSec: number | undefined;
+  // eslint-disable-next-line no-var
   var __roundTimeGraceSec: number | undefined;
-  var __roundTimeMatrix: Record<number, Partial<Record<RoleId, number>>> | undefined;
-
-  var __npcProfile: NPCProfile | undefined;
-  var __leakageRole: Record<string, number> | undefined;
-
-  var __eventIntensityByDay: number[] | undefined;
-
-  var __adaptiveDifficultyLightEnabled: boolean | undefined;
-  var __scoringWeights: ScoringWeights | undefined;
-
-  var __invariants: Invariants | undefined;
-
-  var __rng: (() => number) | undefined;
-
-  var __playerIdleToday: boolean | undefined;
-}
-
-export interface AdminSettingsDetail {
-  roundTimeMode?: RoundTimeMode;
-  roundTimeGlobalSec?: number;
-  roundTimeGraceSec?: number;
-  roundTimeMatrix?: Record<number, Partial<Record<RoleId, number>>>;
-  dayDurationSec?: number;
-  gracePeriodSec?: number;
-  difficulty?: Difficulty;
-  randomNews?: boolean;
-  seed?: number;
-  npcProfile?: NPCProfile;
-  leakage?: Record<string, number>;
-  insolvencyMode?: InsolvencyMode;
-  difficultyAffectsRandoms?: boolean;
-  difficultyAffectsScoring?: boolean;
-  features?: {
-    coach?: boolean;
-    bankMechanics?: boolean;
-    saveLoadMenu?: boolean;
-    autoSave?: boolean;
-    whatIfPreview?: boolean;
-    eventIntensity?: boolean;
-  };
-  eventIntensityByDay?: number[];
-  bank?: BankSettings;
-  scoringWeights?: Partial<ScoringWeights>;
-  adaptiveDifficultyLight?: boolean;
-  insolvencyConfig?: {
-    rules?: Record<string, InsolvencyRuleLite>;
-  };
-}
-
-export interface BankDrawEvent {
-  amount: number;
-}
-
-export interface KPISetEvent {
-  detail: Partial<KPI>;
-}
-
-export interface KPIAddEvent {
-  detail: Partial<KPI>;
-}
-
-export interface ScenarioImportEvent {
-  mode?: 'merge' | 'replace';
-  scheduledDeltas?: Record<number, Array<Partial<KPI>>>;
-  randomNews?: Record<number, unknown[]>;
-  meta?: Record<string, unknown>;
-}
-
-declare global {
-  interface WindowEventMap {
-    'admin:settings': CustomEvent<AdminSettingsDetail>;
-    'admin:kpi:set': CustomEvent<Partial<KPI>>;
-    'admin:kpi:add': CustomEvent<Partial<KPI>>;
-    'admin:reset': Event;
-    'admin:set-day': CustomEvent<number>;
-    'admin:advance-day': Event;
-    'admin:scenario:import': CustomEvent<ScenarioImportEvent>;
-    'admin:invariants': CustomEvent<Record<string, unknown>>;
-    'admin:seed': CustomEvent<{ seed: number }>;
-    'bank:draw-now': CustomEvent<BankDrawEvent>;
-    'bank:pending-draw': CustomEvent<BankDrawEvent>;
-    'ui:enter-game': Event;
-  }
+  // eslint-disable-next-line no-var
+  var __roundTimeMatrix: RoundTimeMatrix | undefined;
+  // eslint-disable-next-line no-var
+  var __featureSaveLoadMenu: boolean;
+  // eslint-disable-next-line no-var
+  var __featureAutoSave: boolean;
+  // eslint-disable-next-line no-var
+  var __featureCoach: boolean;
+  // eslint-disable-next-line no-var
+  var __featureBankMechanics: boolean;
+  // eslint-disable-next-line no-var
+  var __featureWhatIfPreview: boolean;
+  // eslint-disable-next-line no-var
+  var __featureEventIntensity: boolean;
+  // eslint-disable-next-line no-var
+  var __trainerAccessEnabled: boolean;
+  // eslint-disable-next-line no-var
+  var __eventIntensityByDay: number[];
+  // eslint-disable-next-line no-var
+  var __bankSettings: BankSettings;
+  // eslint-disable-next-line no-var
+  var __bankCreditLineEUR: number;
+  // eslint-disable-next-line no-var
+  var __bankInterestRatePct: number;
+  // eslint-disable-next-line no-var
+  var __bankPendingDrawEUR: number;
+  // eslint-disable-next-line no-var
+  var __usedCreditEUR: number;
+  // eslint-disable-next-line no-var
+  var __mpAllowCredit: boolean;
+  // eslint-disable-next-line no-var
+  var __invariants: AdminInvariants;
+  // eslint-disable-next-line no-var
+  var __rng: () => number;
+  // eslint-disable-next-line no-var
+  var __gameSeed: number;
+  // eslint-disable-next-line no-var
+  var __difficultyFactor: number;
+  // eslint-disable-next-line no-var
+  var __multiplayerSettings: MultiplayerSettings;
+  // eslint-disable-next-line no-var
+  var __scenarioOverrides: ScenarioOverrides;
+  // eslint-disable-next-line no-var
+  var __playedNewsTitles: string[];
+  // eslint-disable-next-line no-var
+  var __dayStart: string;
+  // eslint-disable-next-line no-var
+  var __currentDayStart: string;
+  // eslint-disable-next-line no-var
+  var __mpDayStart: string;
+  // eslint-disable-next-line no-var
+  var __gameDayStart: string;
+  // eslint-disable-next-line no-var
+  var __roundStartIso: string;
+  // eslint-disable-next-line no-var
+  var __dayStartTs: number;
+  // eslint-disable-next-line no-var
+  var __startTs: number;
+  // eslint-disable-next-line no-var
+  var __dayDeadline: string;
+  // eslint-disable-next-line no-var
+  var __currentDayDeadline: string;
+  // eslint-disable-next-line no-var
+  var __mpDayEndsAt: string;
+  // eslint-disable-next-line no-var
+  var __dayEndsAt: string;
+  // eslint-disable-next-line no-var
+  var __roundDeadlineIso: string;
+  // eslint-disable-next-line no-var
+  var __deadlineTs: number;
+  // eslint-disable-next-line no-var
+  var __dayDeadlineTs: number;
+  // eslint-disable-next-line no-var
+  var __roundDeadlineTs: number;
 }
 
 export {};

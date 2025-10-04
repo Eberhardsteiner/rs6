@@ -8,8 +8,6 @@ import { enforceInvariants } from '@/core/engine/invariants';
 import { getDifficulty, scaleDeltaByDifficulty, capDailyCashOutflow, scaleRandomByDifficulty, shouldTriggerInsolvencyNow, applyOverdraftIfEasy } from '@/core/engine/difficulty';
 import { updateAdaptiveLight } from '@/core/engine/adaptiveLight';
 
-// Import globale Typen
-import type { InsolvencyRule } from '@/types/global';
 
 // -------------------------------------------------------------
 // Szenario-Events: einfache Bedingungslogik
@@ -29,7 +27,6 @@ function evalKpiRule(current: number, op: KpiRuleOpLocal, value: number): boolea
     default:   return false;
   }
 }
-
 function evalConditions(conds: unknown, state: GameState): boolean {
   if (!conds || typeof conds !== 'object') return true;
   const c = conds as ConditionSetLocal;
@@ -46,58 +43,10 @@ function evalConditions(conds: unknown, state: GameState): boolean {
   }
   return true;
 }
-
 // -------------------------------------------------------------
-// Erweiterte Typen für Engine-Meta und State
-export interface EngineMeta {
-  scheduledDeltas?: Record<number, Array<Partial<KPI> | { impact: Partial<KPI>; conditions?: unknown }>>;
-  randomNews?: Record<number, (NewsItem & { conditions?: unknown })[]>;
-  negCashStreak?: number;
-  kpiReasons?: Record<number, KpiReasonEntry[]>;
-  scoringWeights?: { bankTrust: number; publicPerception: number; customerLoyalty: number; workforceEngagement: number };
-  difficultyFactor?: number;
-  dailyRandomValues?: Record<number, {
-    cashInflow: number;
-    cashOutflow: number;
-    plInflow: number;
-    plOutflow: number;
-    cashNet: number;
-    plNet: number;
-  }>;
-  currentDayRandoms?: {
-    cashNet: number;
-    plNet: number;
-  };
-  bank?: {
-    pendingDrawEUR?: number;
-    effectiveCashForInsolv?: number;
-    usedCreditEUR?: number;
-    creditLineEUR?: number;
-    interestRatePct?: number;
-    availableCredit?: number;
-    lastDrawNow?: number;
-  };
-  playedNewsIds?: string[];
-  insolvencyTriggeredByRules?: string[];
-  intensityByDay?: number[];
-  seed?: number;
-  userDeclaredInsolvency?: boolean;
-  userDeclaredCause?: string;
-  [key: string]: unknown;
-}
-
-// Erweitertes GameState mit Bank-Feldern
-export interface ExtendedGameState extends GameState {
-  engineMeta?: EngineMeta;
-  creditLineEUR?: number;
-  interestRatePct?: number;
-  usedCreditEUR?: number;
-}
-
-// -------------------------------------------------------------
-// Action-Typen
+// Action-Typen (Top-Level, nicht in Blöcken definieren!)
 export type Action =
-  | { type: 'INIT'; payload: Partial<ExtendedGameState> }
+  | { type: 'INIT'; payload: Partial<GameState> }
   | { type: 'SCENARIO_IMPORT'; mode?: 'merge'|'replace'; compiled: { scheduledDeltas?: Record<number, Array<Partial<KPI>>>; randomNews?: Record<number, unknown[]>; meta?: Record<string, unknown> } }
   | { type: 'CHOOSE_OPTION';
       blockId: string; day: number; role: RoleId;
@@ -109,6 +58,8 @@ export type Action =
   | { type: 'ADVANCE_DAY' }
   | { type: 'DECLARE_INSOLVENCY'; cause?: string }
   | { type: 'SET_USER_NOTES'; notes: string }
+  // ---------------------------------------------------------
+  // ERGÄNZUNG: Admin-Panel direkte KPI-Steuerung
   | { type: 'ADMIN_SET_KPI'; kpi: Partial<KPI> }
   | { type: 'ADMIN_ADD_KPI'; delta: Partial<KPI> }
   | { type: 'BANK_DRAW_NOW'; amount: number };
@@ -157,34 +108,35 @@ function clamp01to100(v: number): number {
 }
 
 // === Ereignis-Intensität (Admin-gesteuert) ===
-function __readEventIntensityByDay(meta?: EngineMeta): number[] {
+function __readEventIntensityByDay(meta?: { intensityByDay?: number[] }): number[] {
   try {
+    // 1) aus Global (AdminPanel)
     const arrG = globalThis.__eventIntensityByDay;
     if (Array.isArray(arrG) && arrG.length >= 14) return arrG.map((x: number)=>Number(x)||0).slice(0,14);
   } catch {}
   try {
+    // 2) aus EngineMeta (falls Szenario/Init gesetzt)
     const arrM = Array.isArray(meta?.intensityByDay) ? meta.intensityByDay : null;
     if (arrM && arrM.length >= 14) return arrM.map((x: number)=>Number(x)||0).slice(0,14);
   } catch {}
+  // 3) Fallback: neutral
   return Array.from({length:14}, ()=>1);
 }
-
-function __intensityMultiplierForDay(day: number, meta?: EngineMeta): number {
+function __intensityMultiplierForDay(day: number, meta?: { intensityByDay?: number[] }): number {
   const enabled = !!globalThis.__featureEventIntensity;
   if (!enabled) return 1;
   const arr = __readEventIntensityByDay(meta);
   const idx = Math.max(0, Math.min(13, (Math.floor(day)-1)));
   const raw = Number(arr[idx] ?? 1);
   if (!Number.isFinite(raw)) return 1;
+  // Begrenzen: 0..3 (harmlos bis dreifache Wucht)
   return Math.max(0, Math.min(3, raw));
 }
-
 function __mapMultiplierToNewsIntensity(m: number): NewsIntensity {
   if (m <= 0.75) return 'low';
   if (m >= 1.5) return 'high';
   return 'normal';
 }
-
 function __scaleDelta(d: Partial<KPI>, m: number): Partial<KPI> {
   const out: Partial<Record<keyof KPI, number>> = {};
   (Object.keys(d || {}) as (keyof KPI)[]).forEach(k => {
@@ -193,6 +145,7 @@ function __scaleDelta(d: Partial<KPI>, m: number): Partial<KPI> {
   });
   return out;
 }
+
 
 // Invariante: Bankvertrauen fällt bei negativer Liquidität sofort auf 0
 function enforceBankTrustInvariant(kpi: KPI): KPI {
@@ -209,6 +162,15 @@ function enforceBankTrustInvariant(kpi: KPI): KPI {
     : clampedPoints;
 }
 
+// Insolvenzeinschätzung
+function shouldBeInsolvent(kpi: KPI): boolean {
+  const mode = globalThis.__insolvencyMode;
+  if (mode === 'off') return false;
+  if (mode === 'hard') return kpi.cashEUR < 0;
+  if (mode === 'soft') return kpi.cashEUR < -10000;
+  return kpi.cashEUR < 0;
+}
+
 type InsolvencyMode = 'hard'|'soft'|'off';
 type InsolvencyCause = 'NEGATIVE_CASH'|'PAYROLL_UNPAID'|'EXTERNAL'|'OTHER';
 
@@ -217,10 +179,11 @@ function getInsolvencyMode(): InsolvencyMode {
   return (m === 'hard' || m === 'soft' || m === 'off') ? m : 'hard';
 }
 
-interface InsolvencyMeta extends EngineMeta {
+interface InsolvencyMeta {
   insoWarnings?: Array<{ day: number; cause: string; cashEUR: number; ts: number }>;
   suppressedInsolvencyReasons?: Array<{ day: number; cause: string; cashEUR: number; ts: number }>;
   suppressedInsolvencyCount?: number;
+  [key: string]: unknown;
 }
 
 function applyInsolvencyPolicy(
@@ -250,6 +213,12 @@ function applyInsolvencyPolicy(
   return { isOver: false, insolvency: false, meta };
 }
 
+function wouldBeInsolventByCash(mode: InsolvencyMode, cashEUR: number): boolean {
+  if (mode === 'off') return false;
+  if (mode === 'hard') return cashEUR < 0;
+  return cashEUR < -10000;
+}
+
 // -------------------------------------------------------------
 // KPI-Reasons Typ
 export interface KpiReasonEntry {
@@ -266,76 +235,75 @@ export function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
 
     case 'INIT': {
-      const next: ExtendedGameState = {
+      // Sanftes Mergen; fehlende Strukturen initialisieren
+      const next: GameState = {
         ...state,
         ...action.payload,
         kpi: { ...(state.kpi ?? emptyKpi()), ...(action.payload.kpi ?? {}) },
         kpiHistory: action.payload.kpiHistory ?? state.kpiHistory ?? [],
         pendingDeltas: action.payload.pendingDeltas ?? state.pendingDeltas ?? [],
         log: action.payload.log ?? state.log ?? [],
-        engineMeta: { ...(state.engineMeta ?? {}), ...(action.payload?.engineMeta ?? {}) }
+        engineMeta: { ...(state.engineMeta ?? {}), ...(action.payload as any)?.engineMeta }
       };
 
-      // Defaults für optionale Bank-Mechanik
-      if (typeof next.creditLineEUR !== 'number') next.creditLineEUR = Number(globalThis.__bankSettings?.creditLineEUR ?? 0);
-      if (typeof next.interestRatePct !== 'number') next.interestRatePct = Number(globalThis.__bankSettings?.interestRatePct ?? 0);
-      if (typeof next.usedCreditEUR !== 'number') next.usedCreditEUR = 0;
+      // Defaults für optionale Bank-Mechanik übernehmen (idempotent)
+      if (typeof (next as any).creditLineEUR !== 'number') (next as any).creditLineEUR = Number(((globalThis as any).__bankSettings?.creditLineEUR) ?? 0);
+      if (typeof (next as any).interestRatePct !== 'number') (next as any).interestRatePct = Number(((globalThis as any).__bankSettings?.interestRatePct) ?? 0);
+      if (typeof (next as any).usedCreditEUR !== 'number') (next as any).usedCreditEUR = 0;
 
-      if (typeof next.day !== 'number' || !Number.isFinite(next.day)) {
-        next.day = 1;
+      // Tageszahl plausibilisieren
+      if (typeof (next as any).day !== 'number' || !Number.isFinite((next as any).day)) {
+        (next as any).day = 1;
       }
       
-      next.engineMeta = next.engineMeta || {};
-      next.engineMeta.randomNews = next.engineMeta.randomNews || {};
-      next.engineMeta.negCashStreak = Math.max(0, Number(next.engineMeta.negCashStreak) || 0);
-      next.engineMeta.kpiReasons = next.engineMeta.kpiReasons || {};
+      // EngineMeta-Erweiterungen
+      (next.engineMeta as any) = next.engineMeta || {};
+      (next.engineMeta as any).randomNews = (next.engineMeta as any).randomNews || {};
+      (next.engineMeta as any).negCashStreak = Math.max(0, Number((next.engineMeta as any).negCashStreak) || 0);
+      (next.engineMeta as any).kpiReasons = (next.engineMeta as any).kpiReasons || {};
 
-      next.engineMeta.scoringWeights =
-        next.engineMeta.scoringWeights
-        ?? globalThis.__scoringWeights
+      // Scoring-Gewichte einmalig in Meta spiegeln (falls noch leer)
+      (next.engineMeta as any).scoringWeights =
+        (next.engineMeta as any).scoringWeights
+        ?? (globalThis as any).__scoringWeights
         ?? { bankTrust: 25, publicPerception: 25, customerLoyalty: 25, workforceEngagement: 25 };
       
-      const __inv_INIT = enforceInvariants(next.kpi as KPI, next as ExtendedGameState, { trigger: 'INIT' });
+      // Invariante anwenden
+      const __inv_INIT = enforceInvariants(next.kpi as KPI, next as any, { trigger: 'INIT' });
       next.kpi = __inv_INIT.kpi;
-      try { window.dispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } })); } catch {}
+      try { window.dispatchEvent(new CustomEvent('hud:kpi', { detail: { day: (next as any).day, kpi: next.kpi } })); } catch {}
 
       return next;
     }
 
+    
     case 'SCENARIO_IMPORT': {
       const mode = action.mode || 'replace';
       const compiled = action.compiled || {};
-      const meta: EngineMeta = { ...(state.engineMeta || {}) };
-      
+      const meta: any = { ...(state.engineMeta || {}) };
       if (mode === 'replace') {
         if (compiled.scheduledDeltas) meta.scheduledDeltas = compiled.scheduledDeltas;
-        if (compiled.randomNews) meta.randomNews = compiled.randomNews as Record<number, NewsItem[]>;
+        if (compiled.randomNews) meta.randomNews = compiled.randomNews;
         if (compiled.meta) meta.scenarioMeta = compiled.meta;
-      } else {
+      } else { // merge
         const schedOld = (meta.scheduledDeltas = meta.scheduledDeltas || {});
         const schedNew = compiled.scheduledDeltas || {};
         for (const d of Object.keys(schedNew)) {
           const day = Number(d);
-          const existing = schedOld[day] || [];
-          const newItems = schedNew[day] || [];
-          schedOld[day] = [...existing, ...newItems];
+          (schedOld[day] = schedOld[day] || []).push(...(schedNew as any)[day]);
         }
-        
         const rnOld = (meta.randomNews = meta.randomNews || {});
         const rnNew = compiled.randomNews || {};
         for (const d of Object.keys(rnNew)) {
           const day = Number(d);
-          const existing = rnOld[day] || [];
-          const newItems = (rnNew as Record<number, unknown[]>)[day] || [];
-          rnOld[day] = [...existing, ...(newItems as NewsItem[])];
+          (rnOld[day] = rnOld[day] || []).push(...(rnNew as any)[day]);
         }
-        
         if (compiled.meta) meta.scenarioMeta = compiled.meta;
       }
       return { ...state, engineMeta: meta };
     }
-
-    case 'CHOOSE_OPTION': {
+case 'CHOOSE_OPTION': {
+      // Log-Eintrag erzeugen
       const entry: DecisionLogEntry = {
         ts: Date.now(),
         day: action.day,
@@ -344,7 +312,7 @@ export function reducer(state: GameState, action: Action): GameState {
         chosenOptionId: action.optId,
         chosenOptionLabel: action.optLabel,
         kpiDelta: action.kpiDelta
-      };
+      } as any;
 
       const next: GameState = {
         ...state,
@@ -371,7 +339,7 @@ export function reducer(state: GameState, action: Action): GameState {
           role: action.role,
           blockId: action.blockId,
           customText: action.text
-        };
+        } as any;
         newLog = [...state.log, entry];
       }
 
@@ -384,38 +352,39 @@ export function reducer(state: GameState, action: Action): GameState {
 
     case 'ADVANCE_DAY': {
       const hist = [...state.kpiHistory, state.kpi];
-      let meta: EngineMeta = { ...(state.engineMeta ?? {}) };
+      let meta: any = { ...(state.engineMeta ?? {}) };
 
-      // Adaptive Difficulty (Light)
+      // Adaptive Difficulty (Light): Faktor aktualisieren und persistent speichern
       try {
-        const adaptiveEnabled = globalThis.__adaptiveDifficultyLightEnabled === true;
+        const adaptiveEnabled = (globalThis as any).__adaptiveDifficultyLightEnabled === true;
         meta = updateAdaptiveLight(meta, hist, { enabled: adaptiveEnabled });
-        globalThis.__difficultyFactor = meta.difficultyFactor ?? 1.0;
+        (globalThis as any).__difficultyFactor = meta.difficultyFactor ?? 1.0;
       } catch {}
       
-      const sched = (meta.scheduledDeltas = meta.scheduledDeltas || {});
+      const sched = (meta.scheduledDeltas = meta.scheduledDeltas || {} as Record<number, Array<Partial<KPI>>>);
       
       const today = state.day;
       const nextDay = today + 1;
       
-      // User-Entscheidungen und Scheduled Deltas
+      // 1. User-Entscheidungen und Scheduled Deltas
       const userDeltas = state.pendingDeltas || [];
       const scheduledForTodayRaw = Array.isArray(sched[today]) ? sched[today] : [];
-      const scheduledForToday = scheduledForTodayRaw.flatMap((it) => {
+      const scheduledForToday = scheduledForTodayRaw.flatMap((it: any) => {
         if (it && typeof it === 'object' && 'impact' in it) {
-          const withConditions = it as { impact: Partial<KPI>; conditions?: unknown };
-          return evalConditions(withConditions.conditions, state) ? [withConditions.impact] : [];
+          return evalConditions((it as any).conditions, state) ? [(it as any).impact] : [];
         }
-        return [it as Partial<KPI>];
+        return [it as any];
       });
 
+      // Difficulty
       const diff = getDifficulty();
 
-      // Zufalls-News für heute
-      const newsForTodayAll: (NewsItem & { conditions?: unknown })[] = Array.isArray(meta.randomNews?.[today]) ? meta.randomNews[today] : [];
-      const newsForToday: NewsItem[] = newsForTodayAll.filter((n) => evalConditions(n.conditions, state));
+      // Heutige Zufalls-News wirken heute
+      const newsForTodayAll: NewsItem[] = Array.isArray(meta.randomNews?.[today]) ? meta.randomNews[today] : [];
+      const newsForToday: NewsItem[] = newsForTodayAll.filter((n: any) => evalConditions((n as any).conditions, state));
       const newsImpactRaw = newsForToday.length ? sumDeltas(newsForToday.map(n => n.impact ?? {})) : {};
 
+      // >>> Deltas skalieren & Cash-Cap (Easy) — getrennt, um Gründe zu protokollieren
       const userSumRaw = userDeltas.length ? sumDeltas(userDeltas) : {};
       const schedSumRaw = scheduledForToday.length ? sumDeltas(scheduledForToday) : {};
 
@@ -429,6 +398,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const combinedBeforeCap = sumDeltas([userSumScaled, schedSumScaled, newsSumScaled]);
       const combinedDeltas = capDailyCashOutflow(combinedBeforeCap, diff);
 
+      // Zwischen-Cash
       const cashAfterUserDecisions = state.kpi.cashEUR + (combinedDeltas.cashEUR || 0);
 
       // Randoms für NEXT day
@@ -446,13 +416,13 @@ export function reducer(state: GameState, action: Action): GameState {
       __rv.cashNet = Math.round(__rv.cashInflow - __rv.cashOutflow);
       __rv.plNet = Math.round(__rv.plInflow - __rv.plOutflow);
       meta.dailyRandomValues = meta.dailyRandomValues || {};
-      meta.dailyRandomValues[nextDay] = __rv;
-      meta.currentDayRandoms = __rv;
+      meta.dailyRandomValues[nextDay] = __rv as any;
+      meta.currentDayRandoms = __rv as any;
 
       // Randoms vom HEUTIGEN Tag
       const todaysRandoms = meta.dailyRandomValues?.[today] || { cashNet: 0, plNet: 0 };
 
-      // Finale KPIs
+      // Finale KPIs dieses Tages (vor Overdraft/Invariant)
       const kpiAppliedBase: KPI = {
         cashEUR: Math.round(cashAfterUserDecisions + Math.round((todaysRandoms.cashNet || 0) * __intensityMultiplierForDay(today, meta))),
         profitLossEUR: Math.round(
@@ -466,48 +436,42 @@ export function reducer(state: GameState, action: Action): GameState {
         publicPerception: clamp01to100(state.kpi.publicPerception + (combinedDeltas.publicPerception || 0))
       };
 
-      // KPI-Reason-Protokoll
+      // >>> KPI-Reason-Protokoll (für nextDay)
       const reasons: KpiReasonEntry[] = [];
 
+      // Gründe: User-Entscheidungen
       (Object.keys(userSumScaled) as (keyof KPI)[]).forEach(k => {
-        const v = userSumScaled[k];
+        const v = (userSumScaled as any)[k];
         if (typeof v === 'number' && v !== 0) {
           reasons.push({ kpi: k, delta: Math.round(v), reason: 'Entscheidungen (heute)', source: 'user' });
         }
       });
-      
+      // Gründe: Terminierte Effekte
       (Object.keys(schedSumScaled) as (keyof KPI)[]).forEach(k => {
-        const v = schedSumScaled[k];
+        const v = (schedSumScaled as any)[k];
         if (typeof v === 'number' && v !== 0) {
           reasons.push({ kpi: k, delta: Math.round(v), reason: 'Terminierte Effekte', source: 'scheduled' });
         }
       });
-      
+      // Gründe: News (pro Item)
       for (const { n, impact } of newsItemsScaled) {
         (Object.keys(impact) as (keyof KPI)[]).forEach(k => {
-          const v = impact[k];
+          const v = (impact as any)[k];
           if (typeof v === 'number' && v !== 0) {
             reasons.push({ kpi: k, delta: Math.round(v), reason: `News: ${n.title}`, source: n.id });
           }
         });
       }
-      
+      // Cap-Reason (wenn Cash begrenzt wurde)
       const capAdj = Math.round((combinedDeltas.cashEUR ?? 0) - (combinedBeforeCap.cashEUR ?? 0));
       if (capAdj !== 0) {
         reasons.push({ kpi: 'cashEUR', delta: capAdj, reason: 'Cap (Easy) — Tageslimit Netto-Cash', source: 'easy-cap' });
       }
-      
-      if (todaysRandoms.cashNet) { 
-        const __m = __intensityMultiplierForDay(today, meta); 
-        reasons.push({ kpi: 'cashEUR', delta: Math.round((todaysRandoms.cashNet||0) * __m), reason: 'Tagesrauschen', source: 'randomDaily' }); 
-      }
-      if (todaysRandoms.plNet) { 
-        const __m = __intensityMultiplierForDay(today, meta); 
-        reasons.push({ kpi: 'profitLossEUR', delta: Math.round((todaysRandoms.plNet||0) * __m), reason: 'Tagesrauschen', source: 'randomDaily' }); 
-      }
-
-      // Überziehung (nur Easy) vor Invariante
-      const bankMechOn = !!globalThis.__featureBankMechanics;
+      // Tagesrauschen (heute)
+      if (todaysRandoms.cashNet) { const __m = __intensityMultiplierForDay(today, meta); reasons.push({ kpi: 'cashEUR', delta: Math.round((todaysRandoms.cashNet||0) * __m), reason: 'Tagesrauschen', source: 'randomDaily' }); }
+if (todaysRandoms.plNet) { const __m = __intensityMultiplierForDay(today, meta); reasons.push({ kpi: 'profitLossEUR', delta: Math.round((todaysRandoms.plNet||0) * __m), reason: 'Tagesrauschen', source: 'randomDaily' }); }
+// >>> Überziehung (nur Easy) vor Invariante
+      const bankMechOn = !!(globalThis as any).__featureBankMechanics;
       const overdraftRes = bankMechOn
         ? { kpi: kpiAppliedBase, meta }
         : applyOverdraftIfEasy(diff, kpiAppliedBase, meta, nextDay);
@@ -519,34 +483,48 @@ export function reducer(state: GameState, action: Action): GameState {
         reasons.push({ kpi: 'cashEUR', delta: Math.round(overdraftInject), reason: 'Überziehungslinie (Easy)', source: 'overdraft' });
       }
 
-      /* --- Bank-Mechanik (optional) --- */
+      /* --- Bank-Mechanik (optional, via Admin-Panel) --- */
       try {
-        const extState = state as ExtendedGameState;
-        const bankOn = !!globalThis.__featureBankMechanics;
-        let creditLine = Number(extState.creditLineEUR ?? globalThis.__bankSettings?.creditLineEUR ?? 0) || 0;
-        let ratePct = Number(extState.interestRatePct ?? globalThis.__bankSettings?.interestRatePct ?? 0) || 0;
-        let usedCredit = Number(extState.usedCreditEUR ?? 0) || 0;
+        const bankOn = !!((globalThis as any).__featureBankMechanics);
+        let creditLine = Number(((state as any).creditLineEUR ?? (globalThis as any).__bankSettings?.creditLineEUR) ?? 0) || 0;
+        let ratePct = Number(((state as any).interestRatePct ?? (globalThis as any).__bankSettings?.interestRatePct) ?? 0) || 0;
+        let usedCredit = Number(((state as any).usedCreditEUR) ?? 0) || 0;
         
         if (bankOn && creditLine > 0) {
-          // 1. Automatische Tilgung
+          // ========= SCHRITT 1: Automatische Tilgung am BEGINN des neuen Tages =========
+          // Wenn wir Liquidität haben UND Kredit genutzt wird -> zurückzahlen
           if (kpiApplied.cashEUR > 0 && usedCredit > 0) {
             const repayAmount = Math.min(kpiApplied.cashEUR, usedCredit);
             usedCredit = Math.round(usedCredit - repayAmount);
             kpiApplied.cashEUR = Math.round(kpiApplied.cashEUR - repayAmount);
-            reasons.push({ kpi: 'cashEUR', delta: -repayAmount, reason: 'Automatische Kredit-Tilgung', source: 'bank-repay' });
+            
+            // Reason protokollieren
+            reasons.push({ 
+              kpi: 'cashEUR', 
+              delta: -repayAmount, 
+              reason: 'Automatische Kredit-Tilgung', 
+              source: 'bank-repay' 
+            });
           }
           
-          // 2. Tägliche Zinsen
+          // ========= SCHRITT 2: Tägliche Zinsen auf VERBLEIBENDE Nutzung =========
           if (usedCredit > 0) {
             const dailyRate = Math.max(0, ratePct) / 100 / 365;
             const interest = Math.round(usedCredit * dailyRate);
             if (interest > 0) {
               kpiApplied.profitLossEUR = Math.round(kpiApplied.profitLossEUR - interest);
-              reasons.push({ kpi: 'profitLossEUR', delta: -interest, reason: `Kreditzinsen (${ratePct}% p.a.)`, source: 'bank-interest' });
+              
+              // Reason protokollieren
+              reasons.push({ 
+                kpi: 'profitLossEUR', 
+                delta: -interest, 
+                reason: `Kreditzinsen (${ratePct}% p.a.)`, 
+                source: 'bank-interest' 
+              });
             }
           }
           
-          // 3. Automatische Kreditziehung
+          // ========= SCHRITT 3: Automatische Kreditziehung bei negativem Cash =========
           if (kpiApplied.cashEUR < 0) {
             const need = -kpiApplied.cashEUR;
             const available = Math.max(0, creditLine - usedCredit);
@@ -555,14 +533,21 @@ export function reducer(state: GameState, action: Action): GameState {
             if (draw > 0) {
               usedCredit = Math.round(usedCredit + draw);
               kpiApplied.cashEUR = Math.round(kpiApplied.cashEUR + draw);
-              reasons.push({ kpi: 'cashEUR', delta: draw, reason: 'Automatische Kreditinanspruchnahme', source: 'bank-draw-auto' });
+              
+              // Reason protokollieren
+              reasons.push({ 
+                kpi: 'cashEUR', 
+                delta: draw, 
+                reason: 'Automatische Kreditinanspruchnahme', 
+                source: 'bank-draw-auto' 
+              });
             }
           }
           
-          // 4. Pending Draw
+          // ========= SCHRITT 4: Manuelle Inanspruchnahme (Pending Draw) =========
           let __pendingDraw = 0;
           try {
-            const gpd = globalThis.__bankPendingDrawEUR;
+            const gpd = (globalThis as any).__bankPendingDrawEUR;
             if (typeof gpd === 'number' && isFinite(gpd) && gpd > 0) __pendingDraw = gpd;
             else {
               const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem('bank:pendingDraw') : null;
@@ -573,32 +558,36 @@ export function reducer(state: GameState, action: Action): GameState {
             }
           } catch {}
           
+          // Clamp an verfügbaren Spielraum
           const availableAfter = Math.max(0, creditLine - usedCredit);
           __pendingDraw = Math.max(0, Math.min(__pendingDraw, availableAfter));
           
-          meta.bank = meta.bank || {};
-          meta.bank.pendingDrawEUR = __pendingDraw;
-          meta.bank.effectiveCashForInsolv = Math.round(kpiApplied.cashEUR + __pendingDraw);
-          meta.bank.usedCreditEUR = usedCredit;
-          meta.bank.creditLineEUR = creditLine;
-          meta.bank.interestRatePct = ratePct;
-          meta.bank.availableCredit = Math.max(0, creditLine - usedCredit);
+          // Für die Insolvenzprüfung heute berücksichtigen
+          (meta.bank = meta.bank || {}).pendingDrawEUR = __pendingDraw;
+          (meta.bank = meta.bank || {}).effectiveCashForInsolv = Math.round(kpiApplied.cashEUR + __pendingDraw);
           
-          globalThis.__usedCreditEUR = usedCredit;
+          // ========= SCHRITT 5: State aktualisieren =========
+          (meta.bank = meta.bank || {}).usedCreditEUR = usedCredit;
+          (meta.bank = meta.bank || {}).creditLineEUR = creditLine;
+          (meta.bank = meta.bank || {}).interestRatePct = ratePct;
+          (meta.bank = meta.bank || {}).availableCredit = Math.max(0, creditLine - usedCredit);
+          
+          // Globale Variablen für UI-Komponenten aktualisieren
+          (globalThis as any).__usedCreditEUR = usedCredit;
           
         } else {
-          meta.bank = meta.bank || {};
-          meta.bank.effectiveCashForInsolv = kpiApplied.cashEUR;
+          // Bank-Mechanik deaktiviert
+          (meta.bank = meta.bank || {}).effectiveCashForInsolv = kpiApplied.cashEUR;
         }
       } catch (err) {
         console.error('Error in bank mechanics:', err);
-        meta.bank = meta.bank || {};
-        meta.bank.effectiveCashForInsolv = kpiApplied.cashEUR;
+        (meta.bank = meta.bank || {}).effectiveCashForInsolv = kpiApplied.cashEUR;
       }
+      /* --- /Bank-Mechanik --- */
 
       // Invariante
       const beforeBT = kpiApplied.bankTrust;
-      const __inv_ADV = enforceInvariants(kpiApplied, state as ExtendedGameState, { trigger: 'ADVANCE_DAY' });
+      const __inv_ADV = enforceInvariants(kpiApplied, state as any, { trigger: 'ADVANCE_DAY' });
       const kpiFinal: KPI = __inv_ADV.kpi;
       if (kpiFinal.bankTrust < beforeBT) {
         const d = kpiFinal.bankTrust - beforeBT;
@@ -610,25 +599,20 @@ export function reducer(state: GameState, action: Action): GameState {
         delete sched[today];
       }
 
-      // Insolvenzprüfung (regelbasiert)
-      let isOver = state.isOver;
-      let insolvency = state.insolvency;
       
+      // Insolvenzprüfung (Regelbasiert aus Admin‑Konsole)
       try {
-        const rules = globalThis.__insolvencyRules || {};
+        const rules = (globalThis as any).__insolvencyRules || {};
         const modeRB = getInsolvencyMode();
         if (modeRB !== 'off' && rules && typeof rules === 'object') {
-          const effectiveCash = meta?.bank?.effectiveCashForInsolv ?? kpiFinal.cashEUR;
+          const effectiveCash = (meta?.bank?.effectiveCashForInsolv ?? kpiFinal.cashEUR);
           const causes: string[] = [];
-          
           for (const key of Object.keys(rules)) {
-            const r = rules[key];
+            const r = (rules as any)[key];
             if (!r || r.enabled !== true) continue;
             const thr = Number(r.threshold);
             if (!Number.isFinite(thr)) continue;
-            
             let value: number | undefined = undefined;
-            const extState = state as ExtendedGameState;
             switch (String(r.key || key)) {
               case 'cashEUR':            value = Number(effectiveCash); break;
               case 'profitLossEUR':      value = Number(kpiFinal.profitLossEUR); break;
@@ -636,32 +620,32 @@ export function reducer(state: GameState, action: Action): GameState {
               case 'bankTrust':          value = Number(kpiFinal.bankTrust); break;
               case 'workforceEngagement':value = Number(kpiFinal.workforceEngagement); break;
               case 'publicPerception':   value = Number(kpiFinal.publicPerception); break;
-              case 'debt':               value = Number(extState.usedCreditEUR ?? meta?.bank?.usedCreditEUR); break;
-              case 'receivables':        value = Number((extState as unknown as Record<string, unknown>).receivables ?? (extState as unknown as Record<string, unknown>).arEUR); break;
+              case 'debt':               value = Number(((state as any).usedCreditEUR ?? meta?.bank?.usedCreditEUR)); break;
+              case 'receivables':        value = Number((state as any).receivables ?? (state as any).arEUR); break;
               default: value = undefined;
             }
-            
             if (typeof value === 'number' && Number.isFinite(value)) {
               if (value < thr) causes.push(String(r.key || key));
             }
           }
-          
           if (!isOver && causes.length > 0) {
             const causeLabel: InsolvencyCause = causes.includes('cashEUR') ? 'NEGATIVE_CASH' : 'OTHER';
             const resRB = applyInsolvencyPolicy(modeRB, causeLabel, nextDay, kpiFinal.cashEUR, meta);
             isOver = resRB.isOver;
             insolvency = resRB.insolvency;
             meta = resRB.meta;
-            meta.insolvencyTriggeredByRules = causes;
+            try { (meta as any).insolvencyTriggeredByRules = causes; } catch {}
           }
         }
       } catch {}
-
-      // Insolvenzprüfung mit Streak
+// Insolvenzprüfung mit Streak
+      let isOver = state.isOver;
+      let insolvency = state.insolvency;
       const mode = getInsolvencyMode();
+
       meta.negCashStreak = kpiFinal.cashEUR < 0 ? Math.round(meta.negCashStreak || 0) + 1 : 0;
 
-      if (!isOver && shouldTriggerInsolvencyNow(getDifficulty(), mode, meta?.bank?.effectiveCashForInsolv ?? kpiFinal.cashEUR, meta.negCashStreak)) {
+      if (!isOver && shouldTriggerInsolvencyNow(getDifficulty(), mode, ((meta as any).bank?.effectiveCashForInsolv ?? kpiFinal.cashEUR), meta.negCashStreak)) {
         const res = applyInsolvencyPolicy(mode, 'NEGATIVE_CASH', nextDay, kpiFinal.cashEUR, meta);
         isOver = res.isOver;
         insolvency = res.insolvency;
@@ -669,13 +653,12 @@ export function reducer(state: GameState, action: Action): GameState {
       }
 
       // News für nächsten Tag
-      const newsEnabled = !!globalThis.__randomNews;
+      const newsEnabled = !!(globalThis as any).__randomNews;
       meta.randomNews = meta.randomNews || {};
       meta.playedNewsIds = Array.isArray(meta.playedNewsIds) ? meta.playedNewsIds : [];
-      
       if (newsEnabled) {
         const __mNews = __intensityMultiplierForDay(nextDay, meta);
-        const newsIntensity = __mapMultiplierToNewsIntensity(__mNews);
+        const newsIntensity = (__mapMultiplierToNewsIntensity(__mNews));
         const alreadyPlayed: string[] = meta.playedNewsIds;
         const gen = generateRandomNewsForDay(state, {
           enabled: true,
@@ -684,25 +667,24 @@ export function reducer(state: GameState, action: Action): GameState {
           day: nextDay,
           alreadyPlayed
         });
-        
-        const daySet = new Set<string>();
+                const daySet = new Set<string>();
         const items: NewsItem[] = [];
+
+        // Obergrenze je Schwierigkeit: easy 2, normal 4, hard 6
         const perDayCap = (diff === 'hard') ? 6 : (diff === 'normal') ? 4 : 2;
 
         for (const n of gen) {
-          if (items.length >= perDayCap) break;
+          if (items.length >= perDayCap) break;   // ← statt: >= 2
           if (daySet.has(n.title)) continue;
-          daySet.add(n.title);
-          items.push(n);
+
         }
-        
         meta.randomNews[nextDay] = items;
         meta.playedNewsIds = Array.from(new Set([...alreadyPlayed, ...items.map(n => n.title)]));
       } else {
         meta.randomNews[nextDay] = [];
       }
 
-      // KPI-Reasons ablegen
+      // >>> KPI-Reasons ablegen (für nextDay)
       meta.kpiReasons = meta.kpiReasons || {};
       meta.kpiReasons[nextDay] = reasons;
 
@@ -711,7 +693,7 @@ export function reducer(state: GameState, action: Action): GameState {
         isOver = true;
       }
       
-      const next: ExtendedGameState = {
+      const next: GameState = {
         ...state,
         engineMeta: meta,
         kpiHistory: hist,
@@ -720,20 +702,23 @@ export function reducer(state: GameState, action: Action): GameState {
         day: isOver ? state.day : nextDay,
         isOver,
         insolvency,
-        creditLineEUR: meta.bank?.creditLineEUR ?? (state as ExtendedGameState).creditLineEUR,
-        interestRatePct: meta.bank?.interestRatePct ?? (state as ExtendedGameState).interestRatePct,
-        usedCreditEUR: meta.bank?.usedCreditEUR ?? (state as ExtendedGameState).usedCreditEUR,
-      };
+        // Bank-Werte aus Meta übernehmen für Persistierung
+        creditLineEUR: meta.bank?.creditLineEUR ?? (state as any).creditLineEUR,
+        interestRatePct: meta.bank?.interestRatePct ?? (state as any).interestRatePct,
+        usedCreditEUR: meta.bank?.usedCreditEUR ?? (state as any).usedCreditEUR,
+      } as any;
 
-      // Pending Draw materialisieren
+      // ---- Pending Draw NACH State-Erstellung materialisieren ----
       try {
-        const pend = Math.max(0, Math.round(meta.bank?.pendingDrawEUR ?? 0));
+        const pend = Math.max(0, Math.round((meta.bank?.pendingDrawEUR ?? 0)));
         if (pend > 0) {
+          // Pending Draw wird für den NÄCHSTEN Tag vorbereitet
           next.usedCreditEUR = Math.round((next.usedCreditEUR || 0) + pend);
-          globalThis.__usedCreditEUR = next.usedCreditEUR;
+          (globalThis as any).__usedCreditEUR = next.usedCreditEUR;
           
+          // Pending löschen
           try { if (typeof localStorage !== 'undefined') localStorage.removeItem('bank:pendingDraw'); } catch {}
-          try { globalThis.__bankPendingDrawEUR = 0; } catch {}
+          try { (globalThis as any).__bankPendingDrawEUR = 0; } catch {}
         }
       } catch {}
 
@@ -744,17 +729,19 @@ export function reducer(state: GameState, action: Action): GameState {
     }
 
     case 'DECLARE_INSOLVENCY': {
-      const meta: EngineMeta = { ...(state.engineMeta ?? {}) };
+      const meta = { ...(state.engineMeta ?? {}) } as any;
       meta.userDeclaredInsolvency = true;
-      meta.userDeclaredCause = action.cause ?? 'EXTERNAL';
+      meta.userDeclaredCause = (action as any).cause ?? 'EXTERNAL';
       const next: GameState = { ...state, engineMeta: meta, isOver: true, insolvency: true };
       try { window.dispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } })); } catch {}
       return next;
     }
 
+    // ---------------------------------------------------------
+    // ERGÄNZUNG: Admin-Panel direkte KPI-Steuerung
     case 'ADMIN_SET_KPI': {
       const newKpi = { ...(state.kpi ?? emptyKpi()), ...(action.kpi ?? {}) } as KPI;
-      const { kpi } = enforceInvariants(newKpi, state as ExtendedGameState, { trigger: 'ADMIN_KPI_SET' });
+      const { kpi } = enforceInvariants(newKpi, state as any, { trigger: 'ADMIN_KPI_SET' });
       const next = { ...state, kpi };
       try {
         window.dispatchEvent(
@@ -766,7 +753,7 @@ export function reducer(state: GameState, action: Action): GameState {
 
     case 'ADMIN_ADD_KPI': {
       const newKpi = mergeDelta(state.kpi ?? emptyKpi(), action.delta);
-      const { kpi } = enforceInvariants(newKpi, state as ExtendedGameState, { trigger: 'ADMIN_KPI_SET' });
+      const { kpi } = enforceInvariants(newKpi, state as any, { trigger: 'ADMIN_KPI_SET' });
       const next = { ...state, kpi };
       try {
         window.dispatchEvent(
@@ -778,20 +765,19 @@ export function reducer(state: GameState, action: Action): GameState {
 
     case 'BANK_DRAW_NOW': {
       try {
-        const extState = state as ExtendedGameState;
-        const bankOn = !!globalThis.__featureBankMechanics;
+        const bankOn = !!((globalThis as any).__featureBankMechanics);
         if (!bankOn) return state;
         
-        const creditLine = Number(extState.creditLineEUR ?? globalThis.__bankSettings?.creditLineEUR ?? 0) || 0;
-        const ratePct = Number(extState.interestRatePct ?? globalThis.__bankSettings?.interestRatePct ?? 0) || 0;
-        let usedCredit = Number(extState.usedCreditEUR ?? 0) || 0;
+        const creditLine = Number(((state as any).creditLineEUR ?? (globalThis as any).__bankSettings?.creditLineEUR) ?? 0) || 0;
+        const ratePct = Number(((state as any).interestRatePct ?? (globalThis as any).__bankSettings?.interestRatePct) ?? 0) || 0;
+        let usedCredit = Number(((state as any).usedCreditEUR) ?? 0) || 0;
         const available = Math.max(0, creditLine - usedCredit);
-        const rawAmt = Math.round(Number(action.amount) || 0);
+        const rawAmt = Math.round(Number((action as any).amount) || 0);
         const amt = Math.max(0, Math.min(rawAmt, available));
         
         if (amt <= 0) return state;
 
-        const kpi0 = state.kpi ?? ({} as KPI);
+        const kpi0 = state.kpi ?? ({} as any);
         const kpi1: KPI = {
           ...kpi0,
           cashEUR: Math.round((kpi0.cashEUR ?? 0) + amt),
@@ -799,22 +785,23 @@ export function reducer(state: GameState, action: Action): GameState {
 
         usedCredit = Math.round(usedCredit + amt);
 
-        const meta: EngineMeta = { ...(state.engineMeta ?? {}) };
+        const meta = { ...(state.engineMeta ?? {}) } as any;
         meta.bank = { ...(meta.bank ?? {}), lastDrawNow: amt };
 
-        const next: ExtendedGameState = {
+        const next: GameState = {
           ...state,
           engineMeta: meta,
           kpi: kpi1,
-          usedCreditEUR: usedCredit,
-        };
+          usedCreditEUR: usedCredit as any,
+        } as any;
         
-        globalThis.__usedCreditEUR = usedCredit;
+        (globalThis as any).__usedCreditEUR = usedCredit;
         
         try { window.dispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } })); } catch {}
         
+        // pendingDraw zurücksetzen
         try { if (typeof localStorage !== 'undefined') localStorage.removeItem('bank:pendingDraw'); } catch {}
-        try { globalThis.__bankPendingDrawEUR = 0; } catch {}
+        try { (globalThis as any).__bankPendingDrawEUR = 0; } catch {}
         
         return next;
       } catch {
@@ -828,23 +815,27 @@ export function reducer(state: GameState, action: Action): GameState {
 }
 
 // =============================================================
-// What-if Sandbox
+// What-if Sandbox: reine Simulationsfunktion (kein Persist / keine Writes)
+// Simuliert den nächsten Tag mit zusätzlich angegebenen Entscheidungen
+// und gibt das hypothetische Ergebnis sowie die KPI-Deltas zurück.
 export type NextDecisionInput = Partial<KPI> | Pick<DecisionLogEntry, 'kpiDelta'>;
 
 export function simulateNext(
   state: GameState,
   decisions: NextDecisionInput[] = []
 ): { nextState: GameState; deltaToCurrent: Partial<KPI> } {
+  // 1) Deep-Copy des States (keine Mutation des Originals)
   const snapshotStr = JSON.stringify(state);
   const work: GameState = JSON.parse(snapshotStr);
 
+  // 2) Pending-Deltas vorbereiten (User hat u.U. bereits pendingDeltas)
   const addl: Partial<KPI>[] = [];
   for (const d of decisions || []) {
     if (d && typeof d === 'object') {
-      const maybe = 'kpiDelta' in d && typeof d.kpiDelta === 'object'
-        ? d.kpiDelta
+      const maybe = (d as any).kpiDelta && typeof (d as any).kpiDelta === 'object'
+        ? (d as any).kpiDelta
         : d;
-      const delta: Partial<KPI> = {};
+      const delta: any = {};
       if (maybe && typeof maybe === 'object') {
         if (typeof maybe.cashEUR === 'number') delta.cashEUR = Math.round(maybe.cashEUR);
         if (typeof maybe.profitLossEUR === 'number') delta.profitLossEUR = Math.round(maybe.profitLossEUR);
@@ -852,26 +843,25 @@ export function simulateNext(
         if (typeof maybe.bankTrust === 'number') delta.bankTrust = Math.round(maybe.bankTrust);
         if (typeof maybe.workforceEngagement === 'number') delta.workforceEngagement = Math.round(maybe.workforceEngagement);
         if (typeof maybe.publicPerception === 'number') delta.publicPerception = Math.round(maybe.publicPerception);
-        if (Object.keys(delta).length > 0) addl.push(delta);
+        if (Object.keys(delta).length > 0) addl.push(delta as Partial<KPI>);
       }
     }
   }
-  work.pendingDeltas = [ ...work.pendingDeltas || [], ...addl ];
+  (work as any).pendingDeltas = [ ...(work as any).pendingDeltas || [], ...addl ];
 
-  // Seiteneffekte unterdrücken
-  const origDispatch = typeof window !== 'undefined' && window.dispatchEvent ? window.dispatchEvent.bind(window) : null;
-  
+  // 3) Seiteneffekte unterdrücken: Events + bank:pendingDraw + ausgewählte Global-Keys
+  const g: any = (globalThis as any);
+  const w: any = (typeof window !== 'undefined') ? window : g;
+  const origDispatch = w && w.dispatchEvent ? w.dispatchEvent.bind(w) : null;
   const keysToSnapshot = [
     '__difficultyFactor',
     '__usedCreditEUR',
     '__bankPendingDrawEUR',
   ];
-  
-  const gSnapshot: Record<string, unknown> = {};
+  const gSnapshot: Record<string, any> = {};
   for (const k of keysToSnapshot) {
-    gSnapshot[k] = (globalThis as Record<string, unknown>)[k];
+    gSnapshot[k] = g[k];
   }
-  
   let lsKey = 'bank:pendingDraw';
   let lsVal: string | null = null;
   try {
@@ -881,12 +871,9 @@ export function simulateNext(
   } catch {}
 
   try {
-    if (window && window.dispatchEvent) { 
-      (window as unknown as { dispatchEvent: () => boolean }).dispatchEvent = (() => true);
-    }
-    
-    const after = reducer(work, { type: 'ADVANCE_DAY' });
-    
+    if (w && w.dispatchEvent) { (w as any).dispatchEvent = (() => true) as any; }
+    const after = reducer(work, { type: 'ADVANCE_DAY' } as any);
+    // 4) KPI-Delta berechnen
     const delta: Partial<KPI> = {
       cashEUR: Math.round((after.kpi?.cashEUR ?? 0) - (state.kpi?.cashEUR ?? 0)),
       profitLossEUR: Math.round((after.kpi?.profitLossEUR ?? 0) - (state.kpi?.profitLossEUR ?? 0)),
@@ -895,20 +882,13 @@ export function simulateNext(
       workforceEngagement: Math.round((after.kpi?.workforceEngagement ?? 0) - (state.kpi?.workforceEngagement ?? 0)),
       publicPerception: Math.round((after.kpi?.publicPerception ?? 0) - (state.kpi?.publicPerception ?? 0)),
     };
-    
     return { nextState: after, deltaToCurrent: delta };
   } finally {
-    // Seiteneffekte zurücksetzen
-    try { 
-      if (origDispatch && window) {
-        (window as unknown as { dispatchEvent: typeof origDispatch }).dispatchEvent = origDispatch;
-      }
-    } catch {}
-    
+    // 5) Seiteneffekte zurücksetzen
+    try { if (origDispatch && w) (w as any).dispatchEvent = origDispatch; } catch {}
     for (const k of keysToSnapshot) {
-      try { (globalThis as Record<string, unknown>)[k] = gSnapshot[k]; } catch {}
+      try { g[k] = gSnapshot[k]; } catch {}
     }
-    
     try {
       if (typeof localStorage !== 'undefined') {
         if (lsVal == null) localStorage.removeItem(lsKey);
