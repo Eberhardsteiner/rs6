@@ -7,6 +7,7 @@ import { generateRandomNewsForDay, type NewsItem, type NewsIntensity } from "@/c
 import { enforceInvariants } from '@/core/engine/invariants';
 import { getDifficulty, scaleDeltaByDifficulty, capDailyCashOutflow, scaleRandomByDifficulty, shouldTriggerInsolvencyNow, applyOverdraftIfEasy } from '@/core/engine/difficulty';
 import { updateAdaptiveLight } from '@/core/engine/adaptiveLight';
+import { errorHandler, safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove, safeDispatchEvent } from '@/utils/errorHandler';
 
 // Import globale Typen
 import type { InsolvencyRule } from '@/types/global';
@@ -161,11 +162,23 @@ function __readEventIntensityByDay(meta?: EngineMeta): number[] {
   try {
     const arrG = globalThis.__eventIntensityByDay;
     if (Array.isArray(arrG) && arrG.length >= 14) return arrG.map((x: number)=>Number(x)||0).slice(0,14);
-  } catch {}
+  } catch (e) {
+    errorHandler.debug('Failed to read event intensity from global', e, {
+      category: 'UNEXPECTED',
+      component: 'reducers',
+      action: 'read-event-intensity-global',
+    });
+  }
   try {
     const arrM = Array.isArray(meta?.intensityByDay) ? meta.intensityByDay : null;
     if (arrM && arrM.length >= 14) return arrM.map((x: number)=>Number(x)||0).slice(0,14);
-  } catch {}
+  } catch (e) {
+    errorHandler.debug('Failed to read event intensity from meta', e, {
+      category: 'UNEXPECTED',
+      component: 'reducers',
+      action: 'read-event-intensity-meta',
+    });
+  }
   return Array.from({length:14}, ()=>1);
 }
 
@@ -239,14 +252,20 @@ function applyInsolvencyPolicy(
   if (mode === 'soft') {
     const arr = Array.isArray(meta.insoWarnings) ? meta.insoWarnings : [];
     meta.insoWarnings = [...arr, { day, cause, cashEUR, ts: Date.now() }];
-    try { window.dispatchEvent(new CustomEvent('game:insolvency-warning', { detail: { day, cause, cashEUR }})); } catch {}
+    safeDispatchEvent(new CustomEvent('game:insolvency-warning', { detail: { day, cause, cashEUR }}), {
+      component: 'reducers',
+      action: 'insolvency-warning',
+    });
     return { isOver: false, insolvency: false, meta };
   }
 
   const sup = Array.isArray(meta.suppressedInsolvencyReasons) ? meta.suppressedInsolvencyReasons : [];
   meta.suppressedInsolvencyReasons = [...sup, { day, cause, cashEUR, ts: Date.now() }];
   meta.suppressedInsolvencyCount = Math.round(meta.suppressedInsolvencyCount || 0) + 1;
-  try { window.dispatchEvent(new CustomEvent('game:insolvency-suppressed', { detail: { day, cause, cashEUR }})); } catch {}
+  safeDispatchEvent(new CustomEvent('game:insolvency-suppressed', { detail: { day, cause, cashEUR }}), {
+    component: 'reducers',
+    action: 'insolvency-suppressed',
+  });
   return { isOver: false, insolvency: false, meta };
 }
 
@@ -297,7 +316,10 @@ export function reducer(state: GameState, action: Action): GameState {
       
       const __inv_INIT = enforceInvariants(next.kpi as KPI, next as ExtendedGameState, { trigger: 'INIT' });
       next.kpi = __inv_INIT.kpi;
-      try { window.dispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } })); } catch {}
+      safeDispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } }), {
+        component: 'reducers',
+        action: 'hud-kpi-init',
+      });
 
       return next;
     }
@@ -391,7 +413,13 @@ export function reducer(state: GameState, action: Action): GameState {
         const adaptiveEnabled = globalThis.__adaptiveDifficultyLightEnabled === true;
         meta = updateAdaptiveLight(meta, hist, { enabled: adaptiveEnabled });
         globalThis.__difficultyFactor = meta.difficultyFactor ?? 1.0;
-      } catch {}
+      } catch (e) {
+        errorHandler.warn('Failed to update adaptive difficulty', e, {
+          category: 'UNEXPECTED',
+          component: 'reducers',
+          action: 'adaptive-difficulty',
+        });
+      }
       
       const sched = (meta.scheduledDeltas = meta.scheduledDeltas || {});
       
@@ -565,13 +593,22 @@ export function reducer(state: GameState, action: Action): GameState {
             const gpd = globalThis.__bankPendingDrawEUR;
             if (typeof gpd === 'number' && isFinite(gpd) && gpd > 0) __pendingDraw = gpd;
             else {
-              const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem('bank:pendingDraw') : null;
+              const raw = safeLocalStorageGet('bank:pendingDraw', {
+                component: 'reducers',
+                action: 'read-pending-draw',
+              });
               if (raw != null) {
                 const n = Number(raw);
                 if (Number.isFinite(n) && n > 0) __pendingDraw = n;
               }
             }
-          } catch {}
+          } catch (e) {
+            errorHandler.debug('Failed to read pending draw', e, {
+              category: 'STORAGE',
+              component: 'reducers',
+              action: 'read-pending-draw-catch',
+            });
+          }
           
           const availableAfter = Math.max(0, creditLine - usedCredit);
           __pendingDraw = Math.max(0, Math.min(__pendingDraw, availableAfter));
@@ -591,7 +628,11 @@ export function reducer(state: GameState, action: Action): GameState {
           meta.bank.effectiveCashForInsolv = kpiApplied.cashEUR;
         }
       } catch (err) {
-        console.error('Error in bank mechanics:', err);
+        errorHandler.error('Error in bank mechanics', err, {
+          category: 'UNEXPECTED',
+          component: 'reducers',
+          action: 'bank-mechanics',
+        });
         meta.bank = meta.bank || {};
         meta.bank.effectiveCashForInsolv = kpiApplied.cashEUR;
       }
@@ -655,7 +696,13 @@ export function reducer(state: GameState, action: Action): GameState {
             meta.insolvencyTriggeredByRules = causes;
           }
         }
-      } catch {}
+      } catch (e) {
+        errorHandler.error('Error in rule-based insolvency check', e, {
+          category: 'UNEXPECTED',
+          component: 'reducers',
+          action: 'insolvency-rules',
+        });
+      }
 
       // Insolvenzprüfung mit Streak
       const mode = getInsolvencyMode();
@@ -731,14 +778,37 @@ export function reducer(state: GameState, action: Action): GameState {
         if (pend > 0) {
           next.usedCreditEUR = Math.round((next.usedCreditEUR || 0) + pend);
           globalThis.__usedCreditEUR = next.usedCreditEUR;
-          
-          try { if (typeof localStorage !== 'undefined') localStorage.removeItem('bank:pendingDraw'); } catch {}
-          try { globalThis.__bankPendingDrawEUR = 0; } catch {}
-        }
-      } catch {}
 
-      try { window.dispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } })); } catch {}
-      try { window.dispatchEvent(new CustomEvent('engine:day-advanced', { detail: { day: next.day } })); } catch {}
+          safeLocalStorageRemove('bank:pendingDraw', {
+            component: 'reducers',
+            action: 'clear-pending-draw',
+          });
+          try {
+            globalThis.__bankPendingDrawEUR = 0;
+          } catch (e) {
+            errorHandler.debug('Failed to reset pending draw global', e, {
+              category: 'UNEXPECTED',
+              component: 'reducers',
+              action: 'reset-pending-draw-global',
+            });
+          }
+        }
+      } catch (e) {
+        errorHandler.warn('Failed to materialize pending bank draw', e, {
+          category: 'UNEXPECTED',
+          component: 'reducers',
+          action: 'materialize-bank-draw',
+        });
+      }
+
+      safeDispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } }), {
+        component: 'reducers',
+        action: 'hud-kpi-day-advance',
+      });
+      safeDispatchEvent(new CustomEvent('engine:day-advanced', { detail: { day: next.day } }), {
+        component: 'reducers',
+        action: 'day-advanced',
+      });
 
       return next;
     }
@@ -748,7 +818,10 @@ export function reducer(state: GameState, action: Action): GameState {
       meta.userDeclaredInsolvency = true;
       meta.userDeclaredCause = action.cause ?? 'EXTERNAL';
       const next: GameState = { ...state, engineMeta: meta, isOver: true, insolvency: true };
-      try { window.dispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } })); } catch {}
+      safeDispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } }), {
+        component: 'reducers',
+        action: 'hud-kpi-insolvency-declared',
+      });
       return next;
     }
 
@@ -756,11 +829,10 @@ export function reducer(state: GameState, action: Action): GameState {
       const newKpi = { ...(state.kpi ?? emptyKpi()), ...(action.kpi ?? {}) } as KPI;
       const { kpi } = enforceInvariants(newKpi, state as ExtendedGameState, { trigger: 'ADMIN_KPI_SET' });
       const next = { ...state, kpi };
-      try {
-        window.dispatchEvent(
-          new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } })
-        );
-      } catch {}
+      safeDispatchEvent(
+        new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } }),
+        { component: 'reducers', action: 'admin-set-kpi' }
+      );
       return next;
     }
 
@@ -768,11 +840,10 @@ export function reducer(state: GameState, action: Action): GameState {
       const newKpi = mergeDelta(state.kpi ?? emptyKpi(), action.delta);
       const { kpi } = enforceInvariants(newKpi, state as ExtendedGameState, { trigger: 'ADMIN_KPI_SET' });
       const next = { ...state, kpi };
-      try {
-        window.dispatchEvent(
-          new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } })
-        );
-      } catch {}
+      safeDispatchEvent(
+        new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } }),
+        { component: 'reducers', action: 'admin-add-kpi' }
+      );
       return next;
     }
 
@@ -810,14 +881,34 @@ export function reducer(state: GameState, action: Action): GameState {
         };
         
         globalThis.__usedCreditEUR = usedCredit;
-        
-        try { window.dispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } })); } catch {}
-        
-        try { if (typeof localStorage !== 'undefined') localStorage.removeItem('bank:pendingDraw'); } catch {}
-        try { globalThis.__bankPendingDrawEUR = 0; } catch {}
-        
+
+        safeDispatchEvent(new CustomEvent('hud:kpi', { detail: { day: next.day, kpi: next.kpi } }), {
+          component: 'reducers',
+          action: 'bank-draw-now',
+        });
+
+        safeLocalStorageRemove('bank:pendingDraw', {
+          component: 'reducers',
+          action: 'clear-pending-draw-now',
+        });
+
+        try {
+          globalThis.__bankPendingDrawEUR = 0;
+        } catch (e) {
+          errorHandler.debug('Failed to reset pending draw global', e, {
+            category: 'UNEXPECTED',
+            component: 'reducers',
+            action: 'reset-pending-draw-now',
+          });
+        }
+
         return next;
-      } catch {
+      } catch (e) {
+        errorHandler.error('Bank draw now failed', e, {
+          category: 'UNEXPECTED',
+          component: 'reducers',
+          action: 'bank-draw-now-error',
+        });
         return state;
       }
     }
@@ -874,11 +965,10 @@ export function simulateNext(
   
   let lsKey = 'bank:pendingDraw';
   let lsVal: string | null = null;
-  try {
-    if (typeof localStorage !== 'undefined') {
-      lsVal = localStorage.getItem(lsKey);
-    }
-  } catch {}
+  lsVal = safeLocalStorageGet(lsKey, {
+    component: 'reducers',
+    action: 'simulate-snapshot-storage',
+  });
 
   try {
     if (window && window.dispatchEvent) { 
@@ -899,21 +989,40 @@ export function simulateNext(
     return { nextState: after, deltaToCurrent: delta };
   } finally {
     // Seiteneffekte zurücksetzen
-    try { 
+    try {
       if (origDispatch && window) {
         (window as unknown as { dispatchEvent: typeof origDispatch }).dispatchEvent = origDispatch;
       }
-    } catch {}
-    
-    for (const k of keysToSnapshot) {
-      try { (globalThis as Record<string, unknown>)[k] = gSnapshot[k]; } catch {}
+    } catch (e) {
+      errorHandler.debug('Failed to restore original dispatchEvent', e, {
+        category: 'UNEXPECTED',
+        component: 'reducers',
+        action: 'restore-dispatch',
+      });
     }
-    
-    try {
-      if (typeof localStorage !== 'undefined') {
-        if (lsVal == null) localStorage.removeItem(lsKey);
-        else localStorage.setItem(lsKey, lsVal);
+
+    for (const k of keysToSnapshot) {
+      try {
+        (globalThis as Record<string, unknown>)[k] = gSnapshot[k];
+      } catch (e) {
+        errorHandler.debug(`Failed to restore global ${k}`, e, {
+          category: 'UNEXPECTED',
+          component: 'reducers',
+          action: 'restore-globals',
+        });
       }
-    } catch {}
+    }
+
+    if (lsVal == null) {
+      safeLocalStorageRemove(lsKey, {
+        component: 'reducers',
+        action: 'simulate-restore-storage',
+      });
+    } else {
+      safeLocalStorageSet(lsKey, lsVal, {
+        component: 'reducers',
+        action: 'simulate-restore-storage',
+      });
+    }
   }
 }

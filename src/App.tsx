@@ -48,6 +48,7 @@ import RandomValuesDisplay from '@/components/hud/RandomValuesDisplay';
 import RandomNewsPanel from '@/components/hud/RandomNewsPanel';
 // >>> Coach nur auf der Spielseite einbinden (nicht im Onboarding):
 import CoachController from '@/components/CoachController';
+import { errorHandler, safeJSONParse, safeLocalStorageGet, safeLocalStorageSet, safeDispatchEvent } from '@/utils/errorHandler';
 
 // ✅ korrekter Import für PDF-Export-Button (aus Deinem Snippet)
 import ExportReportButton from './components/ExportReportButton';
@@ -93,15 +94,25 @@ function __readWhatIfFlag(): boolean {
     const g = globalThis;
     if (typeof g.__featureWhatIfPreview === 'boolean') return !!g.__featureWhatIfPreview;
     if (typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem('adminSettings');
+      const raw = safeLocalStorageGet('adminSettings', {
+        component: 'App',
+        action: 'read-whatif-flag',
+      });
       if (raw) {
-        try {
-          const obj = JSON.parse(raw);
-          return !!(obj?.features?.whatIfPreview);
-        } catch {}
+        const obj = safeJSONParse(raw, null, {
+          component: 'App',
+          action: 'parse-admin-settings',
+        });
+        return !!(obj?.features?.whatIfPreview);
       }
     }
-  } catch {}
+  } catch (e) {
+    errorHandler.warn('Failed to read WhatIf feature flag', e, {
+      category: 'STORAGE',
+      component: 'App',
+      action: 'read-whatif-flag',
+    });
+  }
   return false;
 }
 
@@ -289,7 +300,10 @@ export default function App({ onBackToHome }: AppProps) {
         // 1) Globale Spiegelwerte aktualisieren (HUD liest daraus)
         used = Math.round(used + amt);
         g.__usedCreditEUR = used;
-        try { if (typeof localStorage !== 'undefined') localStorage.setItem('bank:lastDraw', String(amt)); } catch {}
+        safeLocalStorageSet('bank:lastDraw', String(amt), {
+          component: 'App',
+          action: 'save-bank-draw',
+        });
 
         // 2) KPI-Liquidität erhöhen (Reducer-seitig robust, kein 'debt' im Projekt)
         dispatch({ type: 'ADMIN_ADD_KPI', delta: { cashEUR: amt } });
@@ -473,7 +487,10 @@ export default function App({ onBackToHome }: AppProps) {
     });
     setStarted(true);
     // >>> Startsignal für Spielansicht (Coach/start-of-game Hooks)
-    try { window.dispatchEvent(new Event('ui:enter-game')); } catch {}
+    safeDispatchEvent(new Event('ui:enter-game'), {
+      component: 'App',
+      action: 'game-start-signal',
+    });
   };
 
   // Entscheidungen-Handler
@@ -552,15 +569,57 @@ export default function App({ onBackToHome }: AppProps) {
 
   React.useEffect(() => {
     const refresh = () => setWhatIfEnabled(__readWhatIfFlag());
-    try { window.addEventListener('admin:settings', refresh as EventListener); } catch {}
-    try { window.addEventListener('storage', refresh as EventListener); } catch {}
-    try { window.addEventListener('focus', refresh as EventListener); } catch {}
-    try { document.addEventListener('visibilitychange', refresh as EventListener); } catch {}
+
+    const context = { component: 'App', action: 'whatif-event-listeners' };
+
+    try {
+      window.addEventListener('admin:settings', refresh as EventListener);
+    } catch (e) {
+      errorHandler.debug('Failed to add admin:settings listener', e, { category: 'EVENT', ...context });
+    }
+
+    try {
+      window.addEventListener('storage', refresh as EventListener);
+    } catch (e) {
+      errorHandler.debug('Failed to add storage listener', e, { category: 'EVENT', ...context });
+    }
+
+    try {
+      window.addEventListener('focus', refresh as EventListener);
+    } catch (e) {
+      errorHandler.debug('Failed to add focus listener', e, { category: 'EVENT', ...context });
+    }
+
+    try {
+      document.addEventListener('visibilitychange', refresh as EventListener);
+    } catch (e) {
+      errorHandler.debug('Failed to add visibilitychange listener', e, { category: 'EVENT', ...context });
+    }
+
     return () => {
-      try { window.removeEventListener('admin:settings', refresh as any); } catch {}
-      try { window.removeEventListener('storage', refresh as any); } catch {}
-      try { window.removeEventListener('focus', refresh as any); } catch {}
-      try { document.removeEventListener('visibilitychange', refresh as any); } catch {}
+      try {
+        window.removeEventListener('admin:settings', refresh as any);
+      } catch (e) {
+        errorHandler.debug('Failed to remove admin:settings listener', e, { category: 'EVENT', ...context });
+      }
+
+      try {
+        window.removeEventListener('storage', refresh as any);
+      } catch (e) {
+        errorHandler.debug('Failed to remove storage listener', e, { category: 'EVENT', ...context });
+      }
+
+      try {
+        window.removeEventListener('focus', refresh as any);
+      } catch (e) {
+        errorHandler.debug('Failed to remove focus listener', e, { category: 'EVENT', ...context });
+      }
+
+      try {
+        document.removeEventListener('visibilitychange', refresh as any);
+      } catch (e) {
+        errorHandler.debug('Failed to remove visibilitychange listener', e, { category: 'EVENT', ...context });
+      }
     };
   }, []);
 
@@ -795,7 +854,11 @@ export default function App({ onBackToHome }: AppProps) {
                 applyState={(s:any)=> dispatch({ type:'INIT', payload: s })}
                 selectMeta={(s:any)=>{
                   let seed: number | null = null;
-                  try { const raw = localStorage.getItem('admin:seed'); if (raw!=null) seed = Number(raw); } catch {}
+                  const raw = safeLocalStorageGet('admin:seed', {
+                    component: 'App',
+                    action: 'read-admin-seed',
+                  });
+                  if (raw != null) seed = Number(raw);
                   return { day: s?.day, seed };
                 }}
               />
@@ -1035,7 +1098,11 @@ export default function App({ onBackToHome }: AppProps) {
         getState={()=> state}
         selectMeta={(s:any)=>{
           let seed: number | null = null;
-          try { const raw = localStorage.getItem('admin:seed'); if (raw!=null) seed = Number(raw); } catch {}
+          const raw = safeLocalStorageGet('admin:seed', {
+            component: 'App',
+            action: 'read-admin-seed-autosave',
+          });
+          if (raw != null) seed = Number(raw);
           return { day: s?.day, seed };
         }}
       />

@@ -3,6 +3,7 @@ import { MultiplayerService } from '@/services/multiplayerService';
 import { supabase } from '@/services/supabaseClient';
 import type { RoleId } from '@/core/models/domain';
 import '@/styles/onboarding.css';
+import { errorHandler, safeJSONParse, safeLocalStorageSet } from '@/utils/errorHandler';
 
 interface MultiAuthLoginProps {
   onSuccess: (gameId: string, role: RoleId) => void;
@@ -15,10 +16,14 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   if (!adminSettings) {
     const stored = localStorage.getItem('admin:multiplayer');
     if (stored) {
-      try {
-        adminSettings = JSON.parse(stored);
+      adminSettings = safeJSONParse(stored, null, {
+        category: 'STORAGE',
+        component: 'MultiAuthLogin',
+        action: 'load-admin-settings',
+      });
+      if (adminSettings) {
         (globalThis as any).__multiplayerSettings = adminSettings;
-      } catch (e) {}
+      }
     }
   }
 
@@ -87,18 +92,38 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             game_id: trainerGameId, user_id: user.id
           });
         } catch (e) {
-          console.warn('[TrainerMemberships] bypass upsert failed:', e);
+          errorHandler.warn('Trainer membership upsert failed (non-critical)', e, {
+            category: 'NETWORK',
+            component: 'MultiAuthLogin',
+            action: 'trainer-membership-upsert',
+          });
         }
 
         // 4) LocalStorage vervollständigen
-        localStorage.setItem('mp_current_game', trainerGameId);
-        localStorage.setItem('mp_current_role', 'TRAINER');
-        if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
+        safeLocalStorageSet('mp_current_game', trainerGameId, {
+          component: 'MultiAuthLogin',
+          action: 'persist-trainer-session',
+        });
+        safeLocalStorageSet('mp_current_role', 'TRAINER', {
+          component: 'MultiAuthLogin',
+          action: 'persist-trainer-session',
+        });
+        if (playerRow?.id) {
+          safeLocalStorageSet('mp_player_id', playerRow.id, {
+            component: 'MultiAuthLogin',
+            action: 'persist-trainer-session',
+          });
+        }
 
         // 5) Weiter in die App
         onSuccess(trainerGameId, 'TRAINER');
       } catch (e) {
-        console.error('[Trainer-Bypass] Fehler:', e);
+        errorHandler.error('Trainer bypass failed', e, {
+          category: 'AUTH',
+          component: 'MultiAuthLogin',
+          action: 'trainer-bypass',
+          metadata: { gameId: trainerGameId },
+        });
       }
     })();
   }, []);

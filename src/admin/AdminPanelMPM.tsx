@@ -7,6 +7,7 @@ import type { MultiplayerAdminSettings, Difficulty, InsolvencyMode, InsolvencyRu
 import type { ScoringWeights, RoundTimeMatrix } from '@/types/global';
 import ScenarioEditor from '@/admin/ScenarioEditor';
 import { parseScenarioFromText, compileScenario } from '@/services/scenarioLoader';
+import { errorHandler, safeJSONParse, safeLocalStorageGet, safeLocalStorageSet, safeDispatchEvent } from '@/utils/errorHandler';
 
 
 /** Schlanke, vom Einzelspielermodus getrennte Adminoberfläche NUR für den Mehrspielermodus (MPM).
@@ -145,19 +146,28 @@ function upgradeSettings(base: MultiplayerAdminSettings, raw: unknown): Multipla
 
 function loadSettings(): MultiplayerAdminSettings {
   const base = getDefaultSettings();
-  const saved = localStorage.getItem(LS_KEY);
+  const saved = safeLocalStorageGet(LS_KEY, {
+    component: 'AdminPanelMPM',
+    action: 'load-settings',
+  });
   if (saved) {
-    try {
-      const raw = JSON.parse(saved);
+    const raw = safeJSONParse(saved, null, {
+      component: 'AdminPanelMPM',
+      action: 'parse-settings',
+    });
+    if (raw) {
       return upgradeSettings(base, raw);
-    } catch {}
+    }
   }
   return base;
 }
 
 
 function saveSettings(s: MultiplayerAdminSettings) {
-  localStorage.setItem(LS_KEY, JSON.stringify(s));
+  safeLocalStorageSet(LS_KEY, JSON.stringify(s), {
+    component: 'AdminPanelMPM',
+    action: 'save-settings',
+  });
 }
 
 function applyToGlobals(s: MultiplayerAdminSettings) {
@@ -212,7 +222,10 @@ function applyToGlobals(s: MultiplayerAdminSettings) {
   if (s.insolvencyConfig && s.insolvencyConfig.rules) {
     g.__insolvencyRules = s.insolvencyConfig.rules;
   }
-  try { window.dispatchEvent(new CustomEvent('admin:settings', { detail: { multiplayerSettings: s } })); } catch {}
+  safeDispatchEvent(new CustomEvent('admin:settings', { detail: { multiplayerSettings: s } }), {
+    component: 'AdminPanelMPM',
+    action: 'dispatch-settings',
+  });
 }
 
 const box: React.CSSProperties = { border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, background: '#fff', marginTop: 16 };
