@@ -35,9 +35,8 @@ import { day12Blocks, day12News } from '@/data/scenario_day_12';
 import { day13Blocks, day13News } from '@/data/scenario_day_13';
 import { day14Blocks, day14News } from '@/data/scenario_day_14';
 import { generateDailyRandomValues } from '@/core/engine/gameEngine';
-import { determineEnding, EndingResult } from '@/core/engine/ending';
+import type { EndingResult } from '@/core/engine/ending';
 import { determineEndingWithContext } from '@/core/engine/ending_extras';
-import FinalModal from '@/components/dialogs/FinalModal';
 import type { GameState } from '@/core/engine/gameEngine';
 import { reducer, simulateNext } from '@/core/engine/reducers';
 import { KPI, DayNewsItem } from '@/core/models/domain';
@@ -325,7 +324,6 @@ export default function App({ onBackToHome }: AppProps) {
   const [daySeconds, setDaySeconds] = React.useState(DAY_SECONDS_DEFAULT);
   const [graceSeconds, setGraceSeconds] = React.useState(GRACE_SECONDS);
   const [finalShown, setFinalShown] = React.useState(false);
-  const [finalEnding, setFinalEnding] = React.useState<EndingResult | null>(null);
   const [showInsolvencyModal, setShowInsolvencyModal] = React.useState(false);
 
   // Attachment Modal State
@@ -490,7 +488,7 @@ export default function App({ onBackToHome }: AppProps) {
 
   // Attachment Handler
   const handleOpenAttachment = (filename: string) => {
-    let content = `Inhalt der Datei: ${filename}`;
+    const content = `Inhalt der Datei: ${filename}`;
     setAttachmentModalContent({ title: filename, content });
   };
 
@@ -520,10 +518,6 @@ export default function App({ onBackToHome }: AppProps) {
 
   // advanceDay: Schalter setzen -> NPC-Entscheidungen -> Tag weiter
   const advanceDay = React.useCallback(() => {
-    const myRoles = (state.playerRoles && state.playerRoles.length)
-      ? state.playerRoles
-      : [state.playerRole];
-
     // Flag direkt setzen (ohne Hilfsvariable)
     (globalThis as any).__playerIdleToday = !state.log.some(e =>
       e.day === state.day &&

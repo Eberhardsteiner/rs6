@@ -60,8 +60,7 @@ export default function AppWrapper() {
   };
 
   // Handler for single player onboarding completion
-  const handleSinglePlayerStart = (name: string, roles: string[]) => {
-    // Store name and roles if needed (e.g., in context or state)
+  const handleSinglePlayerStart = () => {
     setMode('singleplayer');
   };
 
