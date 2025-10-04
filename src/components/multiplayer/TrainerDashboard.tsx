@@ -6,11 +6,16 @@ import type { KPI, RoleId, DecisionBlock, DayNewsItem } from '@/core/models/doma
 // --- PDF-Export (pdfmake inkl. Fonts) ---
 import pdfMake from 'pdfmake/build/pdfmake.js';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts.js';
+
 // vfs initialisieren (verschiedene Bundler-Varianten absichern)
-(pdfMake as any).vfs =
-  (pdfFonts as any).default?.pdfMake?.vfs ||
-  (pdfFonts as any).pdfMake?.vfs ||
-  (pdfFonts as any).vfs;
+type PdfMakeWithVfs = typeof pdfMake & { vfs?: Record<string, string> };
+type PdfFontsModule = { default?: { pdfMake?: { vfs: Record<string, string> } }; pdfMake?: { vfs: Record<string, string> }; vfs?: Record<string, string> };
+
+(pdfMake as PdfMakeWithVfs).vfs =
+  (pdfFonts as PdfFontsModule).default?.pdfMake?.vfs ||
+  (pdfFonts as PdfFontsModule).pdfMake?.vfs ||
+  (pdfFonts as PdfFontsModule).vfs ||
+  {};
 
 /** NEU: Modal + Inhalte für Attachments (aus Data/ZIP) */
 import AttachmentModal from '@/components/dialogs/AttachmentModal';
@@ -46,32 +51,33 @@ interface Decision {
   block_id: string;
   option_id: string | null;
   custom_text: string | null;
-  kpi_delta: any;
+  kpi_delta: Partial<KPI> | null;
   created_at: string;
   player?: { name: string; role: RoleId };
+  decision_metadata?: { type?: string; [key: string]: unknown };
+  metadata?: { type?: string; [key: string]: unknown };
 }
 
 const ROLES: RoleId[] = ['CEO', 'CFO', 'OPS', 'HRLEGAL'];
 
-// Tag->Daten Mappings
+// Tag->Daten Mappings (DecisionBlock[] wird zur Laufzeit validiert)
 const blocksByDay: Record<number, DecisionBlock[]> = {
-   1: day1Blocks as any,  2: day2Blocks as any,  3: day3Blocks as any,  4: day4Blocks as any,
-   5: day5Blocks as any,  6: day6Blocks as any,  7: day7Blocks as any,  8: day8Blocks as any,
-   9: day9Blocks as any, 10: day10Blocks as any, 11: day11Blocks as any, 12: day12Blocks as any,
-  13: day13Blocks as any,14: day14Blocks as any
+   1: day1Blocks as DecisionBlock[],  2: day2Blocks as DecisionBlock[],  3: day3Blocks as DecisionBlock[],  4: day4Blocks as DecisionBlock[],
+   5: day5Blocks as DecisionBlock[],  6: day6Blocks as DecisionBlock[],  7: day7Blocks as DecisionBlock[],  8: day8Blocks as DecisionBlock[],
+   9: day9Blocks as DecisionBlock[], 10: day10Blocks as DecisionBlock[], 11: day11Blocks as DecisionBlock[], 12: day12Blocks as DecisionBlock[],
+  13: day13Blocks as DecisionBlock[],14: day14Blocks as DecisionBlock[]
 };
 const newsByDay: Record<number, DayNewsItem[]> = {
-   1: day1News as any,  2: day2News as any,  3: day3News as any,  4: day4News as any,
-   5: day5News as any,  6: day6News as any,  7: day7News as any,  8: day8News as any,
-   9: day9News as any, 10: day10News as any, 11: day11News as any, 12: day12News as any,
-  13: day13News as any,14: day14News as any
+   1: day1News as DayNewsItem[],  2: day2News as DayNewsItem[],  3: day3News as DayNewsItem[],  4: day4News as DayNewsItem[],
+   5: day5News as DayNewsItem[],  6: day6News as DayNewsItem[],  7: day7News as DayNewsItem[],  8: day8News as DayNewsItem[],
+   9: day9News as DayNewsItem[], 10: day10News as DayNewsItem[], 11: day11News as DayNewsItem[], 12: day12News as DayNewsItem[],
+  13: day13News as DayNewsItem[],14: day14News as DayNewsItem[]
 };
 
 // Optional: Szenario-Overrides (wie im MP-View)
-function readScenarioOverride(kind: 'blocks' | 'news' | 'attachments', day: number): any[] | null {
+function readScenarioOverride(kind: 'blocks' | 'news' | 'attachments', day: number): unknown[] | null {
   try {
-    const g: any = globalThis as any;
-    const byDay = g?.__scenarioOverrides?.[kind];
+    const byDay = globalThis.__scenarioOverrides?.[kind];
     if (byDay && Array.isArray(byDay[day])) return byDay[day];
     const raw = localStorage.getItem('scenario:overrides');
     if (!raw) return null;
@@ -99,17 +105,17 @@ function aggregateImpactByRole(list: Decision[]) {
   for (const d of list) {
     const r = d.player?.role as RoleId | undefined;
     if (!r || !acc[r] || !d.kpi_delta) continue;
-    const k = d.kpi_delta as any;
-    acc[r].cashEUR             += Number(k.cashEUR || 0);
-    acc[r].profitLossEUR       += Number(k.profitLossEUR || 0);
-    acc[r].customerLoyalty     += Number(k.customerLoyalty || 0);
-    acc[r].bankTrust           += Number(k.bankTrust || 0);
-    acc[r].workforceEngagement += Number(k.workforceEngagement || 0);
-    acc[r].publicPerception    += Number(k.publicPerception || 0);
+    const k = d.kpi_delta;
+    acc[r].cashEUR             += Number(k?.cashEUR || 0);
+    acc[r].profitLossEUR       += Number(k?.profitLossEUR || 0);
+    acc[r].customerLoyalty     += Number(k?.customerLoyalty || 0);
+    acc[r].bankTrust           += Number(k?.bankTrust || 0);
+    acc[r].workforceEngagement += Number(k?.workforceEngagement || 0);
+    acc[r].publicPerception    += Number(k?.publicPerception || 0);
   }
 
   // Gewichte aus AdminPanel (Standard 25/25/25/25)
-  const W = (globalThis as any).__scoringWeights || {
+  const W = globalThis.__scoringWeights || {
     bankTrust: 25, publicPerception: 25, customerLoyalty: 25, workforceEngagement: 25
   };
 
@@ -124,7 +130,7 @@ function aggregateImpactByRole(list: Decision[]) {
       );
       return [r, { ...x, points }];
     })
-  ) as Record<RoleId, any>;
+  ) as Record<RoleId, { cashEUR: number; profitLossEUR: number; customerLoyalty: number; bankTrust: number; workforceEngagement: number; publicPerception: number; points: number }>;
 
   return withPoints;
 }
@@ -135,11 +141,13 @@ function aggregateImpactByRole(list: Decision[]) {
    ────────────────────────────────────────────────────────────────────────── */
 const OPTION_KEYS = ['options','choices','alternatives','answers','actions','variants','opts'];
 
-function getBlockId(b: any): string {
-  return (b?.id ?? b?.key ?? b?.slug ?? b?.code ?? b?.title ?? '—') as string;
+function getBlockId(b: unknown): string {
+  const block = b as Record<string, unknown> | null | undefined;
+  return String(block?.id ?? block?.key ?? block?.slug ?? block?.code ?? block?.title ?? '—');
 }
-function getBlockRole(b: any): string {
-  return (b?.role ?? b?.assignee ?? b?.owner ?? '—') as string;
+function getBlockRole(b: unknown): string {
+  const block = b as Record<string, unknown> | null | undefined;
+  return String(block?.role ?? block?.assignee ?? block?.owner ?? '—');
 }
 // ── EINMALIG: Map-Utilities (nicht doppelt definieren) ─────────────────────
 function mapIntensity(factor: number): 'low'|'normal'|'high' {
@@ -161,7 +169,7 @@ const DECISION_CONFIRM_KEYS = [
   'DECISION_DONE','CONFIRM_DECISIONS','DECISIONS_SUBMIT','DAY_DONE','END_TURN','DECISION_MADE'
 ];
 
-function DecisionStatusBar({ decisionsToday }: { decisionsToday: Array<any> }) {
+function DecisionStatusBar({ decisionsToday }: { decisionsToday: Decision[] }) {
   type R = 'CFO'|'HRLEGAL'|'OPS';
   const ok = (role: R) => {
     return (decisionsToday || []).some(d => {
@@ -224,16 +232,17 @@ type Attachment = {
 };
 const ATTACHMENT_KEYS = ['attachments','files','documents','links','assets','annex','appendix'];
 
-function normalizeAttachment(a: any, idx: number): Attachment | null {
+function normalizeAttachment(a: unknown, idx: number): Attachment | null {
   // NEU: String-Schlüssel (z. B. "D01_INVESTOR_MAIL") -> aus attachmentContents lesen
   if (typeof a === 'string') {
     const key = a.trim();
-    const meta: any = (attachmentContents as any)?.[key] || {};
+    const contents = attachmentContents as Record<string, { title?: string; type?: string; size?: number }>;
+    const meta = contents[key] || {};
     return {
       id: key,
-      title: (meta.title || key) as string,
-      url: `inline:${key}`,                  // Kennzeichnung: Inhalt kommt aus attachmentContents
-      type: (meta.type || null) as any,
+      title: String(meta.title || key),
+      url: `inline:${key}`,
+      type: meta.type || null,
       size: (typeof meta.size === 'number' ? meta.size : null),
       from: 'dataset'
     };
@@ -254,13 +263,14 @@ function normalizeAttachment(a: any, idx: number): Attachment | null {
   };
 }
 
-function extractAttachmentsFromAny(obj: any): Attachment[] {
+function extractAttachmentsFromAny(obj: unknown): Attachment[] {
   if (!obj || typeof obj !== 'object') return [];
+  const record = obj as Record<string, unknown>;
   for (const k of ATTACHMENT_KEYS) {
-    const arr = obj?.[k];
-    if (Array.isArray(arr)) return arr.map((v: any, i: number) => normalizeAttachment(v, i)).filter(Boolean) as Attachment[];
+    const arr = record[k];
+    if (Array.isArray(arr)) return arr.map((v: unknown, i: number) => normalizeAttachment(v, i)).filter(Boolean) as Attachment[];
   }
-  const single = obj?.attachment || obj?.file || obj?.document || obj?.link;
+  const single = record.attachment || record.file || record.document || record.link;
   if (single) { const out = normalizeAttachment(single, 0); return out ? [out] : []; }
   return [];
 }
@@ -288,9 +298,8 @@ function stripInline(u?: string | null) {
 // ── Timer/Deadline lesen (tolerant ggü. Quellen) ─────────────
 function readDayStartTs(day: number): number | null {
   try {
-    const g: any = globalThis as any;
-    const keysIso = ['__dayStart', '__currentDayStart', '__mpDayStart', '__gameDayStart', '__roundStartIso'];
-    for (const k of keysIso) { const v = g?.[k]; if (typeof v === 'string') { const t = +new Date(v); if (!isNaN(t)) return t; } }
+    const keysIso = ['__dayStart', '__currentDayStart', '__mpDayStart', '__gameDayStart', '__roundStartIso'] as const;
+    for (const k of keysIso) { const v = globalThis[k]; if (typeof v === 'string') { const t = +new Date(v); if (!isNaN(t)) return t; } }
     const keysNum = ['__dayStartTs', '__startTs'];
     for (const k of keysNum) { const v = g?.[k]; if (typeof v === 'number' && isFinite(v)) return v; }
     const raw = localStorage.getItem('mp:dayStartIso') || localStorage.getItem('mp:day_start');
