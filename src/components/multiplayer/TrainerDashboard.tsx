@@ -300,8 +300,8 @@ function readDayStartTs(day: number): number | null {
   try {
     const keysIso = ['__dayStart', '__currentDayStart', '__mpDayStart', '__gameDayStart', '__roundStartIso'] as const;
     for (const k of keysIso) { const v = globalThis[k]; if (typeof v === 'string') { const t = +new Date(v); if (!isNaN(t)) return t; } }
-    const keysNum = ['__dayStartTs', '__startTs'];
-    for (const k of keysNum) { const v = g?.[k]; if (typeof v === 'number' && isFinite(v)) return v; }
+    const keysNum = ['__dayStartTs', '__startTs'] as const;
+    for (const k of keysNum) { const v = globalThis[k]; if (typeof v === 'number' && isFinite(v)) return v; }
     const raw = localStorage.getItem('mp:dayStartIso') || localStorage.getItem('mp:day_start');
     if (raw) { const t = +new Date(raw); if (!isNaN(t)) return t; }
   } catch {}
@@ -310,14 +310,13 @@ function readDayStartTs(day: number): number | null {
 
 function readDayDeadlineTs(day: number): number | null {
   try {
-    const g: any = globalThis as any;
-    const keysIso = ['__dayDeadline', '__currentDayDeadline', '__mpDayEndsAt', '__dayEndsAt', '__roundDeadlineIso'];
-    for (const k of keysIso) { const v = g?.[k]; if (typeof v === 'string') { const t = +new Date(v); if (!isNaN(t)) return t; } }
-    const keysNum = ['__deadlineTs', '__dayDeadlineTs', '__roundDeadlineTs'];
-    for (const k of keysNum) { const v = g?.[k]; if (typeof v === 'number' && isFinite(v)) return v; }
+    const keysIso = ['__dayDeadline', '__currentDayDeadline', '__mpDayEndsAt', '__dayEndsAt', '__roundDeadlineIso'] as const;
+    for (const k of keysIso) { const v = globalThis[k]; if (typeof v === 'string') { const t = +new Date(v); if (!isNaN(t)) return t; } }
+    const keysNum = ['__deadlineTs', '__dayDeadlineTs', '__roundDeadlineTs'] as const;
+    for (const k of keysNum) { const v = globalThis[k]; if (typeof v === 'number' && isFinite(v)) return v; }
     // aus Start + Dauer rekonstruieren
     const start = readDayStartTs(day);
-    const durMin = g?.__dayDurationMin ?? g?.__multiplayerSettings?.dayDurationMin ?? g?.__multiplayerSettings?.roundMinutes ?? null;
+    const durMin = globalThis.__dayDurationMin ?? globalThis.__multiplayerSettings?.dayDurationMin ?? globalThis.__multiplayerSettings?.roundMinutes ?? null;
     if (start && typeof durMin === 'number' && isFinite(durMin)) return start + durMin * 60 * 1000;
     const raw = localStorage.getItem('mp:deadlineIso') || localStorage.getItem('mp:dayDeadline') || localStorage.getItem('mp_day_deadline');
       if (raw) { const t = +new Date(raw); if (!isNaN(t)) return t; }
@@ -327,34 +326,41 @@ function readDayDeadlineTs(day: number): number | null {
 
 
 
-function getBlockOptions(b: any): any[] {
+function getBlockOptions(b: unknown): unknown[] {
+  const block = b as Record<string, unknown> | null | undefined;
   for (const k of OPTION_KEYS) {
-    if (Array.isArray(b?.[k])) return b[k] as any[];
+    if (Array.isArray(block?.[k])) return block[k] as unknown[];
   }
   return [];
 }
-function getOptionId(o: any, idx: number): string {
-  return (o?.id ?? o?.option_id ?? o?.key ?? o?.value ?? o?.code ?? String(idx + 1)) + '';
+function getOptionId(o: unknown, idx: number): string {
+  const opt = o as Record<string, unknown> | null | undefined;
+  return String(opt?.id ?? opt?.option_id ?? opt?.key ?? opt?.value ?? opt?.code ?? String(idx + 1));
 }
-function getOptionTitle(o: any, fallbackId: string): string {
-  return (o?.title ?? o?.label ?? o?.text ?? o?.name ?? `Option ${fallbackId}`) + '';
+function getOptionTitle(o: unknown, fallbackId: string): string {
+  const opt = o as Record<string, unknown> | null | undefined;
+  return String(opt?.title ?? opt?.label ?? opt?.text ?? opt?.name ?? `Option ${fallbackId}`);
 }
-function getOptionDescription(o: any): string {
-  return (o?.description ?? o?.desc ?? o?.subtitle ?? '') + '';
+function getOptionDescription(o: unknown): string {
+  const opt = o as Record<string, unknown> | null | undefined;
+  return String(opt?.description ?? opt?.desc ?? opt?.subtitle ?? '');
 }
-function getOptionKpi(o: any): any {
-  return (o?.kpi ?? o?.kpi_delta ?? o?.kpiDelta ?? o?.impact ?? null);
+function getOptionKpi(o: unknown): Partial<KPI> | null {
+  const opt = o as Record<string, unknown> | null | undefined;
+  const kpi = opt?.kpi ?? opt?.kpi_delta ?? opt?.kpiDelta ?? opt?.impact ?? null;
+  return kpi as Partial<KPI> | null;
 }
-function formatKpiShort(k: any): string {
+function formatKpiShort(k: unknown): string {
   if (!k || typeof k !== 'object') return '—';
-  const n = (x: any) => (x == null ? 0 : Number(x));
+  const kpi = k as Partial<KPI>;
+  const n = (x: unknown) => (x == null ? 0 : Number(x));
   const parts = [
-    `Cash ${Math.round(n(k.cashEUR))}€`,
-    `P&L ${Math.round(n(k.profitLossEUR))}€`,
-    `Kunden ${Math.round(n(k.customerLoyalty))}`,
-    `Bank ${Math.round(n(k.bankTrust))}`,
-    `Workforce ${Math.round(n(k.workforceEngagement))}`,
-    `Öffentl. ${Math.round(n(k.publicPerception))}`
+    `Cash ${Math.round(n(kpi.cashEUR))}€`,
+    `P&L ${Math.round(n(kpi.profitLossEUR))}€`,
+    `Kunden ${Math.round(n(kpi.customerLoyalty))}`,
+    `Bank ${Math.round(n(kpi.bankTrust))}`,
+    `Workforce ${Math.round(n(kpi.workforceEngagement))}`,
+    `Öffentl. ${Math.round(n(kpi.publicPerception))}`
   ];
 
  
@@ -364,7 +370,7 @@ function formatKpiShort(k: any): string {
   
   // Prüfen, ob alles 0 ist -> dann auf JSON zurückfallen
   const allZero = parts.every(p => / 0(€)?$/.test(p));
-  return allZero ? JSON.stringify(k) : parts.join(' · ');
+  return allZero ? JSON.stringify(kpi) : parts.join(' · ');
 }
 
 
@@ -378,7 +384,7 @@ export default function TrainerDashboard({
   onLeave: () => void;
 }) {
   const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<Array<{ id: string; name: string; role: RoleId }>>([]);
   const [currentDay, setCurrentDay] = useState(1);
   const [gameKpis, setGameKpis] = useState<KPI | null>(null);
   const [error, setError] = useState<string>('');
@@ -447,7 +453,7 @@ const copyGameId = useCallback(async () => {
   const isDayComplete = useMemo(() => {
     if (!blocksForDay || blocksForDay.length === 0) return false;
     // Ein Tag gilt hier als „abgeschlossen“, wenn für jeden Block mind. eine Entscheidung vorliegt
-    return blocksForDay.every(b => decisionsByBlockToday.has(getBlockId(b as any)));
+    return blocksForDay.every(b => decisionsByBlockToday.has(getBlockId(b)));
   }, [blocksForDay, decisionsByBlockToday]);
 
   // „Verlassen/Abmelden“: Supabase-Session beenden + Bypass/Flags löschen
@@ -474,7 +480,7 @@ const copyGameId = useCallback(async () => {
       setPlayers((playersData || []).filter((p) => p.role !== 'TRAINER'));
 
       // Entscheidungen mit eingebetteter Spielerinfo
-      let decisionsData: any[] = [];
+      let decisionsData: Decision[] = [];
       try {
         const res = await supabase
           .from('decisions')
@@ -482,7 +488,7 @@ const copyGameId = useCallback(async () => {
           .eq('game_id', gameId)
           .order('created_at', { ascending: false });
         if (res.error) throw res.error;
-        decisionsData = (res.data || []).map((d: any) => ({
+        decisionsData = (res.data || []).map((d: Record<string, unknown>) => ({
           ...d,
           player: d.players || d.player || null
         }));
@@ -494,11 +500,11 @@ const copyGameId = useCallback(async () => {
           .eq('game_id', gameId)
           .order('created_at', { ascending: false });
         if (e2) throw e2;
-        const map = new Map<string, any>();
-        (playersData || []).forEach((p) => map.set(p.id, p));
-        decisionsData = (d2 || []).map((d) => ({ ...d, player: map.get(d.player_id) || null }));
+        const map = new Map<string, { name: string; role: RoleId }>();
+        (playersData || []).forEach((p) => map.set(p.id, { name: p.name, role: p.role }));
+        decisionsData = (d2 || []).map((d) => ({ ...d, player: map.get(d.player_id) || null })) as Decision[];
       }
-      setDecisions(decisionsData as any);
+      setDecisions(decisionsData);
 
       // Spielstand
       const { data: gameData, error: gErr } = await supabase
@@ -510,10 +516,10 @@ const copyGameId = useCallback(async () => {
 
       console.log('[TrainerDashboard] Geladene Spielstanddaten:', gameData);
 
-      const kpiValues = (gameData as any)?.kpi_values;
+      const kpiValues = gameData?.kpi_values as KPI | null | undefined;
       console.log('[TrainerDashboard] KPI-Werte aus DB:', kpiValues);
 
-      setCurrentDay((gameData as any)?.current_day || 1);
+      setCurrentDay((gameData?.current_day as number | undefined) || 1);
 
       // Validierung und Initialisierung der KPI-Werte
       if (!kpiValues || typeof kpiValues !== 'object' || Object.keys(kpiValues).length === 0) {
@@ -553,9 +559,10 @@ const copyGameId = useCallback(async () => {
       }
 
       setIsLoadingKpis(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[TrainerDashboard] Fehler beim Laden der Daten:', e);
-      setError(e?.message || 'Zugriff verweigert (RLS?)');
+      const error = e as { message?: string };
+      setError(error?.message || 'Zugriff verweigert (RLS?)');
       setIsLoadingKpis(false);
     }
   }, [gameId]);
@@ -621,9 +628,10 @@ try {
   // Data/ZIP: anhand der Schlüssel/Metadaten in attachmentContents dem Tag d zuordnen
   let fromDataset: Attachment[] = [];
   try {
-    const allKeys = Object.keys((attachmentContents as any) || {});
+    const contents = attachmentContents as Record<string, { day?: number; title?: string; [key: string]: unknown }>;
+    const allKeys = Object.keys(contents || {});
     const keysForDay = allKeys.filter((key) => {
-      const meta: any = (attachmentContents as any)[key] || {};
+      const meta = contents[key] || {};
       if (typeof meta.day === 'number') return meta.day === d; // 1. harte day-Meta
       // 2. Heuristik: "day01", "d01", "D1", "Tag 1" im Key oder im Titel
       const inKey   = key.match(/(?:^|[_-])(?:d|day)\s*0?(\d{1,2})(?:[_-]|$)/i);
@@ -647,8 +655,7 @@ try {
   try {
     let seed: number | null = null;
     try {
-      const g: any = globalThis as any;
-      if (typeof g.__gameSeed === 'number') seed = g.__gameSeed;
+      if (typeof globalThis.__gameSeed === 'number') seed = globalThis.__gameSeed;
       else {
         const raw = localStorage.getItem('admin:seed');
         if (raw != null) seed = Number(raw);
@@ -658,38 +665,37 @@ try {
     const baseCash = gameKpis?.cashEUR ?? 100000;
     if (typeof seed === 'number' && Number.isFinite(seed)) {
       const rng = makeRng(seed + d * 1000);
-      (globalThis as any).__rng = rng;
+      globalThis.__rng = rng;
     }
     const rv = generateDailyRandomValues(baseCash);
-    setDailyRandoms(rv as any);
+    setDailyRandoms(rv);
 
     // Zufalls‑News optional – aus newsPool via SP‑Generator, inkl. KPI‑Impact
-    const g2: any = globalThis as any;
-    const useRandomNews = !!g2.__randomNews;
+    const useRandomNews = !!globalThis.__randomNews;
     let dayRandomNews: DayNewsItem[] = [];
 
     if (useRandomNews) {
       // Seed (deterministisch), separate RNG nur für News:
       const s = (typeof seed === 'number' && Number.isFinite(seed)) ? seed : Math.floor(Math.random() * 1e9);
-      const prevRng = (globalThis as any).__rng;
+      const prevRng = globalThis.__rng;
 
       // Admin‑Intensität → Generator‑Intensität
-      const useIntensity = !!g2.__featureEventIntensity;
-      const arr = Array.isArray(g2.__eventIntensityByDay) ? g2.__eventIntensityByDay : [];
+      const useIntensity = !!globalThis.__featureEventIntensity;
+      const arr = Array.isArray(globalThis.__eventIntensityByDay) ? globalThis.__eventIntensityByDay : [];
       const intensityStr = mapIntensity(useIntensity ? (Number(arr[d - 1]) || 1) : 1);
-      const diff = (g2.__mpDifficulty || g2.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
+      const diff = (globalThis.__mpDifficulty || globalThis.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
       const [minN, maxN] = diff === 'hard' ? [5,6] : (diff === 'easy' ? [1,2] : [3,4]);
       const target = minN + Math.floor(Math.random() * (maxN - minN + 1));
 
-      const itemsAll: any[] = [];
+      const itemsAll: Array<{ id: string; title: string; text: string; category: string; severity: 'low'|'mid'|'high'; impact: Partial<KPI>; roles?: string[] }> = [];
      const seen = new Set(playedTitlesRef.current);
       let attempts = 0;
       while (itemsAll.length < target && attempts < 12) {
-        (globalThis as any).__rng = makeRng(s + d * 1000 + 500 + attempts * 97);
+        globalThis.__rng = makeRng(s + d * 1000 + 500 + attempts * 97);
         const batch = generateRandomNewsForDay(undefined, {
           enabled: true, intensity: intensityStr, difficulty: diff, day: d,
           alreadyPlayed: Array.from(seen), respectRoles: false, roleFilter: ['CEO','CFO','OPS','HRLEGAL']
-        }) as any[];
+        });
         for (const n of (batch || [])) {
           if (!seen.has(n.title) && itemsAll.length < target) {
             itemsAll.push(n); seen.add(n.title);
@@ -697,17 +703,17 @@ try {
         }
         attempts++;
       }
-      (globalThis as any).__rng = prevRng;
+      globalThis.__rng = prevRng;
 
-      dayRandomNews = (itemsAll as any[]).map((n: any) => ({
-        id: n.id, title: n.title, text: n.text, source: n.category,
-        severity: mapSeverityForUi(n.severity), impact: n.impact, roles: n.roles ?? null
+      dayRandomNews = itemsAll.map((n) => ({
+        id: n.id, title: n.title, content: n.text, source: n.category as DayNewsItem['source'],
+        severity: mapSeverityForUi(n.severity), impact: n.impact, day: d
       }));
-      playedTitlesRef.current.push(...(itemsAll as any[]).map(n => n.title));
+      playedTitlesRef.current.push(...itemsAll.map(n => n.title));
     }
 
     // Einmalig am Ende setzen (leer, falls useRandomNews=false)
-    setRandomNewsForDay(dayRandomNews as any);
+    setRandomNewsForDay(dayRandomNews);
   } catch (e) {
     console.warn('[Trainer] Randoms/RandomNews konnten nicht berechnet werden:', e);
     setDailyRandoms(null);
@@ -739,9 +745,10 @@ try {
         if (insErr) throw insErr;
 
         setHintDrafts((prev) => ({ ...prev, [playerId]: '' }));
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error('[TrainerHint] insert failed', e);
-        setError(e?.message || 'Hinweis konnte nicht gesendet werden.');
+        const error = e as { message?: string };
+        setError(error?.message || 'Hinweis konnte nicht gesendet werden.');
       }
     },
     [gameId, hintDrafts]
@@ -768,9 +775,10 @@ try {
       if (insErr) throw insErr;
 
       setBroadcastAll('');
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[TrainerHint] broadcast failed', e);
-      setError(e?.message || 'Broadcast konnte nicht gesendet werden.');
+      const error = e as { message?: string };
+      setError(error?.message || 'Broadcast konnte nicht gesendet werden.');
     }
   }, [broadcastAll, gameId, players]);
 
@@ -826,7 +834,7 @@ try {
           )}
 
           {/* Status-Lampen */}
-          <DecisionStatusBar decisionsToday={decisionsToday as any} />
+          <DecisionStatusBar decisionsToday={decisionsToday} />
 
           {error && <div style={{ marginTop: 6, color: '#fee2e2' }}>⚠ {error}</div>}
         </div>
@@ -844,7 +852,7 @@ try {
       {/* Zugangsdaten (optional, aus AdminPanelMPM) */}
       {(() => {
         try {
-          const admin = (globalThis as any).__multiplayerSettings
+          const admin = globalThis.__multiplayerSettings
             || JSON.parse(localStorage.getItem('admin:multiplayer') || '{}');
           if (admin?.authMode === 'preset-credentials' && admin?.presetCredentials) {
             const creds = admin.presetCredentials as Record<string, { username: string; password: string }>;
@@ -1123,12 +1131,12 @@ try {
                 const rows = ROLES.map(r => ({ r, ...agg[r] })).sort((a, b) => b.points - a.points);
 
                 // Daten für PDF: Blöcke & Optionen (kompakt formatiert)
-                const blockRowsForPdf = (blocksForDay as any[]).map((b: any) => {
+                const blockRowsForPdf = blocksForDay.map((b) => {
                   const bid = getBlockId(b);
                   const brole = getBlockRole(b);
                   const opts = getBlockOptions(b);
                   const optLines = opts.length
-                    ? opts.map((o: any, i: number) => {
+                    ? opts.map((o: unknown, i: number) => {
                         const oid = getOptionId(o, i);
                         const title = getOptionTitle(o, oid);
                         const k = getOptionKpi(o);
@@ -1148,7 +1156,7 @@ try {
                   return [bid, `${p?.name || '—'} (${p?.role || '—'})`, optId, time, kpi];
                 });
 
-                const doc: any = {
+                const doc: Record<string, unknown> = {
                   pageMargins: [40, 40, 40, 40],
                   content: [
                     { text: 'Trainer*in-Protokoll', style: 'h1' },
@@ -1207,11 +1215,11 @@ try {
                    },
                     
                 // Zufalls‑News (gesamt) inkl. Rollen & KPI-Δ
-{ text: `Zufalls-News (rollenbasiert${ (globalThis as any).__roleBasedRandomNews ? ' – Rollensicht AKTIV' : ' – Rollensicht INAKTIV' })`,
+{ text: `Zufalls-News (rollenbasiert${ globalThis.__roleBasedRandomNews ? ' – Rollensicht AKTIV' : ' – Rollensicht INAKTIV' })`,
   style: 'h3', margin: [0, 12, 0, 4] },
 { ul: (randomNewsForDay || []).map(n => {
-    const k = (n as any).impact ? formatKpiShort((n as any).impact) : '—';
-    const rl = rolesLabel((n as any).roles);
+    const k = (n as DayNewsItem & { impact?: Partial<KPI> }).impact ? formatKpiShort((n as DayNewsItem & { impact?: Partial<KPI> }).impact) : '—';
+    const rl = rolesLabel((n as DayNewsItem & { roles?: string[] }).roles);
     return `${n.title} (${n.severity}) • Rollen: ${rl} • KPI Δ: ${k}`;
   })
 },
@@ -1224,10 +1232,10 @@ try {
     body: [
       ['Rolle', 'Zufalls-News'],
       ...(['CEO','CFO','OPS','HRLEGAL'] as RoleId[]).map(r => {
-        const roleOn = !!((globalThis as any).__roleBasedRandomNews);
+        const roleOn = !!(globalThis.__roleBasedRandomNews);
         const list = (randomNewsForDay || [])
           .filter(n => {
-            const rs = (n as any).roles as string[] | undefined;
+            const rs = (n as DayNewsItem & { roles?: string[] }).roles as string[] | undefined;
             return roleOn ? (!rs || (Array.isArray(rs) && rs.includes(r))) : true;
           })
           .map(n => `${n.title} (${n.severity})`)
@@ -1307,7 +1315,7 @@ try {
                 };
 
                 pdfMake.createPdf(doc).download(`Trainer_${gameId.substring(0, 8)}_Tag${currentDay}.pdf`);
-              } catch (e: any) {
+              } catch (e: unknown) {
                 alert('Export fehlgeschlagen: ' + (e?.message || 'Unbekannter Fehler'));
               }
             }}
@@ -1344,7 +1352,7 @@ try {
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
                     Quelle: {n.source || '—'} • Intensität: {n.severity ?? '—'}
                   </div>
-                  {(n as any).content && <div style={{ fontSize: 13, marginTop: 4 }}>{(n as any).content}</div>}
+                  {n.content && <div style={{ fontSize: 13, marginTop: 4 }}>{n.content}</div>}
                 </li>
               ))}
             </ul>
@@ -1362,16 +1370,16 @@ try {
                 <li key={n.id || n.title} style={{ marginBottom: 8 }}>
                   <div style={{ fontWeight: 600 }}>{n.title}</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    Quelle: {n.source || '—'} • Intensität: {n.severity ?? '—'} {(n as any).roles ? `• Rollen: ${rolesLabel((n as any).roles)}` : '• Rollen: alle'}
+                    Quelle: {n.source || '—'} • Intensität: {n.severity ?? '—'} {(n as DayNewsItem & { roles?: string[] }).roles ? `• Rollen: ${rolesLabel((n as DayNewsItem & { roles?: string[] }).roles)}` : '• Rollen: alle'}
                   </div>
-                  {(n as any).impact && (
+                  {(n as DayNewsItem & { impact?: Partial<KPI> }).impact && (
                     <div style={{ fontSize: 12, marginTop: 4 }}>
                       KPI Δ: <code style={{ fontSize: 12, background: '#f3f4f6', padding: '2px 6px', borderRadius: 4 }}>
-                        {formatKpiShort((n as any).impact)}
+                        {formatKpiShort((n as DayNewsItem & { impact?: Partial<KPI> }).impact)}
                       </code>
                     </div>
                   )}
-                  {(n as any).content && <div style={{ fontSize: 13, marginTop: 4 }}>{(n as any).content}</div>}
+                  {n.content && <div style={{ fontSize: 13, marginTop: 4 }}>{n.content}</div>}
                 </li>
               ))}
             </ul>
@@ -1405,7 +1413,7 @@ try {
             <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
               {attachmentsForDay.map((a, idx) => {
                 const key = stripInline(a.url);
-                const inDataset = a?.url?.startsWith('inline:') && (attachmentContents as any)[key];
+                const inDataset = a?.url?.startsWith('inline:') && attachmentContents as Record<string, { title: string; content: string; type?: string }>[key];
 
                 return (
                   <li key={a.id || a.url || idx} style={{ marginBottom: 8 }}>
@@ -1428,7 +1436,7 @@ try {
                           {(
                             a.type ||
                             guessExt(a.url) ||
-                            (inDataset ? ((attachmentContents as any)[key]?.type || '') : '')
+                            (inDataset ? ((attachmentContents as Record<string, { title: string; content: string; type?: string }>)[key]?.type || '') : '')
                           )
                             ?.toString()
                             ?.toUpperCase() || '—'}
@@ -1555,7 +1563,7 @@ try {
             <div style={{ color: '#6b7280' }}>Keine Blöcke für diesen Tag.</div>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
-              {(blocksForDay as any[]).map((b) => {
+              {blocksForDay.map((b) => {
                 const bid = getBlockId(b);
                 const brole = getBlockRole(b);
                 const opts = getBlockOptions(b);
@@ -1567,7 +1575,7 @@ try {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <div>
                           <strong style={{ marginRight: 8 }}>{brole || '—'}</strong>
-                          <span style={{ color: '#374151' }}>{(b as any).title || bid}</span>
+                          <span style={{ color: '#374151' }}>{b.title || bid}</span>
                         </div>
                         <div style={{ fontSize: 12, color: '#6b7280' }}>ID: {bid}</div>
                       </div>
@@ -1587,7 +1595,7 @@ try {
                                 </tr>
                               </thead>
                               <tbody>
-                                {opts.map((o: any, i: number) => {
+                                {opts.map((o: unknown, i: number) => {
                                   const oid = getOptionId(o, i);
                                   const title = getOptionTitle(o, oid);
                                   const desc = getOptionDescription(o);
@@ -1753,7 +1761,7 @@ try {
             publicPerception: 'Öffentliche Wahrnehmung'
           };
 
-          const formatValue = (key: string, val: any) => {
+          const formatValue = (key: string, val: unknown) => {
             if (key === 'cashEUR' || key === 'profitLossEUR') {
               return `${Number(val || 0).toLocaleString('de-DE')} €`;
             }
@@ -1865,10 +1873,10 @@ try {
         </div>
       )}
                     {/* Attachment-Modal (Inhalte aus attachmentContents) */}
-      {showAttachment && (attachmentContents as any)[showAttachment] && (
+      {showAttachment && attachmentContents as Record<string, { title: string; content: string; type?: string }>[showAttachment] && (
         <AttachmentModal
-          title={(attachmentContents as any)[showAttachment].title}
-          content={(attachmentContents as any)[showAttachment].content}
+          title={attachmentContents as Record<string, { title: string; content: string; type?: string }>[showAttachment].title}
+          content={attachmentContents as Record<string, { title: string; content: string; type?: string }>[showAttachment].content}
           onClose={() => setShowAttachment(null)}
         />
       )}
