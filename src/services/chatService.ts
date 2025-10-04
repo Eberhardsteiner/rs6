@@ -271,7 +271,8 @@ export class ChatService {
       CEO: '#0ea5e9',
       CFO: '#10b981',
       OPS: '#f59e0b',
-      HRLEGAL: '#8b5cf6'
+      HRLEGAL: '#8b5cf6',
+      TRAINER: '#1e40af'
     };
 
     let displayName = 'System';
@@ -289,10 +290,11 @@ export class ChatService {
     } else if (message.player) {
       displayName = message.player.name;
       if (message.player.role) {
-        displayName += ` (${message.player.role})`;
-        color = roleColors[message.player.role];
+        const roleUpper = message.player.role.toUpperCase() as RoleId;
+        displayName += ` (${roleUpper})`;
+        color = roleColors[roleUpper] || color;
       }
-      
+
       if (message.metadata?.is_private) {
         icon = '🔒';
       }

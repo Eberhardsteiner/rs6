@@ -244,11 +244,6 @@ export class MultiplayerService {
         throw new Error('Spiel konnte nicht erstellt werden: ' + (gameError?.message || 'Unknown error'));
       }
 
-      if (gameError) {
-        console.error('Game creation error:', gameError);
-        throw new Error('Spiel konnte nicht erstellt werden: ' + gameError.message);
-      }
-
       // Als Host beitreten - NUR mit existierenden Spalten
       const { data: player, error: playerError } = await supabase
         .from('players')
@@ -268,12 +263,6 @@ export class MultiplayerService {
         // Cleanup: Game löschen wenn Player nicht erstellt werden kann
         await supabase.from('games').delete().eq('id', game.id);
         throw new Error('Spieler konnte nicht erstellt werden: ' + (playerError?.message || 'Unknown error'));
-      }
-
-      if (playerError) {
-        // Cleanup: Game löschen wenn Player nicht erstellt werden kann
-        await supabase.from('games').delete().eq('id', game.id);
-        throw new Error('Spieler konnte nicht erstellt werden: ' + playerError.message);
       }
 
       this.gameId = game.id;
@@ -342,11 +331,6 @@ export class MultiplayerService {
         if (error || !player) {
           console.error('Join game error:', error);
           throw new Error('Beitritt fehlgeschlagen: ' + (error?.message || 'Unknown error'));
-        }
-
-        if (error) {
-          console.error('Join game error:', error);
-          throw new Error('Beitritt fehlgeschlagen: ' + error.message);
         }
 
         this.gameId = gameId;
@@ -577,7 +561,9 @@ export class MultiplayerService {
   }
 
   getCurrentRole(): RoleId | null {
-    return this.currentRole || (localStorage.getItem('mp_current_role') as RoleId);
+    const stored = this.currentRole || localStorage.getItem('mp_current_role');
+    if (!stored) return null;
+    return stored.toUpperCase() as RoleId;
   }
 
   static getRoleKpiVisibility(role: RoleId): (keyof KPI)[] {
