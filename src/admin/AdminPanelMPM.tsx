@@ -3,7 +3,8 @@ import React from 'react';
 import { supabase } from '@/services/supabaseClient';
 import { MultiplayerService } from '@/services/multiplayerService';
 import type { RoleId } from '@/core/models/domain';
-// NEU
+import type { MultiplayerAdminSettings, Difficulty, InsolvencyMode, InsolvencyRulesMap, InsolvencyRule } from '@/types/admin';
+import type { ScoringWeights, RoundTimeMatrix } from '@/types/global';
 import ScenarioEditor from '@/admin/ScenarioEditor';
 import { parseScenarioFromText, compileScenario } from '@/services/scenarioLoader';
 
@@ -13,20 +14,8 @@ import { parseScenarioFromText, compileScenario } from '@/services/scenarioLoade
  *  Löst 'admin:settings' aus, damit laufende MP-Views (Lobby, GameView) sofort reagieren.
  */
 
-type Difficulty = 'easy'|'normal'|'hard';
-type InsolvencyMode = 'hard' | 'soft' | 'off';
-
-type ScoringWeights = {
-  bankTrust: number;
-  publicPerception: number;
-  customerLoyalty: number;
-  workforceEngagement: number;
-};
-
-export type InsolvencyRuleLite = { key: string; enabled: boolean; threshold: number };
-export type InsolvencyRulesMapLite = Record<string, InsolvencyRuleLite>;
-export type InsolvencyConfigLite = { rules: InsolvencyRulesMapLite };
-
+// Typen kommen nun aus @/types/admin und @/types/global
+// KPI Partial-Type für lokale Verwendung
 type KPI = {
   cashEUR?: number;
   profitLossEUR?: number;
@@ -37,77 +26,10 @@ type KPI = {
 };
 
 
-type MultiplayerAdminSettings = {
-  // Auth & Lobby
-  authMode: 'email' | 'name-only' | 'preset-credentials';
-  allowEarlyEntry: boolean;
-  forceAllPlayersForAdvance: boolean;
-  autoStartWhenReady: boolean;
-  autoStartDelaySeconds: number;
-  lobbyCountdownSeconds: number;
-  presetCredentials: {
-    CEO: { username: string; password: string };
-    CFO: { username: string; password: string };
-    OPS: { username: string; password: string };
-    HRLEGAL: { username: string; password: string };
-  };
-  lobbySettings: {
-    showTimer: boolean;
-    backgroundTheme: 'corporate' | 'dynamic' | 'minimal';
-    welcomeMessage?: string;
-  };
-
-  // Spielseite
-  gameSettings: {
-    backgroundTheme: 'corporate' | 'dynamic' | 'minimal';
-    allowUserOverride: boolean;
-  };
-
-  // Rundenzeit
-  roundTimeMode: 'off'|'global'|'matrix';
-  roundTimeGlobalSec?: number;
-  roundTimeGraceSec?: number;
-  roundTimeMatrix?: Record<number, { CEO:number; CFO:number; OPS:number; HRLEGAL:number; }>;
-
-  // Schwierigkeits-/Simulationsparameter
-  mpDifficulty: Difficulty;
-  randomNews: boolean;
-  adaptiveDifficultyLight: boolean;
-  scoringWeights: ScoringWeights;
-  eventIntensityByDay: number[];
-
-  // Bank/Kredit
-  creditSettings: {
-    enabled: boolean;
-    creditLineEUR: number;
-    interestRatePct: number;
-  };
-
-  // Feature-Schalter
-  features: {
-    saveLoadMenu: boolean;
-    autoSave: boolean;
-    coach?: boolean;
-    whatIfPreview: boolean;
-    eventIntensity: boolean;
-    /** NEU: steuert Trainer-Rolle im Login */
-    trainerAccess?: boolean;
-     /** NEU: rollenspezifische Zufalls-News (wirkt auch im MP-Client für Sicht) */
-   roleBasedRandomNews?: boolean;
-  };
-
-
-  
-  // Insolvenz (MP übernimmt Modus + lite-Regeln)
-  insolvencyMode: InsolvencyMode;
-  insolvencyConfig?: InsolvencyConfigLite;
-};
-
-
 const LS_KEY = 'admin:multiplayer';
 
 function normalizeWeights(w?: Partial<ScoringWeights> | null): ScoringWeights {
-  const toNum = (n: any, fallback: number) => {
+  const toNum = (n: unknown, fallback: number) => {
     const x = Number(n);
     return isFinite(x) && x >= 0 ? x : fallback;
   };
@@ -134,7 +56,7 @@ function normalizeWeights(w?: Partial<ScoringWeights> | null): ScoringWeights {
     const keys = ['bankTrust','publicPerception','customerLoyalty','workforceEngagement'] as const;
     let maxKey = keys[0]; let maxVal = out[maxKey];
     for (const k of keys) { if (out[k] > maxVal) { maxVal = out[k]; maxKey = k; } }
-    (out as any)[maxKey] = out[maxKey] + drift;
+    (out as Record<string, number>)[maxKey] = out[maxKey] + drift;
   }
   return out;
 }
@@ -194,8 +116,8 @@ function getDefaultSettings(): MultiplayerAdminSettings {
 
 
 
-function upgradeSettings(base: MultiplayerAdminSettings, raw: any): MultiplayerAdminSettings {
-  const s: any = { ...base, ...(raw || {}) };
+function upgradeSettings(base: MultiplayerAdminSettings, raw: unknown): MultiplayerAdminSettings {
+  const s = { ...base, ...(raw && typeof raw === 'object' ? raw : {}) } as MultiplayerAdminSettings;
 
   // Verschachtelte Objekte mit Defaults mergen
   s.features          = { ...base.features,          ...(raw?.features || {}) };
@@ -239,7 +161,7 @@ function saveSettings(s: MultiplayerAdminSettings) {
 }
 
 function applyToGlobals(s: MultiplayerAdminSettings) {
-  const g: any = globalThis as any;
+  const g = globalThis;
   // Spiel-/Lobby-Themes
   g.__multiplayerSettings = s;
   // Schwierigkeits-/Simulations-Flags
@@ -587,7 +509,7 @@ function SectionMultiplayer({ settings, setSettings }: {
               value={settings.lobbySettings.backgroundTheme}
               onChange={e => setSettings(s => ({
                 ...s,
-                lobbySettings: { ...s.lobbySettings, backgroundTheme: e.target.value as any }
+                lobbySettings: { ...s.lobbySettings, backgroundTheme: e.target.value as 'corporate' | 'dynamic' | 'minimal' }
               }))}
               style={{ padding: '6px 12px', borderRadius: 6, width: '100%', maxWidth: 300 }}
             >
@@ -644,7 +566,7 @@ function SectionGameTheme({
               ...s,
               gameSettings: {
                 ...(s.gameSettings ?? { allowUserOverride: false }),
-                backgroundTheme: e.target.value as any
+                backgroundTheme: e.target.value as 'corporate' | 'dynamic' | 'minimal'
               }
             }))
           }
@@ -791,7 +713,7 @@ function SectionRoundTimeMP({
   const setGraceSec   = (n:number) => setSettings(s => ({ ...s, roundTimeGraceSec: n }));
   const setCell = (day:number, role:(typeof roles)[number], n:number) => {
     setSettings(s => {
-      const base = { ...(s.roundTimeMatrix||{}) } as any; const row = { ...(base[day]||{}) };
+      const base = { ...(s.roundTimeMatrix||{}) } as RoundTimeMatrix; const row = { ...(base[day]||{}) };
       row[role] = n; return { ...s, roundTimeMatrix: { ...base, [day]: row } };
     });
   };
@@ -828,7 +750,7 @@ function SectionRoundTimeMP({
               </thead>
               <tbody>
                 {days.map(day => {
-                  const rowv:any = (matrix as any)[day] || {};
+                  const rowv = matrix[day] || {};
                   return (
                     <tr key={day}>
                       <td style={{ padding:'6px 8px', borderBottom:'1px solid #f3f4f6' }}>{day}</td>
@@ -926,7 +848,7 @@ function SectionEventIntensityMP({
 function SectionInsolvencyMP({
   settings, setSettings
 }:{ settings: MultiplayerAdminSettings; setSettings: React.Dispatch<React.SetStateAction<MultiplayerAdminSettings>>; }) {
-  const rules = (settings.insolvencyConfig?.rules || {}) as InsolvencyRulesMapLite;
+  const rules = (settings.insolvencyConfig?.rules || {}) as InsolvencyRulesMap;
   const labelFor = (k: string) => {
     switch (k) {
       case 'cashEUR': return 'Cash (effektiv, inkl. Pending‑Draw) < Schwelle';
@@ -941,10 +863,10 @@ function SectionInsolvencyMP({
     }
   };
   const keys = ['cashEUR','profitLossEUR','customerLoyalty','bankTrust','workforceEngagement','publicPerception','debt','receivables'] as const;
-  const updateRule = (key: string, patch: Partial<InsolvencyRuleLite>) => {
+  const updateRule = (key: string, patch: Partial<InsolvencyRule>) => {
     setSettings(s => {
-      const curr = (s.insolvencyConfig?.rules || {}) as InsolvencyRulesMapLite;
-      const next = { ...curr, [key]: { ...(curr as any)[key], ...patch, key } as InsolvencyRuleLite };
+      const curr = (s.insolvencyConfig?.rules || {}) as InsolvencyRulesMap;
+      const next = { ...curr, [key]: { ...curr[key], ...patch, key } };
       return { ...s, insolvencyConfig: { rules: next } };
     });
   };
@@ -964,7 +886,7 @@ function SectionInsolvencyMP({
       {/* Regeln */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
         {keys.map(k => {
-          const r:any = (rules as any)[k] || { key:k, enabled:false, threshold:0 };
+          const r = rules[k] || { key:k, enabled:false, threshold:0 };
           return (
             <div key={k} style={{ border:'1px solid #e5e7eb', borderRadius:8, padding:12 }}>
               <label style={{ display:'flex', alignItems:'center', gap:8 }}>
@@ -1000,7 +922,7 @@ function SectionScenarioEditorMP() {
   // Bridge: fängt Events aus ScenarioEditor auf und schreibt in die DB
   React.useEffect(() => {
     const onInject = async (ev: Event) => {
-      const ce = ev as CustomEvent<any>;
+      const ce = ev as CustomEvent<{ settings: MultiplayerAdminSettings }>;
       const detail = ce?.detail;
 
       // Schutz: Nur reagieren, wenn der Editor feuert (der SP-Editor setzt 'mode')
@@ -1218,7 +1140,7 @@ function SectionMpInjectNews() {
         roles: (target === 'roles') ? roles : undefined
       });
       setTitle(''); setContent(''); alert('Inhalt wurde injiziert.');
-    } catch (e:any) {
+    } catch (e: unknown) {
       console.error('[AdminPanelMPM] inject news failed:', e);
       setErr(String(e?.message || e)); alert('Fehler beim Injizieren (Details in der Konsole).');
     }
@@ -1238,7 +1160,7 @@ function SectionMpInjectNews() {
                style={{ width:120, padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }} />
 
         <div style={{ fontWeight:600 }}>Quelle</div>
-        <select value={source} onChange={e=>setSource((e.target as HTMLSelectElement).value as any)}
+        <select value={source} onChange={e=>setSource(e.target.value as 'internal' | 'press' | 'authority' | 'customer' | 'supplier' | 'bank' | 'rumor')}
                 style={{ width:220, padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }}>
           <option value="internal">internal</option>
           <option value="press">press</option>
@@ -1250,7 +1172,7 @@ function SectionMpInjectNews() {
         </select>
 
         <div style={{ fontWeight:600 }}>Schweregrad</div>
-        <select value={severity} onChange={e=>setSeverity((e.target as HTMLSelectElement).value as any)}
+        <select value={severity} onChange={e=>setSeverity(e.target.value as 'low' | 'mid' | 'high')}
                 style={{ width:220, padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }}>
           <option value="low">low</option>
           <option value="medium">medium</option>
@@ -1316,7 +1238,7 @@ function loadInvariantsLocal(): InvariantsLocal {
 }
 function saveInvariantsLocal(v: InvariantsLocal) { try { localStorage.setItem(LS_INV, JSON.stringify(v)); } catch {} }
 function applyInvariantsGlobals(v: InvariantsLocal) {
-  (globalThis as any).__invariants = { optional: {
+  globalThis.__invariants = { optional: {
     pp_penalty_on_neg_cash:!!v.ppPenaltyOnNegCash, loyalty_penalty_on_neg_cash:!!v.loyaltyPenaltyOnNegCash, payroll_delay_we_minus10:!!v.payrollDelay_weMinus10,
     loss5_banktrust_minus8:!!v.loss5_bankTrustMinus8, loss5_publicperception_minus5:!!v.loss5_publicPerceptionMinus5, loss5_customerloyalty_minus5:!!v.loss5_customerLoyaltyMinus5,
     banktrust_lt10_workengagement_minus10:!!v.bankTrustLt10_workEngagementMinus10, banktrust_lt10_publicperception_minus10:!!v.bankTrustLt10_publicPerceptionMinus10,
@@ -1368,7 +1290,7 @@ const importScenario = async (mode: 'import' | 'append') => {
 
   try {
     // 1) Versuche, „Scenario JSON“ zu parsen und zu kompilieren (wie im SP-Editor)
-    let compiled: any | null = null;
+    let compiled: { scheduledDeltas?: Record<number, Array<Partial<KPI>>>; randomNews?: Record<number, unknown[]>; meta?: Record<string, unknown> } | null = null;
     const parsed = parseScenarioFromText(scenarioText || '');
     if (parsed.ok) {
       compiled = compileScenario(parsed.json);
@@ -1399,7 +1321,7 @@ const importScenario = async (mode: 'import' | 'append') => {
     try {
       setBusy(true);
       // Persistieren
-      const next = { ...settings, scoringWeights: normalizeWeights((settings as any)?.scoringWeights) };
+      const next = { ...settings, scoringWeights: normalizeWeights(settings?.scoringWeights) };
 
       saveSettings(next);
       applyToGlobals(next);

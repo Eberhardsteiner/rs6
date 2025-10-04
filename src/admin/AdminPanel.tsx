@@ -4,6 +4,8 @@ import AdminGate from '@/admin/AdminGate';
 import ScenarioEditor from '@/admin/ScenarioEditor';
 import { makeRng } from '@/core/utils/prng';
 import type { RoleId } from '@/core/models/domain';
+import type { AdminSettings, InvariantsLocal, Difficulty, InsolvencyMode, InsolvencyRulesMap, InsolvencyRule, ScoringWeights } from '@/types/admin';
+import type { RoundTimeMatrix } from '@/types/global';
 
 
 declare global {
@@ -18,22 +20,8 @@ declare global {
   }
 }
 
-type Difficulty = 'easy'|'normal'|'hard';
-type InsolvencyMode = 'hard'|'soft'|'off';
-
-type ScoringWeights = {
-  bankTrust: number;
-  publicPerception: number;
-  customerLoyalty: number;
-  workforceEngagement: number;
-};
-
-// ────────────────────────────────────────────────────────────────────────────────
-// Insolvenz-Regeln (Admin-konfigurierbar)
-// ────────────────────────────────────────────────────────────────────────────────
-export type InsolvencyRule = { key: string; enabled: boolean; threshold: number };
-export type InsolvencyRulesMap = Record<string, InsolvencyRule>;
-export type InsolvencyConfig = { rules: InsolvencyRulesMap };
+// Type-Definitionen kommen nun aus @/types/admin
+export type { InsolvencyRule, InsolvencyRulesMap } from '@/types/admin';
 
 
 
@@ -53,7 +41,7 @@ const DEFAULT_INSOLVENCY_RULES: InsolvencyRulesMap = {
 
 
 function clamp01(x: number) { return Math.max(0, Math.min(1, x)); }
-function num(x: any, d = 0): number { const v = Number(x); return Number.isFinite(v) ? v : d; }
+function num(x: unknown, d = 0): number { const v = Number(x); return Number.isFinite(v) ? v : d; }
 
 function normalizeWeights(w: ScoringWeights): ScoringWeights {
   const sum = w.bankTrust + w.publicPerception + w.customerLoyalty + w.workforceEngagement;
@@ -103,15 +91,15 @@ function loadAdminSettings(): AdminSettings {
       );
 
       const eventIntensityByDay = Array.isArray(obj.eventIntensityByDay)
-        ? obj.eventIntensityByDay.map((n: any)=> Number(n)||1).slice(0,14)
+        ? obj.eventIntensityByDay.map((n: unknown)=> Number(n)||1).slice(0,14)
         : Array.from({length:14},()=>1);
 
       const roundTimeMode = (obj.roundTimeMode ?? 'off') as ('off'|'global'|'matrix');
       const roundTimeGlobalSec = typeof obj.roundTimeGlobalSec === 'number' ? obj.roundTimeGlobalSec : 0;
       const roundTimeGraceSec = typeof obj.roundTimeGraceSec === 'number' ? obj.roundTimeGraceSec : 180;
       const roundTimeMatrix = (obj.roundTimeMatrix && typeof obj.roundTimeMatrix === 'object')
-        ? obj.roundTimeMatrix as Record<number, Partial<Record<'CEO'|'CFO'|'OPS'|'HRLEGAL', number>>>
-        : Object.fromEntries(Array.from({length:14}, (_,i)=>[i+1,{CEO:480,CFO:480,OPS:480,HRLEGAL:480}]) as any);
+        ? obj.roundTimeMatrix as RoundTimeMatrix
+        : Object.fromEntries(Array.from({length:14}, (_,i)=>[i+1,{CEO:480,CFO:480,OPS:480,HRLEGAL:480}])) as RoundTimeMatrix;
 
       
       // Insolvenz-Regeln lesen (robust)
@@ -155,7 +143,7 @@ function loadAdminSettings(): AdminSettings {
     roundTimeMode: 'off',
     roundTimeGlobalSec: 0,
     roundTimeGraceSec: 180,
-    roundTimeMatrix: Object.fromEntries(Array.from({length:14}, (_,i)=>[i+1,{CEO:480,CFO:480,OPS:480,HRLEGAL:480}]) as any),
+    roundTimeMatrix: Object.fromEntries(Array.from({length:14}, (_,i)=>[i+1,{CEO:480,CFO:480,OPS:480,HRLEGAL:480}])) as RoundTimeMatrix,
     difficulty: 'normal',
     adaptiveDifficultyLight: false,
     randomNews: true,
@@ -173,35 +161,33 @@ function saveAdminSettings(s: AdminSettings) {
 }
 
 function applyGlobals(s: AdminSettings) {
-  (globalThis as any).__insolvencyMode = s.insolvencyMode;
-  (globalThis as any).__mode = s.difficulty;
-  (globalThis as any).__npcDifficulty = s.difficulty;
-  (globalThis as any).__randomNews = s.randomNews;
-  (globalThis as any).__adaptiveDifficultyLightEnabled = !!(s as any).adaptiveDifficultyLight;
-   // Rollenbezug für Zufalls‑News (SP)
-  (globalThis as any).__roleBasedRandomNews = !!(s.features && (s.features as any).roleBasedRandomNews);
-  // Insolvenz-Regeln global setzen
-  try { (globalThis as any).__insolvencyRules = (s as any).insolvencyConfig?.rules || {}; } catch {}
-  (globalThis as any).__scoringWeights = normalizeWeights(s.scoringWeights);
+  globalThis.__insolvencyMode = s.insolvencyMode;
+  globalThis.__mode = s.difficulty;
+  globalThis.__npcDifficulty = s.difficulty;
+  globalThis.__randomNews = s.randomNews;
+  globalThis.__adaptiveDifficultyLightEnabled = !!s.adaptiveDifficultyLight;
+  globalThis.__roleBasedRandomNews = !!(s.features && s.features.roleBasedRandomNews);
+  try { globalThis.__insolvencyRules = s.insolvencyConfig?.rules || {}; } catch {}
+  globalThis.__scoringWeights = normalizeWeights(s.scoringWeights);
 
-  ;(globalThis as any).__roundTimeMode = (s as any).roundTimeMode || 'off';
-  ;(globalThis as any).__roundTimeGlobalSec = typeof (s as any).roundTimeGlobalSec === 'number' ? (s as any).roundTimeGlobalSec : undefined;
-  ;(globalThis as any).__roundTimeGraceSec = typeof (s as any).roundTimeGraceSec === 'number' ? (s as any).roundTimeGraceSec : undefined;
-  ;(globalThis as any).__roundTimeMatrix = (s as any).roundTimeMatrix && typeof (s as any).roundTimeMatrix === 'object' ? (s as any).roundTimeMatrix : undefined;
+  globalThis.__roundTimeMode = s.roundTimeMode || 'off';
+  globalThis.__roundTimeGlobalSec = typeof s.roundTimeGlobalSec === 'number' ? s.roundTimeGlobalSec : undefined;
+  globalThis.__roundTimeGraceSec = typeof s.roundTimeGraceSec === 'number' ? s.roundTimeGraceSec : undefined;
+  globalThis.__roundTimeMatrix = s.roundTimeMatrix && typeof s.roundTimeMatrix === 'object' ? s.roundTimeMatrix : undefined;
 
-  ;(globalThis as any).__featureSaveLoadMenu = !!(s.features && s.features.saveLoadMenu);
-  ;(globalThis as any).__featureAutoSave    = !!(s.features && s.features.autoSave);
-  ;(globalThis as any).__featureCoach       = !!(s.features && (s.features as any).coach);
-  ;(globalThis as any).__featureBankMechanics = !!(s.features && (s.features as any).bankMechanics);
-  ;(globalThis as any).__featureWhatIfPreview = !!(s.features && (s.features as any).whatIfPreview);
-  ;(globalThis as any).__featureEventIntensity = !!(s.features && (s.features as any).eventIntensity);
-  ;(globalThis as any).__eventIntensityByDay = Array.isArray((s as any).eventIntensityByDay) ? (s as any).eventIntensityByDay : Array.from({length:14},()=>1);
+  globalThis.__featureSaveLoadMenu = !!(s.features && s.features.saveLoadMenu);
+  globalThis.__featureAutoSave = !!(s.features && s.features.autoSave);
+  globalThis.__featureCoach = !!(s.features && s.features.coach);
+  globalThis.__featureBankMechanics = !!(s.features && s.features.bankMechanics);
+  globalThis.__featureWhatIfPreview = !!(s.features && s.features.whatIfPreview);
+  globalThis.__featureEventIntensity = !!(s.features && s.features.eventIntensity);
+  globalThis.__eventIntensityByDay = Array.isArray(s.eventIntensityByDay) ? s.eventIntensityByDay : Array.from({length:14},()=>1);
 
-  const creditLineEUR = Number((s as any).bank?.creditLineEUR || 0);
-  const interestRatePct = Number((s as any).bank?.interestRatePct || 0);
-  ;(globalThis as any).__bankSettings = { creditLineEUR, interestRatePct };
-  ;(globalThis as any).__bankCreditLineEUR   = creditLineEUR;
-  ;(globalThis as any).__bankInterestRatePct = interestRatePct;
+  const creditLineEUR = Number(s.bank?.creditLineEUR || 0);
+  const interestRatePct = Number(s.bank?.interestRatePct || 0);
+  globalThis.__bankSettings = { creditLineEUR, interestRatePct };
+  globalThis.__bankCreditLineEUR = creditLineEUR;
+  globalThis.__bankInterestRatePct = interestRatePct;
 
   try { window.dispatchEvent(new CustomEvent('admin:settings', { detail: s })); } catch {}
 }
@@ -209,21 +195,7 @@ function applyGlobals(s: AdminSettings) {
 const LS_INV = 'admin:invariants';
 const LS_SEED = 'admin:seed';
 
-type InvariantsLocal = {
-  ppPenaltyOnNegCash: boolean;
-  loyaltyPenaltyOnNegCash: boolean;
-  payrollDelay_weMinus10: boolean;
-  loss5_bankTrustMinus8: boolean;
-  loss5_publicPerceptionMinus5: boolean;
-  loss5_customerLoyaltyMinus5: boolean;
-  bankTrustLt10_workEngagementMinus10: boolean;
-  bankTrustLt10_publicPerceptionMinus10: boolean;
-  profit5_bankTrustPlus8: boolean;
-  profit5_publicPerceptionPlus8: boolean;
-  profit5_customerLoyaltyPlus8: boolean;
-  bankTrustGt80_workEngagementPlus10: boolean;
-  bankTrustGt80_publicPerceptionPlus80: boolean;
-};
+// InvariantsLocal kommt nun aus @/types/admin
 
 function loadInvariantsLocal(): InvariantsLocal {
   try {
@@ -267,7 +239,7 @@ function loadInvariantsLocal(): InvariantsLocal {
 function saveInvariantsLocal(v: InvariantsLocal) { try { localStorage.setItem(LS_INV, JSON.stringify(v)); } catch {} }
 
 function applyInvariantsGlobals(v: InvariantsLocal) {
-  (globalThis as any).__invariants = {
+  globalThis.__invariants = {
     optional: {
       pp_penalty_on_neg_cash: !!v.ppPenaltyOnNegCash,
       loyalty_penalty_on_neg_cash: !!v.loyaltyPenaltyOnNegCash,
@@ -301,7 +273,7 @@ function saveSeedLocal(seed: number | null) {
 
 function applySeedGlobals(seed: number | null) {
   if (seed == null || Number.isNaN(seed)) return;
-  (globalThis as any).__rng = makeRng(Number(seed));
+  globalThis.__rng = makeRng(Number(seed));
   try { window.dispatchEvent(new CustomEvent('admin:seed', { detail: { seed: Number(seed) } })); } catch {}
 }
 
@@ -343,8 +315,8 @@ function SectionSettings({ settings, setSettings }:{ settings: AdminSettings; se
         <label>
           <input
             type="checkbox"
-            checked={!!(settings as any).adaptiveDifficultyLight}
-            onChange={(e)=>setSettings(s=>({ ...(s as any), adaptiveDifficultyLight: (__readChecked(e) as boolean) }))}
+            checked={!!settings.adaptiveDifficultyLight}
+            onChange={(e)=>setSettings(s=>({ ...s, adaptiveDifficultyLight: __readChecked(e) }))}
           /> aktiv
         </label>
         <div className="small">Skaliert die NPC‑Fehlerquote (×0.9–1.2) basierend auf den letzten zwei Tagen.</div>
@@ -366,7 +338,7 @@ function SectionSettings({ settings, setSettings }:{ settings: AdminSettings; se
       <label>
         <input
           type="checkbox"
-           checked={!!(settings.features && (settings.features as any).roleBasedRandomNews)}
+           checked={!!(settings.features && settings.features.roleBasedRandomNews)}
            onChange={(e)=> setSettings(s=>({
              ...s,
              features: { ...(s.features||{}), roleBasedRandomNews: __readChecked(e) }
@@ -379,7 +351,7 @@ function SectionSettings({ settings, setSettings }:{ settings: AdminSettings; se
         <label>
           <input
             type="checkbox"
-            checked={!!(settings.features && (settings.features as any).whatIfPreview)}
+            checked={!!(settings.features && settings.features.whatIfPreview)}
             onChange={(e)=>setSettings(s=>({
               ...s,
               features: { ...(s.features||{}), whatIfPreview: __readChecked(e) }
@@ -396,19 +368,19 @@ function SectionRoundTime({ settings, setSettings }:{ settings: AdminSettings; s
   const roles: Array<'CEO'|'CFO'|'OPS'|'HRLEGAL'> = ['CEO','CFO','OPS','HRLEGAL'];
   const days = Array.from({length:14}, (_,i)=>i+1);
 
-  const mode = (settings as any).roundTimeMode || 'off';
-  const matrix = (settings as any).roundTimeMatrix || {};
-  const globalSec = Number((settings as any).roundTimeGlobalSec || 0);
-  const graceSec = Number((settings as any).roundTimeGraceSec || 180);
+  const mode = settings.roundTimeMode || 'off';
+  const matrix = settings.roundTimeMatrix || {};
+  const globalSec = Number(settings.roundTimeGlobalSec || 0);
+  const graceSec = Number(settings.roundTimeGraceSec || 180);
 
   const setMode = (m:'off'|'global'|'matrix') => setSettings(s => ({ ...s, roundTimeMode: m }));
   const setGlobalSec = (n:number) => setSettings(s => ({ ...s, roundTimeGlobalSec: n }));
   const setGraceSec = (n:number) => setSettings(s => ({ ...s, roundTimeGraceSec: n }));
   const setCell = (day:number, role:'CEO'|'CFO'|'OPS'|'HRLEGAL', n:number) => setSettings(s => {
-    const base = { ...(s as any).roundTimeMatrix } || {};
+    const base = { ...s.roundTimeMatrix } || {} as RoundTimeMatrix;
     const row = { ...(base[day] || {}) };
     row[role] = n;
-    return { ...(s as any), roundTimeMatrix: { ...base, [day]: row } };
+    return { ...s, roundTimeMatrix: { ...base, [day]: row } };
   });
 
   return (
@@ -445,7 +417,7 @@ function SectionRoundTime({ settings, setSettings }:{ settings: AdminSettings; s
               </thead>
               <tbody>
                 {days.map(day => {
-                  const rowv = (matrix as any)[day] || {};
+                  const rowv = matrix[day] || {};
                   return (
                     <tr key={day}>
                       <td style={{ padding:'6px 8px', borderBottom:'1px solid #f3f4f6' }}>{day}</td>
@@ -527,15 +499,15 @@ function SectionEventIntensity({ settings, setSettings }:{ settings: AdminSettin
         {Array.from({length:14}).map((_,i)=>(
           <label key={i} style={{ display:'flex', flexDirection:'column', gap:4 }}>
             <span style={{ fontSize:11, color:'#6b7280' }}>Tag {i+1}</span>
-            <input 
-              type="number" step="0.1" min={0} 
-              value={Number((settings as any).eventIntensityByDay?.[i] ?? 1)} 
+            <input
+              type="number" step="0.1" min={0}
+              value={Number(settings.eventIntensityByDay?.[i] ?? 1)}
               onChange={(e)=>{
                 const val = __readInputNumber(e);
                 setSettings(s => {
-                  const arr = Array.isArray((s as any).eventIntensityByDay) ? ([...(s as any).eventIntensityByDay]) : Array.from({length:14}, ()=>1);
+                  const arr = Array.isArray(s.eventIntensityByDay) ? ([...s.eventIntensityByDay]) : Array.from({length:14}, ()=>1);
                   arr[i] = val;
-                  return { ...(s as any), eventIntensityByDay: arr };
+                  return { ...s, eventIntensityByDay: arr };
                 });
               }}
             />
@@ -570,7 +542,7 @@ function SectionKpiControls({ k, setK, d, setD, doSet, setDoSet, doDelta, setDoD
         <label>Public<input type="number" value={k.publicPerception||0} onChange={(e)=>setK(s=>({ ...s, publicPerception: __readInputNumber(e) }))}/></label>
       </div>
 
-      <div style={{ marginTop: 20, ...sub as any }}>Δ‑Werte</div>
+      <div style={{ marginTop: 20, ...sub }}>Δ‑Werte</div>
       <div style={{ ...gridTwo }}>
         <label>Δ Cash<input type="number" value={d.cashEUR||0} onChange={(e)=>setD(s=>({ ...s, cashEUR: __readInputNumber(e) }))}/></label>
         <label>Δ G/V<input type="number" value={d.profitLossEUR||0} onChange={(e)=>setD(s=>({ ...s, profitLossEUR: __readInputNumber(e) }))}/></label>
@@ -650,7 +622,7 @@ function SectionSeed({ seedInput, setSeedInput }:{ seedInput:string; setSeedInpu
   );
 }
 
-function SectionInvariants({ inv, setInv }:{ inv: any; setInv: (v:any)=>void; }) {
+function SectionInvariants({ inv, setInv }:{ inv: InvariantsLocal; setInv: (v:InvariantsLocal)=>void; }) {
   return (
     <div style={box}>
       <div style={{ ...heading }}>Invarianten (optional)</div>
@@ -724,7 +696,7 @@ function SectionBank({ settings, setSettings }:{ settings: AdminSettings; setSet
         <label style={label}>Aktivieren</label>
         <input
           type="checkbox"
-          checked={!!(settings.features && (settings.features as any).bankMechanics)}
+          checked={!!(settings.features && settings.features.bankMechanics)}
           onChange={(e)=> setSettings(s => ({ ...s, features: { ...(s.features||{}), bankMechanics: __readChecked(e) } }))}
         />
       </div>
@@ -732,7 +704,7 @@ function SectionBank({ settings, setSettings }:{ settings: AdminSettings; setSet
         <label style={label}>Kreditlinie (€)</label>
         <input
           type="number"
-          value={Number((settings as any).bank?.creditLineEUR || 0)}
+          value={Number(settings.bank?.creditLineEUR || 0)}
           onChange={(e)=> setSettings(s => ({ ...s, bank: { ...(s.bank||{ creditLineEUR:0, interestRatePct:0 }), creditLineEUR: __readInputNumber(e) } }))}
           style={{ width: 180 }}
         />
@@ -741,7 +713,7 @@ function SectionBank({ settings, setSettings }:{ settings: AdminSettings; setSet
         <label style={label}>Zins p.a. (%)</label>
         <input
           type="number"
-          value={Number((settings as any).bank?.interestRatePct || 0)}
+          value={Number(settings.bank?.interestRatePct || 0)}
           onChange={(e)=> setSettings(s => ({ ...s, bank: { ...(s.bank||{ creditLineEUR:0, interestRatePct:0 }), interestRatePct: __readInputNumber(e) } }))}
           style={{ width: 180 }}
           step="0.1"
@@ -763,18 +735,18 @@ function SectionBank({ settings, setSettings }:{ settings: AdminSettings; setSet
 // Abschnitt: Insolvenz‑Regeln
 // ────────────────────────────────────────────────────────────────────────────────
 function SectionInsolvencyRules({ settings, setSettings }:{ settings: AdminSettings; setSettings:(f:(s:AdminSettings)=>AdminSettings)=>void; }) {
-  const rules: InsolvencyRulesMap = (settings as any).insolvencyConfig?.rules || DEFAULT_INSOLVENCY_RULES;
+  const rules: InsolvencyRulesMap = settings.insolvencyConfig?.rules || DEFAULT_INSOLVENCY_RULES;
 
   const updateRule = (key: string, patch: Partial<InsolvencyRule>) => {
     setSettings((s: AdminSettings) => {
-      const curr: InsolvencyRulesMap = ((s as any).insolvencyConfig?.rules || DEFAULT_INSOLVENCY_RULES) as any;
-      const next: InsolvencyRulesMap = { ...curr, [key]: { ...(curr as any)[key], ...patch, key } as any };
-      return { ...(s as any), insolvencyConfig: { rules: next } } as AdminSettings;
+      const curr: InsolvencyRulesMap = s.insolvencyConfig?.rules || DEFAULT_INSOLVENCY_RULES;
+      const next: InsolvencyRulesMap = { ...curr, [key]: { ...curr[key], ...patch, key } };
+      return { ...s, insolvencyConfig: { rules: next } };
     });
   };
 
   const resetDefaults = () => {
-    setSettings((s: AdminSettings) => ({ ...(s as any), insolvencyConfig: { rules: DEFAULT_INSOLVENCY_RULES } } as AdminSettings));
+    setSettings((s: AdminSettings) => ({ ...s, insolvencyConfig: { rules: DEFAULT_INSOLVENCY_RULES } }));
   };
 
   const labelFor = (k: string) => {
@@ -802,7 +774,7 @@ function SectionInsolvencyRules({ settings, setSettings }:{ settings: AdminSetti
       </p>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 8 }}>
         {keys.map((k) => {
-          const r = (rules as any)[k] || { key: k, enabled: false, threshold: 0 };
+          const r = rules[k] || { key: k, enabled: false, threshold: 0 };
           return (
             <div key={k} style={{ border:'1px solid #e5e7eb', borderRadius:8, padding:12 }}>
               <label style={{ display:'flex', alignItems:'center', gap:8 }}>
@@ -894,7 +866,7 @@ function AdminPanelInner({ onClose }: { onClose?: () => void }) {
         try {
           localStorage.removeItem('coach:v1');
           window.dispatchEvent(new Event('coach:reset'));
-          (window as any).__admin?.message?.('Coach zurückgesetzt');
+          window.__admin?.message?.('Coach zurückgesetzt');
         } catch {}
         setCoachReset(false);
       }
