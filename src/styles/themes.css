@@ -1,0 +1,131 @@
+/* src/styles/themes.css
+   Drei Präsentationsstile für den MultiplayerGameView:
+   - theme-classic: Bestehendes Design, neutrale Hintergründe
+   - theme-business: "Corporate" Look mit dezentem Verlauf, sanften Schatten, abgerundeten Kanten
+   - theme-dynamic: Futuristischer Look, dunkler Canvas-Hintergrund mit Linien-/Knoten-Overlay
+*/
+
+.mp-theme {
+  position: relative;
+  min-height: 100vh;
+}
+
+/* ------------------------------------------------------------------ */
+/* Classic (Minimal)                                                   */
+/* ------------------------------------------------------------------ */
+.theme-classic {
+  --mp-bg: #f7f7f9;
+  --mp-surface: #ffffff;
+  --mp-text: #111827;
+  --mp-muted: #6b7280;
+  --mp-border: #e5e7eb;
+  --mp-accent: #4f46e5; /* Indigo */
+  --mp-ok: #10b981;
+  --mp-warn: #f59e0b;
+  --mp-bad: #ef4444;
+  background: var(--mp-bg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Business (Corporate)                                                */
+/* ------------------------------------------------------------------ */
+.theme-business {
+  --mp-bg: linear-gradient(180deg, #f6f9ff 0%, #edf3ff 35%, #eaf2ff 100%);
+  --mp-surface: #ffffff;
+  --mp-text: #0f172a;
+  --mp-muted: #475569;
+  --mp-border: #dbeafe;
+  --mp-accent: #2563eb; /* Blau */
+  --mp-ok: #059669;
+  --mp-warn: #d97706;
+  --mp-bad: #dc2626;
+  background: var(--mp-bg);
+}
+
+.theme-business .mp-elevated {
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.10), 0 2px 6px rgba(15, 23, 42, 0.06) !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--mp-border) !important;
+  background: var(--mp-surface) !important;
+}
+
+.theme-business .mp-heading {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0));
+  padding: 10px 14px;
+  border-left: 4px solid var(--mp-accent);
+  border-radius: 10px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dynamic (Futuristic)                                                */
+/* ------------------------------------------------------------------ */
+.theme-dynamic {
+  --mp-bg: radial-gradient(1200px 1200px at 20% -10%, #0b1220 0%, #0a1020 35%, #050912 70%, #05060a 100%);
+  --mp-surface: #0f172a;
+  --mp-text: #e5e7eb;
+  --mp-muted: #94a3b8;
+  --mp-border: rgba(148, 163, 184, 0.18);
+  --mp-accent: #38bdf8; /* Cyan */
+  --mp-ok: #22c55e;
+  --mp-warn: #f59e0b;
+  --mp-bad: #f43f5e;
+  color-scheme: dark;
+  background: var(--mp-bg);
+}
+
+.theme-dynamic .mp-elevated {
+  border-radius: 12px !important;
+  border: 1px solid var(--mp-border) !important;
+  background: linear-gradient(180deg, rgba(2,6,23,0.92), rgba(2,6,23,0.86)) !important;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.06) inset, 0 10px 35px rgba(0,0,0,0.45) !important;
+}
+
+.theme-dynamic .mp-heading {
+  font-weight: 700;
+  background:
+    linear-gradient(90deg, rgba(56,189,248,0.18), rgba(56,189,248,0)),
+    linear-gradient(180deg, rgba(2,6,23,0.9), rgba(2,6,23,0.7));
+  border-left: 3px solid var(--mp-accent);
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: var(--mp-text);
+}
+
+.theme-dynamic input,
+.theme-dynamic textarea,
+.theme-dynamic select {
+  color: var(--mp-text) !important;
+  background-color: var(--mp-surface) !important; /* Optional: Hintergrund anpassen */
+  border-color: var(--mp-border) !important; /* Optional: Rahmen anpassen */
+}
+
+.theme-dynamic input::placeholder,
+.theme-dynamic textarea::placeholder {
+  color: var(--mp-muted) !important;
+}
+
+
+/* Utility: färbt Standard-Buttons leicht um, wenn wir sie mit Klassen versehen */
+.theme-business .mp-primary,
+.theme-dynamic .mp-primary {
+  border-color: var(--mp-accent) !important;
+  color: #fff !important;
+  background: var(--mp-accent) !important;
+}
+
+.theme-business .mp-muted,
+.theme-dynamic .mp-muted {
+  color: var(--mp-muted) !important;
+}
+
+/* Optional: zarte Rahmen für Container, wenn wir dem Wrapper .mp-elevated geben */
+.mp-elevated {
+  border: 1px solid var(--mp-border);
+  background: var(--mp-surface);
+  border-radius: 10px;
+}
+
+/* Stellt sicher, dass der Inhalt über dem Hintergrund liegt */
+.mp-theme .mp-content { position: relative; z-index: 1; }

@@ -1,0 +1,10 @@
+/* Aggregator-Stylesheet für die App
+   Lädt zuerst Grunddesign/Variablen, dann Onboarding-spezifische Styles. */
+
+/* 1) Globales Theme (Farben, Typo, Buttons, Karten, Tabellen, Modale) */
+@import "./styles/globals.css";
+@import "./styles/themes.css";
+
+/* 2) Onboarding-/Startseite (alle .ob-* Klassen) */
+
+@import "./styles/admin.css";

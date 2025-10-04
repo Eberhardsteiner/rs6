@@ -1,0 +1,249 @@
+{
+  "meta": {
+    "version": 1,
+    "created": "2025-09-06T16:08:02.119092Z",
+    "scaleHint": "Bitte bewerten Sie auf einer Skala von 1 (stimme gar nicht zu) bis 5 (stimme voll zu)."
+  },
+  "globalScale": [
+    {
+      "id": "gs1",
+      "text": "Ich habe meine Entscheidungen konsequent an den wichtigsten Zielen des Spiels (14 Tage handlungsfähig bleiben) ausgerichtet."
+    },
+    {
+      "id": "gs2",
+      "text": "Ich konnte die KPI-Wirkungen (Cash, P&L, Kundentreue, Bankvertrauen, Workforce, Öffentlichkeit) meiner Entscheidungen realistisch einschätzen."
+    },
+    {
+      "id": "gs3",
+      "text": "Ich habe unter Zeitdruck handlungsfähig entschieden, ohne die Qualität der Abwägung zu verlieren."
+    },
+    {
+      "id": "gs4",
+      "text": "Mein Stakeholder-Management war vorausschauend (Bank, Kunden, Lieferanten, Belegschaft, Öffentlichkeit)."
+    },
+    {
+      "id": "gs5",
+      "text": "Governance und Compliance wurden gewahrt (z. B. Zahlungsdisziplin, Datenschutz, Whistleblowing)."
+    },
+    {
+      "id": "gs6",
+      "text": "Die interne Kommunikation war klar, ehrlich und beruhigend."
+    },
+    {
+      "id": "gs7",
+      "text": "Wir haben als Führungsteam kohärent gehandelt (Rollenklarheit, Übergaben, Entscheidungslogik)."
+    },
+    {
+      "id": "gs8",
+      "text": "Ich habe Risiken aktiv adressiert (Liquidität, Reputationsrisiken, Lieferfähigkeit, Qualität)."
+    },
+    {
+      "id": "gs9",
+      "text": "Ich habe bewusst Trade-offs gestaltet (z. B. Runway vs. Kundenbindung) und kommuniziert."
+    },
+    {
+      "id": "gs10",
+      "text": "Ich habe verfügbare Informationen (News, Attachments, Berichte) effektiv genutzt."
+    },
+    {
+      "id": "gs11",
+      "text": "Ich habe meine anfänglichen Hypothesen über den Spielverlauf regelmäßig überprüft und angepasst."
+    },
+    {
+      "id": "gs12",
+      "text": "Ich habe aus Fehleinschätzungen schnell gelernt und korrigiert."
+    }
+  ],
+  "globalOpen": [
+    {
+      "id": "go1",
+      "text": "Was waren Ihre drei wichtigsten Entscheidungsprinzipien in diesem Durchlauf?"
+    },
+    {
+      "id": "go2",
+      "text": "Wo lagen die größten Unsicherheiten? Wie sind Sie damit umgegangen?"
+    },
+    {
+      "id": "go3",
+      "text": "Welche zwei Entscheidungen hatten den stärksten Einfluss auf die Liquidität? Warum?"
+    },
+    {
+      "id": "go4",
+      "text": "Wo haben Sie bewusst Reputationsrisiken in Kauf genommen – und mit welchem Ziel?"
+    },
+    {
+      "id": "go5",
+      "text": "Welche Signale an die Hausbank waren besonders wichtig? Was würden Sie hier anders machen?"
+    },
+    {
+      "id": "go6",
+      "text": "Welche Frühindikatoren (News/Narrative) hätten Sie früher respektive intensiver nutzen sollen?"
+    },
+    {
+      "id": "go7",
+      "text": "Welche Zusammenarbeit im Führungsteam hat besonders gut funktioniert? Wo gab es Reibungen?"
+    },
+    {
+      "id": "go8",
+      "text": "Welche Kommunikationsentscheidungen nach außen (Presse, Social Media, Kunden) waren heikel? Warum?"
+    },
+    {
+      "id": "go9",
+      "text": "Welche Situation(en) haben Bias/Heuristiken getriggert (z. B. Sunk Cost, Overconfidence)? Wie hätten Sie diese mitigieren können?"
+    },
+    {
+      "id": "go10",
+      "text": "Welche konkreten Verhaltensanker nehmen Sie in Ihren Führungsalltag mit? (Bitte als 3–5 Bulletpoints)"
+    },
+    {
+      "id": "go11",
+      "text": "Welche offenen Fragen möchten Sie im Team oder mit dem Trainer im Debriefing vertiefen?"
+    },
+    {
+      "id": "go12",
+      "text": "Welcher Moment war Ihr persönlicher Wendepunkt im Spiel?"
+    }
+  ],
+  "roleScale": {
+    "CEO": [
+      {
+        "id": "ceo1",
+        "text": "Ich habe das Banknarrativ konsistent geführt (13‑Wochen-Plan, Weekly-Reporting, ‚no surprises‘)."
+      },
+      {
+        "id": "ceo2",
+        "text": "Ich habe Außenkommunikation so gesteuert, dass Vertrauen gestärkt wurde (ohne Schönfärberei)."
+      },
+      {
+        "id": "ceo3",
+        "text": "Ich habe Notfall-Cash-Maßnahmen (z. B. Sale & Leaseback) mit Blick auf Folgekosten abgewogen."
+      }
+    ],
+    "CFO": [
+      {
+        "id": "cfo1",
+        "text": "Ich habe Payment-Runs risikobasiert priorisiert (Lieferfähigkeit vs. Runway)."
+      },
+      {
+        "id": "cfo2",
+        "text": "Ich habe Kurzfristinstrumente (Skonti, Factoring, Teilzahlungen, Stundungen) zielgerichtet genutzt."
+      },
+      {
+        "id": "cfo3",
+        "text": "Ich habe Bank- und Liquiditätsreporting belastbar und termingerecht geliefert."
+      }
+    ],
+    "OPS": [
+      {
+        "id": "ops1",
+        "text": "Ich habe Kapazitäten und Qualitätsniveau passend zum Auftragsmix gesteuert (DB‑Logik)."
+      },
+      {
+        "id": "ops2",
+        "text": "Ich habe Lieferantenrisiken gemanagt (Vorkasse, Alternativen, Konditionen)."
+      },
+      {
+        "id": "ops3",
+        "text": "Ich habe Kundenprojekte transparent priorisiert (Pönalen vermeiden, Durchsatz sichern)."
+      }
+    ],
+    "HRLEGAL": [
+      {
+        "id": "hr1",
+        "text": "Ich habe Belegschaftssicherheit und Kosten in Balance gehalten (z. B. Kurzarbeit, Leiharbeit)."
+      },
+      {
+        "id": "hr2",
+        "text": "Ich habe Compliance-/Rechtsrisiken proaktiv adressiert (Datenschutz, Vertragsprüfung, Whistleblowing)."
+      },
+      {
+        "id": "hr3",
+        "text": "Ich habe interne Kommunikation so gestaltet, dass Vertrauen und Handlungsfähigkeit steigen."
+      }
+    ]
+  },
+  "roleOpen": {
+    "CEO": [
+      {
+        "id": "ceo_o1",
+        "text": "Welche Bank-/Beiratsintervention war entscheidend? Wie haben Sie sie vorbereitet?"
+      },
+      {
+        "id": "ceo_o2",
+        "text": "Wo waren die größten Zielkonflikte zwischen Außenkommunikation und Innenstabilisierung?"
+      }
+    ],
+    "CFO": [
+      {
+        "id": "cfo_o1",
+        "text": "Wie haben Sie die Logik der Payment-Freigaben begründet? Welche Kriterien haben Sie angewandt?"
+      },
+      {
+        "id": "cfo_o2",
+        "text": "Welche kurzfristigen Cash-Hebel haben ex post den größten Effekt gehabt – und warum?"
+      }
+    ],
+    "OPS": [
+      {
+        "id": "ops_o1",
+        "text": "Welche DB- oder Qualitätsentscheidung war heikel? Was war Ihr Entscheidungsweg?"
+      },
+      {
+        "id": "ops_o2",
+        "text": "Wo hätten Lieferanten-/Kundenkommunikation früher erfolgen sollen?"
+      }
+    ],
+    "HRLEGAL": [
+      {
+        "id": "hr_o1",
+        "text": "Welche arbeitsrechtliche oder Compliance-Frage stellte das größte Risiko dar?"
+      },
+      {
+        "id": "hr_o2",
+        "text": "Wie haben Sie die interne Kommunikation während der kritischen Phase strukturiert?"
+      }
+    ]
+  },
+  "decisionReview": {
+    "scale": [
+      {
+        "id": "dr1",
+        "text": "Ich war mir über die wichtigsten Zielgrößen in dieser Entscheidung klar."
+      },
+      {
+        "id": "dr2",
+        "text": "Ich habe wesentliche Alternativen aktiv geprüft."
+      },
+      {
+        "id": "dr3",
+        "text": "Ich habe die KPI-Wirkung realistisch eingeschätzt."
+      },
+      {
+        "id": "dr4",
+        "text": "Die Entscheidung wurde für alle Stakeholder nachvollziehbar begründet."
+      },
+      {
+        "id": "dr5",
+        "text": "Das Ergebnis entsprach meiner Erwartung."
+      }
+    ],
+    "open": [
+      {
+        "id": "dro1",
+        "text": "Warum habe ich Option X gewählt? (Ziele, Annahmen, Risiken)"
+      },
+      {
+        "id": "dro2",
+        "text": "Welche Information hat gefehlt? Wie hätte ich sie beschaffen können?"
+      },
+      {
+        "id": "dro3",
+        "text": "Welche Alternative erscheint ex post sinnvoller? Warum?"
+      },
+      {
+        "id": "dro4",
+        "text": "Welche Folgekommunikation wäre optimal gewesen?"
+      }
+    ]
+  }
+}

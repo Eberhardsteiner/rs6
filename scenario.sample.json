@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "title": "Beispiel: Nachfrageknick",
+    "version": 1,
+    "author": "Editor"
+  },
+  "events": [
+    {
+      "day": 2,
+      "title": "Lieferant meldet Engpass",
+      "text": "Wichtiger Zulieferer kündigt Lieferverzögerungen um 4–6 Wochen an.",
+      "category": "kunden",
+      "severity": "mid",
+      "impact": {
+        "cashEUR": -25000,
+        "profitLossEUR": -15000,
+        "customerLoyalty": -5
+      },
+      "conditions": {
+        "kpi": [
+          {
+            "key": "bankTrust",
+            "op": "<",
+            "value": 80
+          }
+        ]
+      }
+    },
+    {
+      "day": 3,
+      "title": "Presse berichtet über Qualitätsprobleme",
+      "text": "Regionale Presse greift Beschwerden in sozialen Medien auf.",
+      "category": "oeffentlichkeit",
+      "severity": "high",
+      "impact": {
+        "publicPerception": -20,
+        "customerLoyalty": -8
+      }
+    },
+    {
+      "day": 4,
+      "title": "Belegschaftsidee spart Kosten",
+      "text": "Teams finden Effizienzhebel im operativen Prozess.",
+      "category": "belegschaft",
+      "severity": "low",
+      "impact": {
+        "profitLossEUR": 12000,
+        "workforceEngagement": 5
+      },
+      "conditions": {
+        "minDay": 3
+      }
+    }
+  ]
+}

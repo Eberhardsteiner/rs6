@@ -1,0 +1,459 @@
+/* =========================
+   Design-Variablen (Farben)
+   -------------------------
+   - Hintergrund/Schriftfarben
+   - Rahmenfarben
+   - Statusfarben für OK/Warnung/Fehler
+   ========================= */
+:root { 
+  --bg:#f7f7f9;          /* Seitenhintergrund (hell) */
+  --fg:#151515;          /* Standard-Textfarbe (dunkel) */
+  --muted:#6b7280;       /* Gedämpfte Textfarbe (Labels/Hinweise) */
+  --border:#ddd;         /* Standard-Rahmenfarbe (helle Linien) */
+  --ok:#16a34a;          /* Erfolgs-/Positivfarbe */
+  --warn:#f59e0b;        /* Warnfarbe */
+  --bad:#dc2626;         /* Fehlfarbe/Danger */
+}
+
+/* ================
+   Box-Modell-Basis
+   - Einheitliches Sizing
+   ================ */
+* { 
+  box-sizing:border-box; /* Padding/Borders werden in der Elementgröße mitgerechnet */
+}
+
+/* =========================
+   Vollflächige Höhe
+   - Root-Container füllen Viewport
+   ========================= */
+html,body,#root { 
+  height:100%; 
+}
+
+/* =========================
+   Seiten-Setup
+   - Grundschrift, Grundfarben, globaler Hintergrund
+   ========================= */
+body { 
+  margin:0; 
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; /* Basis-Schriftfamilie */
+  background:var(--bg);  /* Seitenhintergrundfarbe */
+  color:var(--fg);       /* Standard-Textfarbe */
+}
+
+/* =========================
+   Inhaltsbreite & Grundabstand
+   - Zentrierter Container
+   ========================= */
+.container { 
+  max-width: 1080px;   /* maximale Inhaltsbreite */
+  margin: 0 auto;      /* zentriert */
+  padding: 16px;       /* Innenabstand */
+}
+
+/* =========================
+   Überschriften
+   - Abstand nach unten
+   ========================= */
+h1,h2,h3 { 
+  margin: 0 0 8px; 
+}
+
+/* =========================
+   Card-Komponente
+   - Helle Boxen mit Rahmen/Schatten
+   - Wird für „Kästen"/Abschnitte verwendet
+   ========================= */
+.card { 
+  background:#fff;                        /* Kartenhintergrund (hell) */
+  border:1px solid var(--border);         /* Kartenrahmen */
+  border-radius:10px;                     /* abgerundete Ecken */
+  padding:16px;                           /* Innenabstand */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);  /* leichter Schatten */
+}
+
+/* =========================
+   Flex-Reihen
+   - Horizontales Layout mit Lücken
+   ========================= */
+.row { 
+  display:flex;      /* horizontale Ausrichtung */
+  gap:12px;          /* Spalt zwischen Kindern */
+  flex-wrap:wrap;    /* Zeilenumbruch bei schmalen Viewports */
+}
+
+/* =========================
+   Button (neutral)
+   - Grundstil, Hover, Disabled
+   ========================= */
+.btn { 
+  padding:8px 12px; 
+  border:1px solid var(--border); /* Button-Rahmen */
+  background:#fff;                /* Button-Hintergrund (hell) */
+  border-radius:8px;              /* Ecken */
+  cursor:pointer; 
+  transition: all 0.2s ease;      /* sanfte Interaktionen */
+  font-size: 14px;
+}
+
+.btn:hover { 
+  background:#f2f2f2;            /* Hover-Hintergrund */
+  transform: translateY(-1px);   /* leichte Anhebung */
+}
+
+.btn:disabled {
+  opacity: 0.6;                   /* abgeschwächt */
+  cursor: not-allowed;            /* „nicht klickbar" */
+  transform: none;                /* keine Bewegung */
+}
+
+/* =========================
+   Button (primary)
+   - Primärfarbe/Verläufe
+   ========================= */
+.btn.primary { 
+  border-color:#0ea5e9;                              /* Rahmen in Primärblau */
+  color:#0b69a3;                                     /* Text in dunklerem Blau */
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe); /* heller Verlauf */
+}
+
+.btn.primary:hover {
+  background: linear-gradient(135deg, #e0f2fe, #bae6fd); /* intensiverer Hover-Verlauf */
+}
+
+/* =========================
+   Button (danger)
+   - Fehl-/Warnzustand farblich
+   ========================= */
+.btn.danger { 
+  border-color:var(--bad);                           /* Rahmen in Fehlerrot */
+  color:var(--bad);                                  /* Text in Fehlerrot */
+  background: linear-gradient(135deg, #fef2f2, #fee2e2); /* roter Verlauf (hell) */
+}
+
+.btn.danger:hover {
+  background: linear-gradient(135deg, #fee2e2, #fecaca); /* kräftigerer Hover-Verlauf */
+}
+
+/* =========================
+   Badge
+   - Kleine Label/Chips mit Rahmen/Hintergrund
+   ========================= */
+.badge { 
+  border:1px solid var(--border); /* dünner Rahmen */
+  border-radius:999px;            /* Pillenform */
+  padding:2px 8px; 
+  font-size:12px; 
+  color:var(--muted);             /* gedämpfte Schrift */
+  background: #f8fafc;            /* sehr helles Grau/Blau */
+}
+
+/* =========================
+   Fieldset/Legend
+   - Gruppierung von Formularfeldern
+   ========================= */
+fieldset { 
+  border:1px solid var(--border); /* Rahmen */
+  border-radius:10px; 
+  background: #fafbfc;            /* dezenter Hintergrund */
+}
+
+legend { 
+  padding:0 6px; 
+  font-weight: 600;               /* hervorgehobene Beschriftung */
+}
+
+/* =========================
+   Divider (horizontale Linie)
+   - Visuelle Trennung von Abschnitten
+   ========================= */
+.hr { 
+  height:1px; 
+  background:var(--border); /* Linienfarbe */
+  margin:16px 0; 
+}
+
+/* =========================
+   Tastatur-Tags (kbd)
+   - Stil für Tastenkombinationen
+   ========================= */
+kbd { 
+  background:#eee;              /* helles Grau */
+  border:1px solid #ddd; 
+  border-bottom-color:#bbb;     /* leichte 3D-Anmutung */
+  border-radius:4px; 
+  padding:0 4px; 
+}
+
+/* =========================
+   Tabellen
+   - Layout, Linien, Kopfzeile
+   ========================= */
+table { 
+  width:100%; 
+  border-collapse: collapse; /* zusammengeführte Zellränder */
+}
+
+th, td { 
+  border:1px solid var(--border); /* Zellränder */
+  padding:6px 8px; 
+  text-align:left; 
+}
+
+th {
+  background: #f8fafc;  /* Kopfzeilen-Hintergrund (hell) */
+  font-weight: 600;     /* Kopfzeilen-Typo */
+}
+
+/* =========================
+   Tooltip
+   - Markierung und Layer für Hilfetexte
+   ========================= */
+.tooltip { 
+  position:relative; 
+  border-bottom:1px dotted var(--muted); /* gestrichelte Unterstreichung als Hinweis */
+  cursor:help; 
+}
+
+.tooltip .tip { 
+  display:none;                 /* standardmäßig versteckt */
+  position:absolute; 
+  top:120%; left:0;             /* positioniert unter dem Trigger */
+  background:#111;              /* dunkler Tooltip-Hintergrund */
+  color:#fff;                   /* kontrastreiche Tooltip-Schrift */
+  padding:8px; 
+  border-radius:6px; 
+  font-size:12px; 
+  min-width:220px; 
+  z-index:10; 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3); /* Schlagschatten */
+}
+
+.tooltip:hover .tip { 
+  display:block;                /* Tooltip einblenden bei Hover */
+}
+
+/* =========================
+   Modal/Überlagerung
+   - Abgedunkelter Hintergrund + zentriertes Fenster
+   ========================= */
+.modal-backdrop { 
+  position:fixed; 
+  inset:0; 
+  background:rgba(0,0,0,.25); /* Abdunklung des Hintergrunds */
+  display:flex; 
+  align-items:center; 
+  justify-content:center; 
+  z-index:50; 
+  backdrop-filter: blur(2px); /* weiche Unschärfe */
+}
+
+.modal { 
+  background:#fff;                         /* Modal-Hintergrund */
+  border:1px solid var(--border);          /* Modal-Rahmen */
+  border-radius:12px; 
+  padding:16px; 
+  width:min(720px, 96vw);                  /* responsive Breite */
+  max-height:90vh; 
+  overflow:auto;                           /* Scrollen bei viel Inhalt */
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 
+              0 10px 10px -5px rgba(0,0,0,0.04); /* kräftiger Schatten */
+}
+
+/* =========================
+   KPI-Grid
+   - Responsives Raster für KPI-Boxen
+   ========================= */
+.kpiGrid { 
+  display:grid; 
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* flexible Spalten */
+  gap:8px; 
+}
+
+/* =========================
+   KPI-Box
+   - Hintergrund/Rahmen/Abstände und Hover-Effekt der Messkacheln
+   ========================= */
+.kpiBox { 
+  background:#fff;                      /* KPI-Kasten-Hintergrund */
+  border:1px solid var(--border);       /* Rahmenfarbe */
+  border-radius:10px; 
+  padding:10px; 
+  display:flex; 
+  flex-direction:column; 
+  gap:4px; 
+  transition: all 0.2s ease;            /* sanfte Interaktion */
+}
+
+.kpiBox:hover {
+  transform: translateY(-2px);          /* leichte Anhebung */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* Schatten bei Hover */
+}
+
+/* =========================
+   KPI-Wert & Einheit
+   - Typografie innerhalb der KPI-Box
+   ========================= */
+.kpiValue { 
+  font-weight:700; 
+  font-size:18px; 
+}
+
+.kpiUnit { 
+  font-size:12px; 
+  color:var(--muted);  /* gedämpfte Einheit/Label */
+}
+
+/* =========================
+   Timer
+   - Balkenhintergrund und Füllung
+   ========================= */
+.timer { 
+  height:10px; 
+  border-radius:999px; 
+  background:#e5e7eb; /* grauer Track */
+  overflow:hidden; 
+}
+
+.timer > div { 
+  height:100%; 
+  transition:width .4s linear; /* fließender Fortschritt */
+  /* Hintergrundfarbe der Füllung sollte per Inline-Style/JS gesetzt werden */
+}
+
+/* =========================
+   Form-Elemente
+   - Rahmen, Ecken, Fokus-Style
+   ========================= */
+input, select, textarea {
+  border: 1px solid var(--border); /* Feldrahmen */
+  border-radius: 6px;
+  padding: 8px;
+  font-family: inherit;            /* gleiche Schrift wie Body */
+  transition: border-color 0.2s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #0ea5e9;                      /* Fokus-Rahmen */
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); /* Fokus-Glanz */
+}
+
+/* =========================
+   Onboarding: „Mehr anzeigen"
+   - Aus-/Einklappen von Zusatztext
+   ========================= */
+.ob-more {
+  margin: 8px 0 12px;
+}
+.ob-more-content {
+  display: none;           /* zunächst versteckt */
+  margin-bottom: 8px;
+  color: #0f172a;          /* Textfarbe des Zusatzbereichs */
+}
+.ob-more.open .ob-more-content { display: block; } /* bei .open sichtbar */
+.ob-more-btn {
+  border: 1px dashed #cfe0fb; /* gestrichelter Rahmen als Hinweis */
+  background: #f4f8ff;        /* sehr heller Blau-Ton */
+  color: var(--brand-700);    /* Hinweis: benötigt definierte Markenfarbe */
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ob-more-btn:hover { filter: brightness(1.02); }
+
+/* =========================
+   Onboarding: KPI-Start-Cockpit (Mini)
+   - Kleine KPI-Karte mit Titel/Notiz/Raster
+   ========================= */
+.ob-kpi-card {
+  margin-top: 12px;
+  background: #ffffff;              /* Kartenhintergrund */
+  border: 1px solid var(--card-br); /* Hinweis: var(--card-br) muss definiert sein */
+  border-radius: 12px;
+  padding: 12px;
+}
+.ob-kpi-h {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 8px;               /* Abstand unter Kopf */
+}
+.ob-kpi-h h3 { margin: 0; font-size: 16px; }
+.ob-kpi-note { font-size: 12px; color: #64748b; }  /* Notiz-/Hilfetext */
+
+.ob-kpi-grid {
+  display: grid; gap: 10px;                         /* Abstand zwischen Kacheln */
+  grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2-spaltig (klein) */
+}
+@media (min-width: 880px) {
+  .ob-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } /* 3-spaltig (breit) */
+}
+.ob-kpi {
+  border: 1px solid #e6ecf7; /* heller Rahmen für Mini-KPI */
+  background: #f9fbff;       /* sehr helles Blau */
+  border-radius: 12px;
+  padding: 10px;
+}
+.ob-kpi-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.ob-kpi-title { color: #0b3a6e; } /* KPI-Name in dunklem Blau */
+.ob-kpi-val { font-weight: 800; color: #0b3a6e; } /* KPI-Wert (kräftig, blau) */
+
+.ob-kpi-bottom { margin-top: 6px; }
+.ob-spark {
+  display: block;
+  color: var(--accent-600); /* Linien-/Akzentfarbe für Sparkline (Variable nötig) */
+}
+
+/* =========================
+   Bestehender Tooltip bleibt kompatibel
+   (kein zusätzlicher Code nötig)
+   ========================= */
+
+/* =========================
+   REMOVED: Problematic background override
+   The following line was causing contrast issues
+   and has been removed:
+   html, body, #root { background: #94E6F4 !important; }
+   ========================= */
+/* Sicherstellen, dass Text auf weißem Hintergrund immer dunkel ist */
+.card,
+.modal,
+[style*="background: white"],
+[style*="background:#fff"],
+[style*="background: #fff"],
+[style*="background:#ffffff"],
+[style*="background: #ffffff"] {
+  color: var(--fg) !important; /* Erzwingt dunklen Text */
+}
+
+/* Alle Elemente mit weißem/hellem Hintergrund */
+.card *,
+.modal *,
+.ob-kpi-card *,
+.kpiBox * {
+  color: inherit; /* Erbt die dunkle Textfarbe */
+}
+
+/* Explizite Korrektur für problematische Farben */
+[style*="color: #E6EEFC"],
+[style*="color:#E6EEFC"],
+[style*="color: #e6eefc"],
+[style*="color:#e6eefc"] {
+  color: var(--fg) !important;
+}
+
+/* Globale Regel für besseren Kontrast */
+body * {
+  color: var(--fg);
+}
+
+/* Ausnahmen für spezielle Elemente */
+.btn.primary,
+.btn.danger,
+.badge,
+.tooltip .tip {
+  /* Diese behalten ihre speziellen Farben */
+}

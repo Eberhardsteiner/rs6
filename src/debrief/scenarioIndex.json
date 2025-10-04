@@ -1,0 +1,2050 @@
+{
+  "D01-CEO-1": {
+    "id": "D01-CEO-1",
+    "day": 1,
+    "role": "CEO",
+    "title": "Kontokorrentkürzung – Governance & Narrativ",
+    "context": "Die Hausbank kündigt die Kürzung der Kreditlinie um 300.000 € an. Auflagen: 13-Wochen-Plan, Maßnahmenpaket, wöchentliches Reporting.",
+    "dilemma": "Tempo vs. Qualität der Unterlagen"
+  },
+  "D01-CEO-2": {
+    "id": "D01-CEO-2",
+    "day": 1,
+    "role": "CEO",
+    "title": "Krisenstab & Meeting-Taktung",
+    "context": "Die Entscheidungsgeschwindigkeit ist zu gering. Es fehlt an klarer Taktung und Rollenverantwortung im Krisenmodus.",
+    "dilemma": "Schnelle Entscheidungen vs. Überlastung der Führungskräfte"
+  },
+  "D01-CEO-3": {
+    "id": "D01-CEO-3",
+    "day": 1,
+    "role": "CEO",
+    "title": "Kommunikationslinie nach außen",
+    "context": "Kunden und Öffentlichkeit stellen Fragen. Es gibt Hinweise auf Social-Media-Spekulationen über Zahlungsziele.",
+    "dilemma": "Transparenz vs. Beruhigung der Öffentlichkeit"
+  },
+  "D01-CEO-4": {
+    "id": "D01-CEO-4",
+    "day": 1,
+    "role": "CEO",
+    "title": "Notfall-Cash – Sale & Leaseback anstoßen?",
+    "context": "Die Liquiditätslinie wackelt. Ein kurzfristiger Sale-&-Leaseback (Maschinenpark) könnte 180.000 € heben.",
+    "dilemma": "Runway sichern vs. künftige Fixkosten erhöhen"
+  },
+  "D01-CFO-1": {
+    "id": "D01-CFO-1",
+    "day": 1,
+    "role": "CFO",
+    "title": "Payment-Runs unter KK-Kürzung",
+    "context": "Unkoordinierte Auszahlungen können die Linie reißen. Ein strenges Priorisierungsregime ist nötig.",
+    "dilemma": "Lieferbeziehung sichern vs. Runway sichern"
+  },
+  "D01-CFO-2": {
+    "id": "D01-CFO-2",
+    "day": 1,
+    "role": "CFO",
+    "title": "Skonto-Programm für Schnellzahler",
+    "context": "Mehrere Kunden wären bereit, gegen 3–4 % Nachlass sofort zu zahlen.",
+    "dilemma": "Kurzfristige Liquidität vs. Ergebniseffekt & Signal an Bank"
+  },
+  "D01-CFO-3": {
+    "id": "D01-CFO-3",
+    "day": 1,
+    "role": "CFO",
+    "title": "Umsatzsteuer/Sozialabgaben – Stundungsantrag?",
+    "context": "Fällige Zahlungen in 10 Tagen. Eine Stundung würde Cash entlasten, birgt aber Reputationsrisiken.",
+    "dilemma": "Liquidität jetzt vs. Signalwirkung gegenüber Stakeholdern"
+  },
+  "D01-CFO-4": {
+    "id": "D01-CFO-4",
+    "day": 1,
+    "role": "CFO",
+    "title": "Liquiditätsreporting an Bank (Daily vs. Weekly)",
+    "context": "Die Bank wünscht engmaschige Transparenz. Aufwand im Team ist begrenzt.",
+    "dilemma": "Detailtiefe vs. Teamkapazität"
+  },
+  "D01-OPS-1": {
+    "id": "D01-OPS-1",
+    "day": 1,
+    "role": "OPS",
+    "title": "ChemAlloy – Vorkasse für kritische Gussteile",
+    "context": "Kreditversicherung entzieht Deckung; Lieferung nur gegen 70 % Vorkasse.",
+    "dilemma": "Durchsatz sichern vs. Cash schonen"
+  },
+  "D01-OPS-2": {
+    "id": "D01-OPS-2",
+    "day": 1,
+    "role": "OPS",
+    "title": "Engpass in Montage – Linienumbau",
+    "context": "Eine Kernlinie ist überlastet. Mit Umbau können 12 % mehr Stückzahl erreicht werden. Kosten (Abschreibungen, Zinsen, Einbußen durch Stillstand etc. 18.000 Euro/Jahr, eigene Liquidität: -200.000).",
+    "dilemma": "Kurzfristige Investition vs. Effizienzgewinn"
+  },
+  "D01-OPS-3": {
+    "id": "D01-OPS-3",
+    "day": 1,
+    "role": "OPS",
+    "title": "Kontraktlogistik – Zahlungsziel neu verhandeln",
+    "context": "Verhandlungen mit dem Zulieferer über neues Zahlungsziel: Logistikpartner bietet 14 Tage Zahlungsziel; Ziel sind 30 Tage.",
+    "dilemma": "Cash-Schonung vs. Konditionsrisiko"
+  },
+  "D01-OPS-4": {
+    "id": "D01-OPS-4",
+    "day": 1,
+    "role": "OPS",
+    "title": "Qualitätsreklamation A-Kunde – Kulanz oder Streit?",
+    "context": "A-Kunde reklamiert eine Charge. Ersatzlieferung kostet 22.000 €. Reklamation ist nur teilweise berechtigt, aber langfrisitge gute Kundenbeziehung.",
+    "dilemma": "Kundenbindung vs. kurzfristiger Ergebnisdruck"
+  },
+  "D01-HRLEGAL-1": {
+    "id": "D01-HRLEGAL-1",
+    "day": 1,
+    "role": "HRLEGAL",
+    "title": "Interne Kommunikation – Lohnsicherheit",
+    "context": "Gerüchteküche brodelt: „Sind Löhne sicher?\" Erste Rückzüge bei Bewerbungen.",
+    "dilemma": "Transparenz vs. Unruhe"
+  },
+  "D01-HRLEGAL-2": {
+    "id": "D01-HRLEGAL-2",
+    "day": 1,
+    "role": "HRLEGAL",
+    "title": "Kurzarbeit prüfen",
+    "context": "Auftragsschwankungen und Cash-Stress sprechen für temporäre Kurzarbeit in Teilbereichen.",
+    "dilemma": "Kosten senken vs. Signal an Markt/Belegschaft"
+  },
+  "D01-HRLEGAL-3": {
+    "id": "D01-HRLEGAL-3",
+    "day": 1,
+    "role": "HRLEGAL",
+    "title": "Freie Mitarbeitende/Leiharbeit – Verträge straffen",
+    "context": "Uneinheitliche Vertragslagen, Risiken bei Scheinselbstständigkeit.",
+    "dilemma": "Schnelles Sparen vs. Compliance-Risiko"
+  },
+  "D01-HRLEGAL-4": {
+    "id": "D01-HRLEGAL-4",
+    "day": 1,
+    "role": "HRLEGAL",
+    "title": "Whistleblowing-Hinweis – verspätete Zahlungen",
+    "context": "Anonyme Meldung: „Zahlungen an kleine Lieferanten verzögert\". Medienrisiko.",
+    "dilemma": "Schnell aufklären vs. defensiv bleiben"
+  },
+  "D02-CEO-1": {
+    "id": "D02-CEO-1",
+    "day": 2,
+    "role": "CEO",
+    "title": "Presseinterview zu Stabilität & Ausblick",
+    "context": "Regionale Wirtschaftszeitung bittet um Interview zu Gerüchten über Zahlungsschwierigkeiten.",
+    "dilemma": "Transparenz vs. Beruhigung der Öffentlichkeit"
+  },
+  "D02-CEO-2": {
+    "id": "D02-CEO-2",
+    "day": 2,
+    "role": "CEO",
+    "title": "Key-Account-Roadshow organisieren",
+    "context": "Top-5-Kunden verlangen persönliche Einordnung der Liefersicherheit der nächsten 6 Wochen.",
+    "dilemma": "Fokus auf Auslandsreise vs. Remote-Briefing"
+  },
+  "D02-CEO-3": {
+    "id": "D02-CEO-3",
+    "day": 2,
+    "role": "CEO",
+    "title": "Externer Beirat aktivieren",
+    "context": "Beirat von acht Expertinnen und Experten war inaktiv. Einberufung kann Governance-Signal setzen, kostet aber zusätzliche Tagessätze.",
+    "dilemma": "Zeit & Offenheit vs. mögliche Leaks und Kosten"
+  },
+  "D02-CEO-4": {
+    "id": "D02-CEO-4",
+    "day": 2,
+    "role": "CEO",
+    "title": "Kostenmoratorium für nicht-essenzielle Ausgaben",
+    "context": "Viele kleinere Ausgaben summieren sich (Reisen, Marketing, Subscriptions).",
+    "dilemma": "Strenge Sperre vs. Handlungsfähigkeit"
+  },
+  "D02-CFO-1": {
+    "id": "D02-CFO-1",
+    "day": 2,
+    "role": "CFO",
+    "title": "Skonto-Angebote der Kunden",
+    "context": "Mehrere Kunden bieten sofortige Zahlung gegen 4 % Preisnachlass.",
+    "dilemma": "Kurzfristige Liquidität vs. langfristiger Ertrag"
+  },
+  "D02-CFO-2": {
+    "id": "D02-CFO-2",
+    "day": 2,
+    "role": "CFO",
+    "title": "Factoring kurzfristig prüfen",
+    "context": "Offene Forderungen von 1,2 Mio. €; Non-Recourse-Factoring bietet 85 % Vorauszahlung, Gebühr 2,2 % auf die 1,2 Mio..",
+    "dilemma": "Cash-Anhebung vs. Kosten/Signal"
+  },
+  "D02-CFO-3": {
+    "id": "D02-CFO-3",
+    "day": 2,
+    "role": "CFO",
+    "title": "Zahlungsziel der Lieferanten – Sammelverhandlung",
+    "context": "Top-10-Lieferanten verlangen Vorkasse aufgrund negativer Berichte.",
+    "dilemma": "Härte vs. Beziehung"
+  },
+  "D02-CFO-4": {
+    "id": "D02-CFO-4",
+    "day": 2,
+    "role": "CFO",
+    "title": "Treasury-Board einrichten",
+    "context": "Cash-Entscheidungen sind fragmentiert.",
+    "dilemma": "Zentralisierung vs. Geschwindigkeit"
+  },
+  "D02-OPS-1": {
+    "id": "D02-OPS-1",
+    "day": 2,
+    "role": "OPS",
+    "title": "Maschinenausfall Kernlinie",
+    "context": "Eine Produktionsmaschine fällt aus; Ersatzteil in 14 Tagen verfügbar, sonst kommt es zu Verzögerungen bei der Auftragsabarbeitung.",
+    "dilemma": "Schnelle Reparatur vs. günstige Beschaffung"
+  },
+  "D02-OPS-2": {
+    "id": "D02-OPS-2",
+    "day": 2,
+    "role": "OPS",
+    "title": "Kritische Rohstoffe – Sicherheitsbestand",
+    "context": "Sicherheitsbestand deckt nur 5 Tage; Lieferketten volatil.",
+    "dilemma": "Cash-Bindung vs. Liefersicherheit"
+  },
+  "D02-OPS-3": {
+    "id": "D02-OPS-3",
+    "day": 2,
+    "role": "OPS",
+    "title": "Produktmix kurzfristig verschieben",
+    "context": "Hoher DB bei Produktlinie P3, aber lange Rüstzeiten.",
+    "dilemma": "DB-Maximierung vs. Komplexität"
+  },
+  "D02-OPS-4": {
+    "id": "D02-OPS-4",
+    "day": 2,
+    "role": "OPS",
+    "title": "Qualitätsgate verschärfen",
+    "context": "Fehlerrate steigt; Nacharbeit bindet Kapazität und kostet Geld.",
+    "dilemma": "Strenge Qualitätskontrolle vs. Durchsatz"
+  },
+  "D02-HRLEGAL-1": {
+    "id": "D02-HRLEGAL-1",
+    "day": 2,
+    "role": "HRLEGAL",
+    "title": "Krankheitswelle in der Montage",
+    "context": "10 % krank; kritische Projekte betroffen.",
+    "dilemma": "Leiharbeit vs. Überstunden vs. Priorisierung"
+  },
+  "D02-HRLEGAL-2": {
+    "id": "D02-HRLEGAL-2",
+    "day": 2,
+    "role": "HRLEGAL",
+    "title": "Betriebsratsgespräch zur Kurzarbeit",
+    "context": "BR fordert Transparenz und Mitbestimmung.",
+    "dilemma": "Tempo vs. Beteiligung"
+  },
+  "D02-HRLEGAL-3": {
+    "id": "D02-HRLEGAL-3",
+    "day": 2,
+    "role": "HRLEGAL",
+    "title": "Gerüchte in Social Media eindämmen",
+    "context": "Mitarbeitende posten Spekulationen.",
+    "dilemma": "Meinungsfreiheit vs. Unternehmensinteresse"
+  },
+  "D02-HRLEGAL-4": {
+    "id": "D02-HRLEGAL-4",
+    "day": 2,
+    "role": "HRLEGAL",
+    "title": "Datenschutzprüfung für Factoring/Beirat",
+    "context": "Datenweitergabe an Dritte (Factoring, Beirat) steht an.",
+    "dilemma": "Geschwindigkeit vs. Compliance"
+  },
+  "D03-CEO-1": {
+    "id": "D03-CEO-1",
+    "day": 3,
+    "role": "CEO",
+    "title": "Kommunikations-Update nach Presseartikel",
+    "context": "Interview erscheint morgen. Abstimmung der Kernbotschaften nötig.",
+    "dilemma": "Proaktive Offensive vs. kontrollierte Zurückhaltung"
+  },
+  "D03-CEO-2": {
+    "id": "D03-CEO-2",
+    "day": 3,
+    "role": "CEO",
+    "title": "Zweitbank sondieren",
+    "context": "Anbahnung einer zweiten Hausbank als Option für Liquiditätsreserve.",
+    "dilemma": "Signalstärke vs. Verhandlungsmacht"
+  },
+  "D03-CEO-3": {
+    "id": "D03-CEO-3",
+    "day": 3,
+    "role": "CEO",
+    "title": "Kundenbeirat gründen",
+    "context": "Schlüsselkunden wollen früh informiert werden.",
+    "dilemma": "Transparenz vs. Vertraulichkeit"
+  },
+  "D03-CEO-4": {
+    "id": "D03-CEO-4",
+    "day": 3,
+    "role": "CEO",
+    "title": "Beraterauswahl Restrukturierung",
+    "context": "Bank signalisiert Wunsch nach externem Restrukturierungsberater.",
+    "dilemma": "Unabhängigkeit vs. Akzeptanz der Bank"
+  },
+  "D03-CFO-1": {
+    "id": "D03-CFO-1",
+    "day": 3,
+    "role": "CFO",
+    "title": "Payroll-Vorfinanzierung",
+    "context": "Lohnlauf in 5 Tagen, Kasse angespannt.",
+    "dilemma": "Löhne priorisieren vs. Lieferanten zahlen"
+  },
+  "D03-CFO-2": {
+    "id": "D03-CFO-2",
+    "day": 3,
+    "role": "CFO",
+    "title": "Stundung Steuer/Sozialabgaben finalisieren",
+    "context": "Behörden bitten um Unterlagen; Frist 48 Stunden.",
+    "dilemma": "Vollständigkeit vs. Geschwindigkeit"
+  },
+  "D03-CFO-3": {
+    "id": "D03-CFO-3",
+    "day": 3,
+    "role": "CFO",
+    "title": "Kreditversicherung reaktivieren (Ausfallversicherung für Lieferanten, die uns gegen Rechnung liefern mit 30 Tagen Ziel)",
+    "context": "KV hat Limits gesenkt; Reaktivierung für Top-3-Lieferanten möglich, sichert Lieferung der A-Teile vollständig, B-Teile mit Selbstbeteiligung 10 %, C-Teile mit 50 %.",
+    "dilemma": "Gebühren vs. Versorgungssicherheit"
+  },
+  "D03-CFO-4": {
+    "id": "D03-CFO-4",
+    "day": 3,
+    "role": "CFO",
+    "title": "Tageslimit für Freigaben",
+    "context": "Ad-hoc-Entscheidungen gefährden Cash-Disziplin.",
+    "dilemma": "Strenge Limits vs. Flexibilität"
+  },
+  "D03-OPS-1": {
+    "id": "D03-OPS-1",
+    "day": 3,
+    "role": "OPS",
+    "title": "Eilauftrag mit Pönale",
+    "context": "A-Kunde droht mit Pönale bei Verzug von Lieferung, Schaden 30k.",
+    "dilemma": "Kostenintensive Schicht vs. Pönale"
+  },
+  "D03-OPS-2": {
+    "id": "D03-OPS-2",
+    "day": 3,
+    "role": "OPS",
+    "title": "Wartungsstau priorisieren",
+    "context": "Mehrere Anlagen mit überfälliger Wartung; Ausfallrisiko steigt.",
+    "dilemma": "Prävention vs. Durchsatz"
+  },
+  "D03-OPS-3": {
+    "id": "D03-OPS-3",
+    "day": 3,
+    "role": "OPS",
+    "title": "Fremdfertiger für Engpasskapazität",
+    "context": "Partner kann kurzfristig 15 % Kapazität übernehmen.",
+    "dilemma": "Mehrkosten vs. Liefertreue"
+  },
+  "D03-OPS-4": {
+    "id": "D03-OPS-4",
+    "day": 3,
+    "role": "OPS",
+    "title": "Lieferabrufe bündeln",
+    "context": "Viele Kleinabrufe binden Cash und verursachen Rüstkosten.",
+    "dilemma": "Effizienz vs. Reaktionsfähigkeit"
+  },
+  "D03-HRLEGAL-1": {
+    "id": "D03-HRLEGAL-1",
+    "day": 3,
+    "role": "HRLEGAL",
+    "title": "Interne Townhall vorbereiten",
+    "context": "Unsicherheit steigt, Fragen zu Lohnsicherheit und Kurzarbeit, aber Produktivitätsausfall und Kosten für Catering.",
+    "dilemma": "Offenheit vs. Verunsicherung"
+  },
+  "D03-HRLEGAL-2": {
+    "id": "D03-HRLEGAL-2",
+    "day": 3,
+    "role": "HRLEGAL",
+    "title": "Arbeitszeitkonten flexibilisieren, mehr Möglichkeiten für Mitarbeitende schaffen, Überstunden auszugleichen",
+    "context": "Überstunden & Unterlast variieren stark zwischen Bereichen.",
+    "dilemma": "Flexibilität vs. Betriebsvereinbarung"
+  },
+  "D03-HRLEGAL-3": {
+    "id": "D03-HRLEGAL-3",
+    "day": 3,
+    "role": "HRLEGAL",
+    "title": "Kündigungsschutz-Sperrfrist prüfen",
+    "context": "Einzelne Low-Performer verursachen hohe Fehlerkosten und ziehen die Motivation herunter.",
+    "dilemma": "Schnelles Handeln vs. Rechtsrisiko"
+  },
+  "D03-HRLEGAL-4": {
+    "id": "D03-HRLEGAL-4",
+    "day": 3,
+    "role": "HRLEGAL",
+    "title": "Lieferanten-Gleichbehandlung dokumentieren",
+    "context": "Whistleblower deutet „Beziehungszahlungen\" an.",
+    "dilemma": "Stringenz vs. Flexibilität"
+  },
+  "D04-CEO-1": {
+    "id": "D04-CEO-1",
+    "day": 4,
+    "role": "CEO",
+    "title": "Banktermin vorbereiten (Tag 5)",
+    "context": "Erstes strukturiertes Bankgespräch steht an.",
+    "dilemma": "Optimismus vs. Realismus"
+  },
+  "D04-CEO-2": {
+    "id": "D04-CEO-2",
+    "day": 4,
+    "role": "CEO",
+    "title": "Stakeholder-Mapping aktualisieren",
+    "context": "Neue Player: BR-Vorsitz, Kreditversicherer, Zweitbank, Presse.",
+    "dilemma": "Breite Einbindung vs. Leak-Risiko"
+  },
+  "D04-CEO-3": {
+    "id": "D04-CEO-3",
+    "day": 4,
+    "role": "CEO",
+    "title": "S&L-Shortlist entscheiden",
+    "context": "Angebote für Sale & Lease-Back eingetroffen; Cash-Hebel 180k–220k.",
+    "dilemma": "Runway vs. Fixkostenbindung"
+  },
+  "D04-CEO-4": {
+    "id": "D04-CEO-4",
+    "day": 4,
+    "role": "CEO",
+    "title": "Kommunikation an Mitarbeitende vor Banktermin",
+    "context": "Gerüchteküche brodelt vor wichtigem Termin.",
+    "dilemma": "Offenheit vs. Verunsicherung"
+  },
+  "D04-CEO-5": {
+    "id": "D04-CEO-5",
+    "day": 4,
+    "role": "CEO",
+    "title": "Vorbereitung Banktermin – Kernnarrativ & Owner",
+    "context": "Der Termin morgen verlangt ein konsistentes Narrativ (Lage, Maßnahmen, Meilensteine) und klare Verantwortlichkeiten.",
+    "dilemma": "Tempo in der Vorbereitung vs. Tiefe und Konsistenz der Inhalte"
+  },
+  "D04-CFO-1": {
+    "id": "D04-CFO-1",
+    "day": 4,
+    "role": "CFO",
+    "title": "Lieferanten-Standstill verhandeln",
+    "context": "Top-5-Lieferanten fordern energisch Vorkasse.",
+    "dilemma": "Cash-Schutz vs. Spannungen"
+  },
+  "D04-CFO-2": {
+    "id": "D04-CFO-2",
+    "day": 4,
+    "role": "CFO",
+    "title": "Zweitbank-Teaser verschicken",
+    "context": "Liquiditätslinie ergänzen.",
+    "dilemma": "Signal an Hausbank vs. optionaler Hebel"
+  },
+  "D04-CFO-3": {
+    "id": "D04-CFO-3",
+    "day": 4,
+    "role": "CFO",
+    "title": "Working-Capital-Quick-Wins",
+    "context": "Lagerbestände hoch, Forderungen offen.",
+    "dilemma": "Schneller Cash vs. Rabatte/Pönalen"
+  },
+  "D04-CFO-4": {
+    "id": "D04-CFO-4",
+    "day": 4,
+    "role": "CFO",
+    "title": "Reporting-Pack Banktermin final",
+    "context": "Zahlen, Maßnahmen, Covenants, Forecast.",
+    "dilemma": "Detailtiefe vs. Lesbarkeit"
+  },
+  "D04-CFO-5": {
+    "id": "D04-CFO-5",
+    "day": 4,
+    "role": "CFO",
+    "title": "Cash‑Walk Abweichungen – Sofortmaßnahmen",
+    "context": "Die Auswertung von Tag 3 zeigt Working‑Capital‑Abweichungen; Banktermin erfordert Gegensteuerung.",
+    "dilemma": "Schnelle Liquiditätswirkung vs. Lieferanten- und Kundenbeziehungen"
+  },
+  "D04-OPS-1": {
+    "id": "D04-OPS-1",
+    "day": 4,
+    "role": "OPS",
+    "title": "Lieferabrufe synchronisieren (Banktermin im Blick)",
+    "context": "Materialbestellungen sollen Cash nicht sprengen, Lieferfähigkeit könnte kurzfristig leiden.",
+    "dilemma": "Durchsatz vs. Cash"
+  },
+  "D04-OPS-2": {
+    "id": "D04-OPS-2",
+    "day": 4,
+    "role": "OPS",
+    "title": "Kritischer Lieferant – Eskalationsgespräch",
+    "context": "Forderung: 100 % Vorkasse, sonst Stopp.",
+    "dilemma": "Nachgeben vs. Alternative"
+  },
+  "D04-OPS-3": {
+    "id": "D04-OPS-3",
+    "day": 4,
+    "role": "OPS",
+    "title": "Nachtlogistik für A-Kunden",
+    "context": "Termindruck erfordert Sonderfahrten.",
+    "dilemma": "Kosten vs. Wahrnehmung"
+  },
+  "D04-OPS-4": {
+    "id": "D04-OPS-4",
+    "day": 4,
+    "role": "OPS",
+    "title": "Qualitätskosten senken – 8D-Programm",
+    "context": "Reklamationsquote erhöht sich.",
+    "dilemma": "Aufwand vs. nachhaltige Wirkung"
+  },
+  "D04-HRLEGAL-1": {
+    "id": "D04-HRLEGAL-1",
+    "day": 4,
+    "role": "HRLEGAL",
+    "title": "Kommunikation Kurzarbeit – Timing",
+    "context": "Vor Banktermin sensibel.",
+    "dilemma": "Frühe Sicherheit vs. Verunsicherung"
+  },
+  "D04-HRLEGAL-2": {
+    "id": "D04-HRLEGAL-2",
+    "day": 4,
+    "role": "HRLEGAL",
+    "title": "Betriebsvereinbarung Flexkonten",
+    "context": "Flexibilität für Schichten notwendig.",
+    "dilemma": "Mitbestimmung vs. Tempo"
+  },
+  "D04-HRLEGAL-3": {
+    "id": "D04-HRLEGAL-3",
+    "day": 4,
+    "role": "HRLEGAL",
+    "title": "Compliance-Schulung Cash-Freigaben",
+    "context": "Vorwürfe selektiver Zahlungen im Raum.",
+    "dilemma": "Aufwand vs. Schutz"
+  },
+  "D04-HRLEGAL-4": {
+    "id": "D04-HRLEGAL-4",
+    "day": 4,
+    "role": "HRLEGAL",
+    "title": "Mitarbeiterhilfe-Fonds prüfen, BR fordert Unterstützung",
+    "context": "Härtefälle durch Kurzarbeit/Unsicherheit.",
+    "dilemma": "Kosten vs. Loyalität"
+  },
+  "D05-CEO-1": {
+    "id": "D05-CEO-1",
+    "day": 5,
+    "role": "CEO",
+    "title": "Bankgespräch führen – Tonalität & Zusagen",
+    "context": "Erstes großes Gespräch mit Hausbank über Linie, Auflagen, Reporting.",
+    "dilemma": "Verbindlichkeit vs. Flexibilität"
+  },
+  "D05-CEO-2": {
+    "id": "D05-CEO-2",
+    "day": 5,
+    "role": "CEO",
+    "title": "S&L final entscheiden",
+    "context": "Angebote liegen vor; Runway eng vor Payroll.",
+    "dilemma": "Sofortiger Cash-Hebel vs. Kosten über Laufzeit"
+  },
+  "D05-CEO-3": {
+    "id": "D05-CEO-3",
+    "day": 5,
+    "role": "CEO",
+    "title": "Kommunikation nach Banktermin",
+    "context": "Team & Kunden warten auf Einordnung.",
+    "dilemma": "Detailgrad vs. Sicherheit"
+  },
+  "D05-CEO-4": {
+    "id": "D05-CEO-4",
+    "day": 5,
+    "role": "CEO",
+    "title": "Kundenbindungsprogramm light",
+    "context": "Kundenverträge laufen teils aus; Unsicherheit hoch.",
+    "dilemma": "Rabatte vs. Laufzeitbindung"
+  },
+  "D05-CFO-1": {
+    "id": "D05-CFO-1",
+    "day": 5,
+    "role": "CFO",
+    "title": "Covenant-Bridge präsentieren",
+    "context": "Bank fordert Sicht auf Covenants und Gegenmaßnahmen.",
+    "dilemma": "Offenlegung vs. Verhandlungsspielraum"
+  },
+  "D05-CFO-2": {
+    "id": "D05-CFO-2",
+    "day": 5,
+    "role": "CFO",
+    "title": "Fördermittel / Liquiditätszuschüsse",
+    "context": "Programm für Transformations-/Energieeffizienz möglich.",
+    "dilemma": "Beantragen vs. Aufwand"
+  },
+  "D05-CFO-3": {
+    "id": "D05-CFO-3",
+    "day": 5,
+    "role": "CFO",
+    "title": "Payroll-Absicherung final",
+    "context": "Letzte Woche vor Lohnlauf.",
+    "dilemma": "Cash-Bindung vs. Sicherheit"
+  },
+  "D05-CFO-4": {
+    "id": "D05-CFO-4",
+    "day": 5,
+    "role": "CFO",
+    "title": "Working-Capital KPI-Dashboard live schalten",
+    "context": "Transparenz für tägliche Steuerung fehlt.",
+    "dilemma": "Aufwand vs. Nutzen"
+  },
+  "D05-OPS-1": {
+    "id": "D05-OPS-1",
+    "day": 5,
+    "role": "OPS",
+    "title": "Produktionsmix nach Banktermin anpassen",
+    "context": "Fokus auf DB-starke Aufträge gefordert.",
+    "dilemma": "Kurzfristiger DB vs. Kundenmix"
+  },
+  "D05-OPS-2": {
+    "id": "D05-OPS-2",
+    "day": 5,
+    "role": "OPS",
+    "title": "Engpasslogistik nachjustieren",
+    "context": "Kapazität trotz Krise ausweiten.",
+    "dilemma": "Servicegrad vs. Kosten"
+  },
+  "D05-OPS-3": {
+    "id": "D05-OPS-3",
+    "day": 5,
+    "role": "OPS",
+    "title": "Lieferanten-Prioritätenliste veröffentlichen",
+    "context": "Transparenz über Freigabe-Logik gefordert.",
+    "dilemma": "Planbarkeit vs. Verhandlungsposition"
+  },
+  "D05-OPS-4": {
+    "id": "D05-OPS-4",
+    "day": 5,
+    "role": "OPS",
+    "title": "Qualitätsprogramm nachschärfen (8D/5-Why)",
+    "context": "Erste Effekte sichtbar, Fortführung?",
+    "dilemma": "Kosten vs. nachhaltige Reduktion"
+  },
+  "D05-HRLEGAL-1": {
+    "id": "D05-HRLEGAL-1",
+    "day": 5,
+    "role": "HRLEGAL",
+    "title": "Townhall nach Banktermin",
+    "context": "Team erwartet klare Botschaften.",
+    "dilemma": "Offenheit vs. juristische Vorsicht"
+  },
+  "D05-HRLEGAL-2": {
+    "id": "D05-HRLEGAL-2",
+    "day": 5,
+    "role": "HRLEGAL",
+    "title": "Mandatsgovernance & Vertraulichkeit (NDA / Common Interest)",
+    "context": "Beraterzugriff auf sensible HR- und Finanzdaten; Bank fordert Informationsrechte.",
+    "dilemma": "Bankvertrauen vs. Vertraulichkeit/Handlungsfreiheit"
+  },
+  "D05-HRLEGAL-3": {
+    "id": "D05-HRLEGAL-3",
+    "day": 5,
+    "role": "HRLEGAL",
+    "title": "Interne Leitlinien Krisenkommunikation",
+    "context": "Uneinheitliche Botschaften schaden.",
+    "dilemma": "Freiheit vs. Kontrolle"
+  },
+  "D05-HRLEGAL-4": {
+    "id": "D05-HRLEGAL-4",
+    "day": 5,
+    "role": "HRLEGAL",
+    "title": "Teilverkauf Tochterunternehmen – rechtliche Vorprüfung. Der Generalbevollmächtigte hat uns beauftragt, streng vertraulich zu prüfen, ob ein Verkauf der Tochter United Pumps of America (UPA) kurzfrisitg möglich ist",
+    "context": "Liquiditätsdruck; Bank drängt auf Liquiditätsschub. Rechtslage & Governance klären.",
+    "dilemma": "Zeitdruck vs. Transaktionssicherheit/Preis"
+  },
+  "D06-CEO-1": {
+    "id": "D06-CEO-1",
+    "day": 6,
+    "role": "CEO",
+    "title": "Auflagenbrief der Bank – Verpflichtungen zeichnen",
+    "context": "Die Bank hat den Auflagenbrief übermittelt. Meilensteine, Reportingfrequenzen und Trigger sind definiert.",
+    "dilemma": "Glaubwürdigkeit durch klare Zusagen vs. Flexibilität in der Umsetzung"
+  },
+  "D06-CEO-2": {
+    "id": "D06-CEO-2",
+    "day": 6,
+    "role": "CEO",
+    "title": "Medienstrategie Woche 2",
+    "context": "Regional-TV und Lokalpresse planen weitere Beiträge zur Lage.",
+    "dilemma": "Sichtbarkeit und Kontrolle vs. Risiko kritischer Nachfragen"
+  },
+  "D06-CEO-3": {
+    "id": "D06-CEO-3",
+    "day": 6,
+    "role": "CEO",
+    "title": "Key-Account-Roundtable einberufen",
+    "context": "Top-10-Kunden fordern Lieferplan und Eskalationslogik für Engpässe.",
+    "dilemma": "Kundenbindung durch Offenheit vs. Preisgabe von Priorisierungskriterien"
+  },
+  "D06-CEO-4": {
+    "id": "D06-CEO-4",
+    "day": 6,
+    "role": "CEO",
+    "title": "Stakeholder-Roadmap Q3/Q4 publizieren",
+    "context": "Interne und externe Anspruchsgruppen erwarten verlässliche Roadmap.",
+    "dilemma": "Verbindlichkeit vs. Risiko von Abweichungen"
+  },
+  "D06-CFO-1": {
+    "id": "D06-CFO-1",
+    "day": 6,
+    "role": "CFO",
+    "title": "Accounts Payable-Steuerung (AP-Steuerung): Zahlungsstopp für nichtkritische Posten",
+    "context": "Cash-Schonung bis Payroll T-3; Priorisierung nach Kritikalität/DB.",
+    "dilemma": "Liquiditätsdisziplin vs. Lieferantenbeziehungen"
+  },
+  "D06-CFO-2": {
+    "id": "D06-CFO-2",
+    "day": 6,
+    "role": "CFO",
+    "title": "Vorauszahlungen Top-10 Kunden – Cash gegen Rabatt",
+    "context": "Kurzfristiger Cashbedarf; offene Aufträge bei Top-10 Kunden.",
+    "dilemma": "Liquidität jetzt vs. Marge/Kundenbindung"
+  },
+  "D06-CFO-3": {
+    "id": "D06-CFO-3",
+    "day": 6,
+    "role": "CFO",
+    "title": "Abgaben-/Sozialversicherungs-Stundung",
+    "context": "Engpass in 7–14 Tagen; erhebliches Volumen aus LSt/SV fällig.",
+    "dilemma": "Rechtssicherheit/Reputation vs. Cash-Entlastung"
+  },
+  "D06-CFO-4": {
+    "id": "D06-CFO-4",
+    "day": 6,
+    "role": "CFO",
+    "title": "Factoring-Pilot mit Top-Forderungen",
+    "context": "Liquiditätshebel über selektives Factoring möglich.",
+    "dilemma": "Kosten/Abschlag vs. Cash-Soforteffekt"
+  },
+  "D06-OPS-1": {
+    "id": "D06-OPS-1",
+    "day": 6,
+    "role": "OPS",
+    "title": "Dual-Sourcing für kritische Teile beschleunigen",
+    "context": "Engpasslieferant fordert Vorkasse; Alternativquelle in Qualifizierung.",
+    "dilemma": "Schnelligkeit vs. Qualitäts-/Freigaberisiken"
+  },
+  "D06-OPS-2": {
+    "id": "D06-OPS-2",
+    "day": 6,
+    "role": "OPS",
+    "title": "Schichtmodell anpassen (Kurzarbeit vs. Spitzenabdeckung)",
+    "context": "Volatilität: Teilbereiche ohne Material, andere überlastet.",
+    "dilemma": "Kostenstabilität vs. Liefertermintreue"
+  },
+  "D06-OPS-3": {
+    "id": "D06-OPS-3",
+    "day": 6,
+    "role": "OPS",
+    "title": "Reklamationswelle eindämmen (Containment)",
+    "context": "Weiterer Anstieg Reklamationen in zwei Produktfamilien.",
+    "dilemma": "Schnelle Eindämmung vs. Kosten/Nacharbeit"
+  },
+  "D06-OPS-4": {
+    "id": "D06-OPS-4",
+    "day": 6,
+    "role": "OPS",
+    "title": "Spediteur: Dieselzuschlag verhandeln",
+    "context": "Express/Nachtsendungen verteuern sich; Risiko Margendruck.",
+    "dilemma": "Servicegrad vs. Kostendisziplin"
+  },
+  "D06-HRLEGAL-1": {
+    "id": "D06-HRLEGAL-1",
+    "day": 6,
+    "role": "HRLEGAL",
+    "title": "Teilverkauf Tochter – Mitbestimmung & Betriebsübergang",
+    "context": "Teilverkauf (Minority/Carve-out) wird vorbereitet; Rechte von BR/Gesellschaftern  tangiert.",
+    "dilemma": "Transaktionsgeschwindigkeit vs. Akzeptanz/Arbeitsrechtssicherheit"
+  },
+  "D06-HRLEGAL-2": {
+    "id": "D06-HRLEGAL-2",
+    "day": 6,
+    "role": "HRLEGAL",
+    "title": "BR-Vereinbarung Kommunikationsgrundsätze",
+    "context": "Uneinheitliche Botschaften; Risiko von Leaks und Gerüchten.",
+    "dilemma": "Transparenz vs. Kommunikationskontrolle"
+  },
+  "D06-HRLEGAL-3": {
+    "id": "D06-HRLEGAL-3",
+    "day": 6,
+    "role": "HRLEGAL",
+    "title": "Teilverkauf Tochter – SPA-Klauseln & Haftungsrahmen",
+    "context": "Vorbereitung der Vertragsdokumente (SPA/Anteilskauf); Verhandlungslinie zwischen Käuferinteressen und Schutzbedürfnis.",
+    "dilemma": "Risikobegrenzung vs. Deal-Geschwindigkeit/Preis"
+  },
+  "D06-HRLEGAL-4": {
+    "id": "D06-HRLEGAL-4",
+    "day": 6,
+    "role": "HRLEGAL",
+    "title": "DD-Datenraum & Datenschutz-Freigaben",
+    "context": "Für S&L/Investor-DD müssen sensible Dokumente bereitgestellt werden.",
+    "dilemma": "DD-Schnelligkeit vs. Datenschutz/Vertragsbindung"
+  },
+  "D07-CEO-1": {
+    "id": "D07-CEO-1",
+    "day": 7,
+    "role": "CEO",
+    "title": "Payroll-Day – CEO-Statement",
+    "context": "Löhne werden heute ausgezahlt. Chance für Vertrauensaufbau.",
+    "dilemma": "Jubelbotschaft vs. nüchterne Stabilität"
+  },
+  "D07-CEO-2": {
+    "id": "D07-CEO-2",
+    "day": 7,
+    "role": "CEO",
+    "title": "Kundenvertragsverlängerungen pushen",
+    "context": "Unsicherheit hemmt Verlängerungen.",
+    "dilemma": "Rabatt vs. Laufzeitbindung"
+  },
+  "D07-CEO-3": {
+    "id": "D07-CEO-3",
+    "day": 7,
+    "role": "CEO",
+    "title": "Beirat berichtet an Bank",
+    "context": "Bank bittet um Beiratseinschätzung.",
+    "dilemma": "Unabhängigkeit vs. Koordination"
+  },
+  "D07-CEO-4": {
+    "id": "D07-CEO-4",
+    "day": 7,
+    "role": "CEO",
+    "title": "Strategische Optionen sondieren",
+    "context": "Minority-Investor oder Carve-out im Gespräch.",
+    "dilemma": "Fokus vs. optionaler Hebel"
+  },
+  "D07-CEO-5": {
+    "id": "D07-CEO-5",
+    "day": 7,
+    "role": "CEO",
+    "title": "TV-Auftritt: Format & Kernbotschaften",
+    "context": "Regional-TV plant Beitrag. O-Ton angefragt; Deutungsrahmen sonst bei Dritten.",
+    "dilemma": "Sichtbarkeit vs. Risiko kritischer Nachfragen"
+  },
+  "D07-CFO-1": {
+    "id": "D07-CFO-1",
+    "day": 7,
+    "role": "CFO",
+    "title": "Payroll durchgeführt – Nachlauf",
+    "context": "Cash-Bestand sinkt; nächste Woche Steuer/Sozial.",
+    "dilemma": "Nachlauf glätten vs. Lieferanten bedienen"
+  },
+  "D07-CFO-2": {
+    "id": "D07-CFO-2",
+    "day": 7,
+    "role": "CFO",
+    "title": "Covenant-Waiver anstoßen",
+    "context": "Verstoß gegen Mindest-EBITDA droht.",
+    "dilemma": "Früh verhandeln vs. abwarten"
+  },
+  "D07-CFO-3": {
+    "id": "D07-CFO-3",
+    "day": 7,
+    "role": "CFO",
+    "title": "Teilverkauf – Entscheidungsvorlage Varianten & Impact",
+    "context": "Vorstandsvorlage vorbereiten: Minority-Sale (25/49 %) vs. Asset-Deal (Non-Core) – Effekte auf Cash/Covenants/Steuerung.",
+    "dilemma": "Tempo/Bankvertrauen vs. Kosten/Signalwirkung"
+  },
+  "D07-CFO-4": {
+    "id": "D07-CFO-4",
+    "day": 7,
+    "role": "CFO",
+    "title": "Energiepreis-Kompensation beantragen",
+    "context": "Förderfenster offen; Aufwand moderat.",
+    "dilemma": "Kapazität vs. Zuschuss"
+  },
+  "D07-CFO-5": {
+    "id": "D07-CFO-5",
+    "day": 7,
+    "role": "CFO",
+    "title": "Fördermittel Vollantrag & Kofinanzierung",
+    "context": "Vorprüfung positiv; Capex-/Einsparnachweise gefordert. Kofinanzierung klären.",
+    "dilemma": "Beraterkosten vs. Signal für Bank/Zukunftsfähigkeit"
+  },
+  "D07-OPS-1": {
+    "id": "D07-OPS-1",
+    "day": 7,
+    "role": "OPS",
+    "title": "Qualitätsgate nach Payroll-Woche",
+    "context": "Fehlerquote schwankt; Druck hoch.",
+    "dilemma": "Strenge vs. Tempo"
+  },
+  "D07-OPS-2": {
+    "id": "D07-OPS-2",
+    "day": 7,
+    "role": "OPS",
+    "title": "A-Kunde Eskalationspfad testen",
+    "context": "Verbindlicher Eskalationskontakt gefordert.",
+    "dilemma": "Overhead vs. Vertrauen"
+  },
+  "D07-OPS-3": {
+    "id": "D07-OPS-3",
+    "day": 7,
+    "role": "OPS",
+    "title": "Engpassteile Kanban einführen",
+    "context": "Materialfluss unzuverlässig.",
+    "dilemma": "Einführungskosten vs. Stabilität"
+  },
+  "D07-OPS-4": {
+    "id": "D07-OPS-4",
+    "day": 7,
+    "role": "OPS",
+    "title": "Pönale-Management",
+    "context": "Mehrere Verträge mit Strafklauseln.",
+    "dilemma": "Kosten vs. Kundenbindung"
+  },
+  "D07-OPS-5": {
+    "id": "D07-OPS-5",
+    "day": 7,
+    "role": "OPS",
+    "title": "PPAP-Slot Zweitlieferant: Prüfpfad & Risiko",
+    "context": "Erstmusterprüfung in 10 Tagen möglich. Pilotcharge im Anschluss.",
+    "dilemma": "Verkürzter Prüfpfad vs. Vollprüfung"
+  },
+  "D07-HRLEGAL-1": {
+    "id": "D07-HRLEGAL-1",
+    "day": 7,
+    "role": "HRLEGAL",
+    "title": "Kommunikation Payroll abgeschlossen",
+    "context": "Sicherheit demonstrieren.",
+    "dilemma": "Zuversicht vs. Übermut"
+  },
+  "D07-HRLEGAL-2": {
+    "id": "D07-HRLEGAL-2",
+    "day": 7,
+    "role": "HRLEGAL",
+    "title": "Teilverkauf – Consent-Management & Change-of-Control (CoC)",
+    "context": "Minority-Sale triggert ggf. Zustimmungs-/Abtretungsverbote in Kunden-, Lieferanten- und Kreditverträgen.",
+    "dilemma": "Dealtempo vs. Rechtssicherheit/Preis"
+  },
+  "D07-HRLEGAL-3": {
+    "id": "D07-HRLEGAL-3",
+    "day": 7,
+    "role": "HRLEGAL",
+    "title": "Ethik-Hotline kommunizieren",
+    "context": "Hinweise zu Freigaben/Beziehungen.",
+    "dilemma": "Transparenz vs. Misstrauen"
+  },
+  "D07-HRLEGAL-4": {
+    "id": "D07-HRLEGAL-4",
+    "day": 7,
+    "role": "HRLEGAL",
+    "title": "Arbeitsrecht: Mehrarbeit dokumentieren",
+    "context": "Nachtschichten häufen sich.",
+    "dilemma": "Tempo vs. Compliance"
+  },
+  "D07-HRLEGAL-5": {
+    "id": "D07-HRLEGAL-5",
+    "day": 7,
+    "role": "HRLEGAL",
+    "title": "Compliance-Pfad festlegen (Vorprüfung → Maßnahmen)",
+    "context": "Anonymer Hinweis zu Lieferantenstopps; Vorprüfung läuft.",
+    "dilemma": "Gründlichkeit vs. Geschwindigkeit"
+  },
+  "D08-CEO-1": {
+    "id": "D08-CEO-1",
+    "day": 8,
+    "role": "CEO",
+    "title": "Teilverkauf – Strategie-Alignment im Führungskreis",
+    "context": "Investorengespräche laufen; Bank und Belegschaft erwarten klare Linie. Führungsteam muss Deal-Strategie verstehen und mittragen.",
+    "dilemma": "Transparenz vs. Verhandlungsspielraum"
+  },
+  "D08-CEO-2": {
+    "id": "D08-CEO-2",
+    "day": 8,
+    "role": "CEO",
+    "title": "Kundenmix strategisch justieren",
+    "context": "Einige C-Kunden binden Kapazität ohne DB.",
+    "dilemma": "DB vs. Marktpräsenz"
+  },
+  "D08-CEO-3": {
+    "id": "D08-CEO-3",
+    "day": 8,
+    "role": "CEO",
+    "title": "Teilverkauf – Investor Alignment & Bank Call",
+    "context": "Nach interner Vorabstimmung fordert die Bank ein Update. Gleichzeitig erwarten potenzielle Investoren ein klares Signal zur Struktur (Minority vs. Asset-Deal).",
+    "dilemma": "Bankvertrauen stärken vs. Verhandlungsspielraum bei Investoren behalten"
+  },
+  "D08-CEO-4": {
+    "id": "D08-CEO-4",
+    "day": 8,
+    "role": "CEO",
+    "title": "Krisenbonus für Schlüsselkräfte?",
+    "context": "Abgänge in kritischen Teams drohen.",
+    "dilemma": "Kosten vs. Bindung"
+  },
+  "D08-CEO-5": {
+    "id": "D08-CEO-5",
+    "day": 8,
+    "role": "CEO",
+    "title": "Medienresonanz steuern (Korrektur/Follow-up)",
+    "context": "Nach TV-Beitrag kursieren einzelne Zitate; Social-Media-Reaktionen gemischt.",
+    "dilemma": "Korrektur vs. Ruhe lassen"
+  },
+  "D08-CFO-1": {
+    "id": "D08-CFO-1",
+    "day": 8,
+    "role": "CFO",
+    "title": "Waiver-Verhandlung terminieren",
+    "context": "Covenant-Verstoß wahrscheinlich.",
+    "dilemma": "Zeitpunkt vs. Vorbereitung"
+  },
+  "D08-CFO-2": {
+    "id": "D08-CFO-2",
+    "day": 8,
+    "role": "CFO",
+    "title": "Bestandsabbau II – Langsamdreher",
+    "context": "Geringe Auslastung, Platz und Cash binden.",
+    "dilemma": "Abwertung vs. Cash"
+  },
+  "D08-CFO-3": {
+    "id": "D08-CFO-3",
+    "day": 8,
+    "role": "CFO",
+    "title": "DSO/DPO/DIO öffentlich im Weekly",
+    "context": "Transparenz intern erhöhen.",
+    "dilemma": "Druck vs. Motivation"
+  },
+  "D08-CFO-4": {
+    "id": "D08-CFO-4",
+    "day": 8,
+    "role": "CFO",
+    "title": "Teilverkauf – Datenraum-Setup & Q&A-Vorbereitung",
+    "context": "Investoren erwarten schnellen Zugang; parallele Anfragen mehrerer Bieter.",
+    "dilemma": "Transparenz vs. Vertraulichkeit"
+  },
+  "D08-CFO-5": {
+    "id": "D08-CFO-5",
+    "day": 8,
+    "role": "CFO",
+    "title": "Kofinanzierung & Zwischenfinanzierung bis Förderbescheid",
+    "context": "Vorprüfung positiv; Einreichfrist läuft. Bridge bis Bewilligung klären.",
+    "dilemma": "Kosten der Bridge vs. Geschwindigkeit/Sicherheit"
+  },
+  "D08-OPS-1": {
+    "id": "D08-OPS-1",
+    "day": 8,
+    "role": "OPS",
+    "title": "Produktionslayout temporär ändern",
+    "context": "Rüstzeiten reduzieren.",
+    "dilemma": "Umbaukosten vs. Durchsatz"
+  },
+  "D08-OPS-2": {
+    "id": "D08-OPS-2",
+    "day": 8,
+    "role": "OPS",
+    "title": "Qualitätskosten weiter senken",
+    "context": "Fehlerbilder stabil, Nacharbeit teuer.",
+    "dilemma": "Invest vs. Ersparnis"
+  },
+  "D08-OPS-3": {
+    "id": "D08-OPS-3",
+    "day": 8,
+    "role": "OPS",
+    "title": "Make-or-Buy kurzfristig",
+    "context": "Engpassteil teuer in Eigenfertigung.",
+    "dilemma": "Kosten vs. Kontrolle"
+  },
+  "D08-OPS-4": {
+    "id": "D08-OPS-4",
+    "day": 8,
+    "role": "OPS",
+    "title": "Service-Team zu Kunden vor Ort",
+    "context": "Reklamationen nehmen ab, Präsenz könnte beruhigen.",
+    "dilemma": "Kosten vs. Image"
+  },
+  "D08-OPS-5": {
+    "id": "D08-OPS-5",
+    "day": 8,
+    "role": "OPS",
+    "title": "Produktionsoptimierung & Kapazitätsplanung (Follow-up)",
+    "context": "Nach den gestrigen Optimierungsmaßnahmen zeigen sich erste Effekte. Weitere Anpassungen möglich.",
+    "dilemma": "Kontinuierliche Verbesserung vs. Stabilität"
+  },
+  "D08-HRLEGAL-1": {
+    "id": "D08-HRLEGAL-1",
+    "day": 8,
+    "role": "HRLEGAL",
+    "title": "Retention-Maßnahmen rechtssicher",
+    "context": "Boni/Benefits prüfen.",
+    "dilemma": "Schnelligkeit vs. Gleichbehandlung"
+  },
+  "D08-HRLEGAL-2": {
+    "id": "D08-HRLEGAL-2",
+    "day": 8,
+    "role": "HRLEGAL",
+    "title": "Arbeitszeitflexibilisierung verlängern",
+    "context": "Woche 2 braucht Stabilität.",
+    "dilemma": "Planbarkeit vs. Freiheit"
+  },
+  "D08-HRLEGAL-3": {
+    "id": "D08-HRLEGAL-3",
+    "day": 8,
+    "role": "HRLEGAL",
+    "title": "Kommunikation Disziplin bei Freigaben",
+    "context": "Gerüchte über „Sonderfreigaben für Lieferantenzahlungen\" kursieren.",
+    "dilemma": "Transparenz vs. Imageschaden"
+  },
+  "D08-HRLEGAL-4": {
+    "id": "D08-HRLEGAL-4",
+    "day": 8,
+    "role": "HRLEGAL",
+    "title": "Einstellungsstopp: Recruiting selektiv öffnen",
+    "context": "Zwei Schlüsselpositionen bleiben kritisch.",
+    "dilemma": "Freeze vs. Bedarf"
+  },
+  "D08-HRLEGAL-5": {
+    "id": "D08-HRLEGAL-5",
+    "day": 8,
+    "role": "HRLEGAL",
+    "title": "Compliance-Maßnahmenplan & Kommunikation (intern/extern)",
+    "context": "Vorprüfung identifizierte Lücken in der Freigabedoku; Reputationsrisiko managen.",
+    "dilemma": "Gründlichkeit vs. Geschwindigkeit der Beruhigung"
+  },
+  "D09-CEO-1": {
+    "id": "D09-CEO-1",
+    "day": 9,
+    "role": "CEO",
+    "title": "Übernahmeangebot – Mehrheit oder Minderheit?",
+    "context": "Ein strategischer Investor bietet ein Übernahmeangebot an:  25 % Minderheitsbeteiligung mit Option auf späteren Aufstockung. Bank drängt auf schnelle Entscheidung, Cash: 5M.",
+    "dilemma": "Liquidität & Bankvertrauen vs. Kontrollverlust & Zukunftsgestaltung"
+  },
+  "D09-CEO-2": {
+    "id": "D09-CEO-2",
+    "day": 9,
+    "role": "CEO",
+    "title": "Kommunikation Übernahmeangebot – Stakeholder-Strategie",
+    "context": "Nach Bekanntwerden des Angebots kursieren Gerüchte. Mitarbeiter, Kunden und Presse verlangen Klarheit, die Bank drängt auf Konsistenz mit dem Term Sheet.",
+    "dilemma": "Transparenz & Bindung vs. Verhandlungsposition"
+  },
+  "D09-CEO-3": {
+    "id": "D09-CEO-3",
+    "day": 9,
+    "role": "CEO",
+    "title": "Strategische Partnerschaft vertiefen",
+    "context": "Industriepartner zeigt Interesse an Kooperation.",
+    "dilemma": "Kapazitätsbindung vs. Absatzsicherheit"
+  },
+  "D09-CEO-4": {
+    "id": "D09-CEO-4",
+    "day": 9,
+    "role": "CEO",
+    "title": "Krisen-OKR definieren",
+    "context": "Fokus auf die kommenden 5 Tage.",
+    "dilemma": "Ambition vs. Erreichbarkeit"
+  },
+  "D09-CFO-1": {
+    "id": "D09-CFO-1",
+    "day": 9,
+    "role": "CFO",
+    "title": "Zwischenfinanzierung",
+    "context": "Finanzierungsoptionen: Privater Investor bietet eine Finanzierung (550k) gegen spätere Option auf Anteile an.",
+    "dilemma": "Kosten vs. Flexibilität"
+  },
+  "D09-CFO-2": {
+    "id": "D09-CFO-2",
+    "day": 9,
+    "role": "CFO",
+    "title": "Cash-Forecast kalibrieren",
+    "context": "Abweichungen Woche 1 analysieren.",
+    "dilemma": "Genauigkeit vs. Aufwand"
+  },
+  "D09-CFO-3": {
+    "id": "D09-CFO-3",
+    "day": 9,
+    "role": "CFO",
+    "title": "Zero-Based-Budgeting",
+    "context": "Alles auf den Prüfstand.",
+    "dilemma": "Kosten vs. Motivation"
+  },
+  "D09-CFO-4": {
+    "id": "D09-CFO-4",
+    "day": 9,
+    "role": "CFO",
+    "title": "Kundenrabatte vs. Skonto",
+    "context": "Verhandlungen über Preise/Skonto.",
+    "dilemma": "Ertrag vs. Cash"
+  },
+  "D09-CFO-5": {
+    "id": "D09-CFO-5",
+    "day": 9,
+    "role": "CFO",
+    "title": "Bridge ziehen & Covenant-Reporting operationalisieren",
+    "context": "Zwischenlinie/Factoring-Top-up vorbereiten; Umsetzung und Reporting festzurren.",
+    "dilemma": "Kosten der Bridge vs. Sicherheit und Geschwindigkeit"
+  },
+  "D09-OPS-1": {
+    "id": "D09-OPS-1",
+    "day": 9,
+    "role": "OPS",
+    "title": "Line Balancing fortführen",
+    "context": "Umbau aus Woche 1 zeigte Wirkung.",
+    "dilemma": "Mehr Invest vs. Stabilität"
+  },
+  "D09-OPS-2": {
+    "id": "D09-OPS-2",
+    "day": 9,
+    "role": "OPS",
+    "title": "Rohstoffpreis-Indexierung",
+    "context": "Kosten schwanken stark.",
+    "dilemma": "Kundenakzeptanz vs. Marge"
+  },
+  "D09-OPS-3": {
+    "id": "D09-OPS-3",
+    "day": 9,
+    "role": "OPS",
+    "title": "Fremdfertigung Qualität verbessern",
+    "context": "Reklamationen bei Partnerteilen.",
+    "dilemma": "Kontrolle vs. Kosten"
+  },
+  "D09-OPS-4": {
+    "id": "D09-OPS-4",
+    "day": 9,
+    "role": "OPS",
+    "title": "Express-Logistik optimieren",
+    "context": "Kosten hoch, Nutzen variabel.",
+    "dilemma": "Servicegrad vs. Kosten"
+  },
+  "D09-OPS-5": {
+    "id": "D09-OPS-5",
+    "day": 9,
+    "role": "OPS",
+    "title": "Dual-Sourcing Go/No-Go nach Pilotcharge",
+    "context": "Erste Erstmuster-Resultate liegen vor; Skalierungsentscheidung steht an.",
+    "dilemma": "Versorgungssicherheit vs. Qualitäts-/Folgekosten"
+  },
+  "D09-HRLEGAL-1": {
+    "id": "D09-HRLEGAL-1",
+    "day": 9,
+    "role": "HRLEGAL",
+    "title": "Kommunikation Übernahmeangebot",
+    "context": "Team erwartet Klarheit.",
+    "dilemma": "Transparenz vs. Rechtsrisiko"
+  },
+  "D09-HRLEGAL-2": {
+    "id": "D09-HRLEGAL-2",
+    "day": 9,
+    "role": "HRLEGAL",
+    "title": "Betriebsvereinbarung Homeoffice",
+    "context": "Flexoptionen verbessern Bindung.",
+    "dilemma": "Produktivität vs. Zufriedenheit"
+  },
+  "D09-HRLEGAL-3": {
+    "id": "D09-HRLEGAL-3",
+    "day": 9,
+    "role": "HRLEGAL",
+    "title": "Sozialplan-Risiko prüfen (nur Szenario)",
+    "context": "Für den Fall von Kapazitätsanpassungen.",
+    "dilemma": "Vorsorge vs. Signalwirkung"
+  },
+  "D09-HRLEGAL-5": {
+    "id": "D09-HRLEGAL-5",
+    "day": 9,
+    "role": "HRLEGAL",
+    "title": "Compliance-Kurzreport & BR-Vereinbarung freigeben",
+    "context": "Maßnahmenplan steht; Frage der internen/externen Veröffentlichung.",
+    "dilemma": "Reputationsschutz vs. juristische Vorsicht"
+  },
+  "D10-CEO-1": {
+    "id": "D10-CEO-1",
+    "day": 10,
+    "role": "CEO",
+    "title": "Bank-Zwischenprüfung vorbereiten",
+    "context": "Bank will in 48h Fortschritt zu Waiver-Meilensteinen sehen.",
+    "dilemma": "Maximale Transparenz vs. taktisches Zurückhalten"
+  },
+  "D10-CEO-2": {
+    "id": "D10-CEO-2",
+    "day": 10,
+    "role": "CEO",
+    "title": "Partnerschaftsgespräch vertiefen",
+    "context": "Industriepartner erwartet Entscheidung zu LOI.",
+    "dilemma": "Frühe Bindung vs. mehr Bedenkzeit"
+  },
+  "D10-CEO-3": {
+    "id": "D10-CEO-3",
+    "day": 10,
+    "role": "CEO",
+    "title": "Krisen-OKR Review durchführen",
+    "context": "Nach 48h erste Auswertung der OKR aus Tag 9.",
+    "dilemma": "Erfolge feiern vs. Lücken kaschieren"
+  },
+  "D10-CEO-4": {
+    "id": "D10-CEO-4",
+    "day": 10,
+    "role": "CEO",
+    "title": "Öffentliche Zwischenbilanz",
+    "context": "Medien fragen nach erstem Eindruck der Restrukturierung.",
+    "dilemma": "Positive PR vs. realistische Vorsicht"
+  },
+  "D10-CEO-5": {
+    "id": "D10-CEO-5",
+    "day": 10,
+    "role": "CEO",
+    "title": "Stakeholder-Roadshow vor Zwischenprüfung",
+    "context": "Nach Waiver-Meeting und öffentlicher Debatte (Qualität) Erwartungsmanagement bei Bank/Kernkunden.",
+    "dilemma": "Gezielte Aufklärung vs. Risiko zusätzlicher Angriffsflächen"
+  },
+  "D10-CFO-1": {
+    "id": "D10-CFO-1",
+    "day": 10,
+    "role": "CFO",
+    "title": "Waiver-Reporting erstellen",
+    "context": "Bank erwartet Zahlenupdate vor Zwischenprüfung.",
+    "dilemma": "Detailtiefe vs. Ressourcenbindung"
+  },
+  "D10-CFO-2": {
+    "id": "D10-CFO-2",
+    "day": 10,
+    "role": "CFO",
+    "title": "Übernahmeangebot bewerten",
+    "context": "CEO gibt Offernte zur Prüfung.",
+    "dilemma": "Finanzierungsoptzion vs. Einfluss"
+  },
+  "D10-CFO-3": {
+    "id": "D10-CFO-3",
+    "day": 10,
+    "role": "CFO",
+    "title": "Lieferanten-Zahlungsplan anpassen",
+    "context": "Eingangszahlen niedriger als prognostiziert.",
+    "dilemma": "Härte vs. Lieferfähigkeit"
+  },
+  "D10-CFO-4": {
+    "id": "D10-CFO-4",
+    "day": 10,
+    "role": "CFO",
+    "title": "Controlling-Update für OKR",
+    "context": "Finanz-OKR aus Tag 9 brauchen neue Zahlen.",
+    "dilemma": "Schnelligkeit vs. Tiefe"
+  },
+  "D10-CFO-5": {
+    "id": "D10-CFO-5",
+    "day": 10,
+    "role": "CFO",
+    "title": "Bridge-Liquidität allokieren & Reporting-Takt fixieren",
+    "context": "Nach Entscheidung zu Zwischenlinie/Top-up (Tag 9) Verteilung auf Payroll, P1-Lieferanten und WIP-Expedite festlegen.",
+    "dilemma": "Kurze Wirkung im Cash vs. nachhaltige Stabilisierung"
+  },
+  "D10-OPS-1": {
+    "id": "D10-OPS-1",
+    "day": 10,
+    "role": "OPS",
+    "title": "Produktionsplan für kritische Aufträge",
+    "context": "Neue Liefertermine von A-Kunden.",
+    "dilemma": "Pünktlichkeit vs. Kosten"
+  },
+  "D10-OPS-2": {
+    "id": "D10-OPS-2",
+    "day": 10,
+    "role": "OPS",
+    "title": "Qualitätsinitiative fortführen",
+    "context": "Audit aus Tag 9 hat Lücken gezeigt.",
+    "dilemma": "Schnelle Korrektur vs. umfassende Lösung"
+  },
+  "D10-OPS-3": {
+    "id": "D10-OPS-3",
+    "day": 10,
+    "role": "OPS",
+    "title": "Lagerbestände neu bewerten",
+    "context": "Bestandswerte zu hoch bewertet.",
+    "dilemma": "Abwertung vs. Bilanzbild"
+  },
+  "D10-OPS-4": {
+    "id": "D10-OPS-4",
+    "day": 10,
+    "role": "OPS",
+    "title": "Lieferanten-Review durchführen",
+    "context": "Nach Waiver-Plan Anpassung der Partnerliste.",
+    "dilemma": "Stabilität vs. Einsparung"
+  },
+  "D10-OPS-5": {
+    "id": "D10-OPS-5",
+    "day": 10,
+    "role": "OPS",
+    "title": "Serienfreigabe & Prüftiefe festlegen",
+    "context": "Nach Pilotcharge/Go-Entscheidung (Tag 9) Prüfumfang und Ramp-up-Tempo definieren.",
+    "dilemma": "Schnelle Versorgung vs. Reklamationsrisiko"
+  },
+  "D10-HRLEGAL-1": {
+    "id": "D10-HRLEGAL-1",
+    "day": 10,
+    "role": "HRLEGAL",
+    "title": "Kommunikation Zwischenprüfung",
+    "context": "Team fürchtet Konsequenzen bei negativem Bankfeedback.",
+    "dilemma": "Offenheit vs. Verunsicherung"
+  },
+  "D10-HRLEGAL-2": {
+    "id": "D10-HRLEGAL-2",
+    "day": 10,
+    "role": "HRLEGAL",
+    "title": "Compliance-Check Zwischenschritt",
+    "context": "Waiver-Auflagen beinhalten Compliance-Nachweise.",
+    "dilemma": "Tempo vs. Gründlichkeit"
+  },
+  "D10-HRLEGAL-3": {
+    "id": "D10-HRLEGAL-3",
+    "day": 10,
+    "role": "HRLEGAL",
+    "title": "Kurzarbeits-Regelung anpassen",
+    "context": "Feedback aus Abteilungen: Ungleichbelastung.",
+    "dilemma": "Fairness vs. Effizienz"
+  },
+  "D10-HRLEGAL-4": {
+    "id": "D10-HRLEGAL-4",
+    "day": 10,
+    "role": "HRLEGAL",
+    "title": "Interne Schulung Waiver-Pflichten",
+    "context": "Mitarbeitende kennen nicht alle Auflagen.",
+    "dilemma": "Schulung vs. Produktivzeit"
+  },
+  "D10-HRLEGAL-5": {
+    "id": "D10-HRLEGAL-5",
+    "day": 10,
+    "role": "HRLEGAL",
+    "title": "LOI/NDA & Antitrust-Precheck",
+    "context": "Vor Unterzeichnung des LOI mit Industriepartner rechtliche Absicherung sicherstellen.",
+    "dilemma": "Schnelligkeit vs. rechtliche Absicherung"
+  },
+  "D11-CEO-1": {
+    "id": "D11-CEO-1",
+    "day": 11,
+    "role": "CEO",
+    "title": "Waiver-Meilensteine öffentlich machen?",
+    "context": "Vor der Zwischenprüfung (Tag 12) überlegt das Management, Meilensteine gegenüber Schlüsselkunden zu teilen.",
+    "dilemma": "Transparenz vs. Angriffsfläche"
+  },
+  "D11-CEO-2": {
+    "id": "D11-CEO-2",
+    "day": 11,
+    "role": "CEO",
+    "title": "LOI mit Industriepartner konkretisieren",
+    "context": "Der in Aussicht stehende LOI (Tag 10) benötigt Eckpunkte.",
+    "dilemma": "Verbindlichkeit vs. Flexibilität"
+  },
+  "D11-CEO-3": {
+    "id": "D11-CEO-3",
+    "day": 11,
+    "role": "CEO",
+    "title": "Krisen-OKR – Fokus nachschärfen",
+    "context": "Zu viele parallele Initiativen – Fokus droht zu verwässern.",
+    "dilemma": "Breite vs. Tiefe"
+  },
+  "D11-CEO-4": {
+    "id": "D11-CEO-4",
+    "day": 11,
+    "role": "CEO",
+    "title": "Kunden-Council kurzfristig einberufen",
+    "context": "Einige A-Kunden bitten um Update vor Tag 12.",
+    "dilemma": "Zeitaufwand vs. Vertrauensgewinn"
+  },
+  "D11-CEO-5": {
+    "id": "D11-CEO-5",
+    "day": 11,
+    "role": "CEO",
+    "title": "Stakeholder-Alignment 24h-Plan",
+    "context": "Nach LOI-Druck (Tag 10), Übernahme-Offerte und Qualitätsdebatte sollen Bank, Beirat und Kernkunden in einem abgestimmten Ablauf beruhigt werden.",
+    "dilemma": "Gezielte Aufklärung vs. Risiko zusätzlicher Angriffsflächen"
+  },
+  "D11-CFO-1": {
+    "id": "D11-CFO-1",
+    "day": 11,
+    "role": "CFO",
+    "title": "Waiver-Reporting finalisieren",
+    "context": "Datenschnitt bis gestern Abend; Bank erwartet Forecast-Update.",
+    "dilemma": "Detailtiefe vs. Geschwindigkeit"
+  },
+  "D11-CFO-2": {
+    "id": "D11-CFO-2",
+    "day": 11,
+    "role": "CFO",
+    "title": "Cash-Polster bis Tag 14 schließen",
+    "context": "Liquiditätsplanung zeigt Restlücke von rund 50k.",
+    "dilemma": "Ergebnis vs. Runway"
+  },
+  "D11-CFO-3": {
+    "id": "D11-CFO-3",
+    "day": 11,
+    "role": "CFO",
+    "title": "Lieferanten-Zahlplan nachschärfen",
+    "context": "Standstill bei zwei Lieferanten läuft aus.",
+    "dilemma": "Härte vs. Versorgungssicherheit"
+  },
+  "D11-CFO-4": {
+    "id": "D11-CFO-4",
+    "day": 11,
+    "role": "CFO",
+    "title": "Übernahme-Offerte",
+    "context": "Investor verbessert sein Angebot: 22,5 % für 5,5M. CEO fordert Einschätzung.",
+    "dilemma": "Unabhängigkeit vs. finanzielle Entspannung"
+  },
+  "D11-CFO-5": {
+    "id": "D11-CFO-5",
+    "day": 11,
+    "role": "CFO",
+    "title": "Term Sheet unterschreiben & Covenant-Trigger festlegen",
+    "context": "Bank-Term Sheet liegt vor; Gebühren, Informationsrechte und Trigger müssen final bestätigt werden.",
+    "dilemma": "Kosten vs. Flexibilität"
+  },
+  "D11-OPS-1": {
+    "id": "D11-OPS-1",
+    "day": 11,
+    "role": "OPS",
+    "title": "Verkauf Tochterunternehmen: Carve-out Operations – Separierung der Systeme",
+    "context": "Investor verlangt Klarheit über eigenständige Lieferfähigkeit der zu veräußernden Einheit.",
+    "dilemma": "IT/Logistik trennen vs. Synergieeffekte erhalten"
+  },
+  "D11-OPS-2": {
+    "id": "D11-OPS-2",
+    "day": 11,
+    "role": "OPS",
+    "title": "Lieferkette – Risikoanalyse für Käufer-Tochterunternehmen",
+    "context": "Investor fordert Übersicht kritischer Zulieferer (Top 20) für die Due Diligence.",
+    "dilemma": "Transparenz vs. Verhandlungsposition"
+  },
+  "D11-OPS-3": {
+    "id": "D11-OPS-3",
+    "day": 11,
+    "role": "OPS",
+    "title": "Kapazitätssteuerung nach Teilverkauf",
+    "context": "Ein Teil der Produktion soll künftig exklusiv für den Käufer laufen. Engpässe drohen in Kernlinien.",
+    "dilemma": "Verkäuferpflichten erfüllen vs. Stammkunden halten"
+  },
+  "D11-OPS-4": {
+    "id": "D11-OPS-4",
+    "day": 11,
+    "role": "OPS",
+    "title": "Kommunikation in der Fertigung – Gerüchte um Käufer",
+    "context": "Mitarbeiter in der Produktion hören von Teilverkaufsplänen, Unsicherheit wächst.",
+    "dilemma": "Offene Kommunikation vs. Vertraulichkeit im Prozess"
+  },
+  "D11-OPS-5": {
+    "id": "D11-OPS-5",
+    "day": 11,
+    "role": "OPS",
+    "title": "Serienstart-Freeze & Prüftiefe festlegen",
+    "context": "Nach Pilotcharge/Serienfreigabe (Tag 10) muss der Ramp-up mit passender Prüftiefe abgesichert werden.",
+    "dilemma": "Schnelles Hochfahren vs. Reklamationsrisiko"
+  },
+  "D11-HRLEGAL-1": {
+    "id": "D11-HRLEGAL-1",
+    "day": 11,
+    "role": "HRLEGAL",
+    "title": "Teilverkauf – Disclosure Letter & Garantiekatalog",
+    "context": "Investoren verlangen ein Disclosure Package (Haftungsausnahmen), inkl. arbeits- und datenschutzrechtlicher Risiken.",
+    "dilemma": "Transparenz vs. Haftungsrisiko"
+  },
+  "D11-HRLEGAL-2": {
+    "id": "D11-HRLEGAL-2",
+    "day": 11,
+    "role": "HRLEGAL",
+    "title": "Teilverkauf – Mitbestimmungsrechte & Informationspflichten",
+    "context": "Betriebsrat fordert frühzeitige Einbindung, während Verhandlungen vertraulich bleiben sollen.",
+    "dilemma": "Rechtssicherheit vs. Vertraulichkeit"
+  },
+  "D11-HRLEGAL-3": {
+    "id": "D11-HRLEGAL-3",
+    "day": 11,
+    "role": "HRLEGAL",
+    "title": "Compliance-Nachweise bündeln",
+    "context": "Für Tag 12 müssen Dokumente vollständig sein.",
+    "dilemma": "Vollständigkeit vs. Aufwand"
+  },
+  "D11-HRLEGAL-4": {
+    "id": "D11-HRLEGAL-4",
+    "day": 11,
+    "role": "HRLEGAL",
+    "title": "Interne Konflikte moderieren",
+    "context": "Ressourcenkonflikte zwischen OPS und CFO eskalieren.",
+    "dilemma": "Partei ergreifen vs. Mediation"
+  },
+  "D11-HRLEGAL-5": {
+    "id": "D11-HRLEGAL-5",
+    "day": 11,
+    "role": "HRLEGAL",
+    "title": "Ethik-Hotline: Hinweisbearbeitung priorisieren",
+    "context": "Über die Hotline ging ein Hinweis zu Complianceproblemen im Rahen des Teilverkaufs ein; Reputationsrisiko vor Tag 12 minimieren.",
+    "dilemma": "Schnelle Aufklärung vs. Aufwand und Sichtbarkeit"
+  },
+  "D12-CEO-1": {
+    "id": "D12-CEO-1",
+    "day": 12,
+    "role": "CEO",
+    "title": "Bank-Zwischenprüfung – Auftritt & Botschaften",
+    "context": "Heute Review der Waiver-Meilensteine mit Bank.",
+    "dilemma": "Maximale Offenheit vs. Schutz sensibler Details"
+  },
+  "D12-CEO-2": {
+    "id": "D12-CEO-2",
+    "day": 12,
+    "role": "CEO",
+    "title": "Nachforderung der Bank – Zusatzauflagen?",
+    "context": "Die Bank erwägt zusätzliche Auflagen (z. B. monatliches Board-Update, Capex-Freeze).",
+    "dilemma": "Zustimmung vs. Verhandlungsspielraum"
+  },
+  "D12-CEO-3": {
+    "id": "D12-CEO-3",
+    "day": 12,
+    "role": "CEO",
+    "title": "Strategische Kommunikation nach dem Review",
+    "context": "Teams, Kunden und Lieferanten erwarten Einordnung.",
+    "dilemma": "Schnelligkeit vs. Konsistenz"
+  },
+  "D12-CEO-4": {
+    "id": "D12-CEO-4",
+    "day": 12,
+    "role": "CEO",
+    "title": "Strategische Option: Teil-Carve-out prüfen",
+    "context": "Bank fragt nach optionalen strukturellen Hebeln.",
+    "dilemma": "Zukunftsbild vs. aktuellen Fokus"
+  },
+  "D12-CEO-5": {
+    "id": "D12-CEO-5",
+    "day": 12,
+    "role": "CEO",
+    "title": "Stakeholder-Fahrplan 48h nach Review",
+    "context": "Nach der Zwischenprüfung sollen Bank, Beirat, Key Accounts und Lieferanten konsistent abgeholt werden.",
+    "dilemma": "Maximale Transparenz vs. gezielte Dosierung"
+  },
+  "D12-CFO-1": {
+    "id": "D12-CFO-1",
+    "day": 12,
+    "role": "CFO",
+    "title": "Review-Pack final – Zahlenstand & Forecast",
+    "context": "Letzte Aktualisierung vor dem Termin.",
+    "dilemma": "Umfang vs. Lesbarkeit"
+  },
+  "D12-CFO-2": {
+    "id": "D12-CFO-2",
+    "day": 12,
+    "role": "CFO",
+    "title": "Cash-Polster Tag 13–14 (Payroll im Blick)",
+    "context": "Noch kleine Planunsicherheiten bei Eingängen.",
+    "dilemma": "Zusatzpuffer vs. Signaleffekt"
+  },
+  "D12-CFO-3": {
+    "id": "D12-CFO-3",
+    "day": 12,
+    "role": "CFO",
+    "title": "United Pumps of America – Kaufpreisstruktur & Closing-Plan",
+    "context": "Investor legt Term Sheet vor: 40 Mio. Gesamtpreis, davon 30 Mio. Cash, 5 Mio. Escrow (Treuhandkonto), 5 Mio. Earn-Out (= variabler Kaufpreisanteil) abhängig vom EBITDA. Bank fordert klare Darstellung von Cash-Impact und Covenant-Effekten. Entscheidungsvorschlag für CEO erarbeiten.",
+    "dilemma": "Liquidität kurzfristig vs. Risikoabsicherung & Governance"
+  },
+  "D12-CFO-4": {
+    "id": "D12-CFO-4",
+    "day": 12,
+    "role": "CFO",
+    "title": "DSO/DPO/DIO – Zielkorridore vereinbaren",
+    "context": "Bank wünscht Zielkorridore für WC-KPIs.",
+    "dilemma": "Ambition vs. Realismus"
+  },
+  "D12-CFO-5": {
+    "id": "D12-CFO-5",
+    "day": 12,
+    "role": "CFO",
+    "title": "Term-Sheet & Covenant-Trigger final festzurren",
+    "context": "Im Review adressierte Trigger (Information Rights, Milestones, Fees) müssen vertraglich fixiert werden.",
+    "dilemma": "Kosten vs. Flexibilität"
+  },
+  "D12-OPS-1": {
+    "id": "D12-OPS-1",
+    "day": 12,
+    "role": "OPS",
+    "title": "Produktionsmix nach Bank-Feedback",
+    "context": "Bank betont DB-Fokus; Vertrieb meldet A-Kundenbedarf.",
+    "dilemma": "DB-Max vs. Beziehungsmanagement"
+  },
+  "D12-OPS-2": {
+    "id": "D12-OPS-2",
+    "day": 12,
+    "role": "OPS",
+    "title": "Qualitätsinitiative – Wirkung zeigen",
+    "context": "Bank fragt nach messbaren Effekten.",
+    "dilemma": "Schnelle Kennzahlen vs. echte Nachhaltigkeit"
+  },
+  "D12-OPS-3": {
+    "id": "D12-OPS-3",
+    "day": 12,
+    "role": "OPS",
+    "title": "Lieferanten – Stabilitätsnachweise",
+    "context": "Zwei kritische Lieferanten unter Beobachtung.",
+    "dilemma": "Wechselkosten vs. Stabilität"
+  },
+  "D12-OPS-4": {
+    "id": "D12-OPS-4",
+    "day": 12,
+    "role": "OPS",
+    "title": "Logistik – Servicelevel feinjustieren",
+    "context": "Sonderfahrten häufen sich; Kosten steigen.",
+    "dilemma": "Servicegrad vs. Ergebnis"
+  },
+  "D12-OPS-5": {
+    "id": "D12-OPS-5",
+    "day": 12,
+    "role": "OPS",
+    "title": "Ramp-up-Containment für A-Linien",
+    "context": "Nach Review soll die Prüftiefe im Serienanlauf temporär erhöht werden.",
+    "dilemma": "Tempo vs. Reklamationsrisiko"
+  },
+  "D12-HRLEGAL-1": {
+    "id": "D12-HRLEGAL-1",
+    "day": 12,
+    "role": "HRLEGAL",
+    "title": "Team-Briefing nach Review",
+    "context": "Unsicherheiten im Team zu Auflagen und Zielen.",
+    "dilemma": "Detailtiefe vs. Überforderung"
+  },
+  "D12-HRLEGAL-2": {
+    "id": "D12-HRLEGAL-2",
+    "day": 12,
+    "role": "HRLEGAL",
+    "title": "Kurzarbeit – letzte Anpassungen",
+    "context": "Feedback: Engpassbereiche benötigen mehr Stunden.",
+    "dilemma": "Fairness vs. Durchsatz"
+  },
+  "D12-HRLEGAL-3": {
+    "id": "D12-HRLEGAL-3",
+    "day": 12,
+    "role": "HRLEGAL",
+    "title": "Compliance – Bankauflagen dokumentieren",
+    "context": "Neue/erweiterte Auflagen sind zu verschriftlichen.",
+    "dilemma": "Tempo vs. Genauigkeit"
+  },
+  "D12-HRLEGAL-4": {
+    "id": "D12-HRLEGAL-4",
+    "day": 12,
+    "role": "HRLEGAL",
+    "title": "Interne Konflikte – Review-Nachwehen",
+    "context": "Einzelne Bereiche fühlen sich überlastet.",
+    "dilemma": "Kompensation vs. Produktivität"
+  },
+  "D12-HRLEGAL-5": {
+    "id": "D12-HRLEGAL-5",
+    "day": 12,
+    "role": "HRLEGAL",
+    "title": "Ethik-Hotline: Hinweise aus Woche 2 abschließen",
+    "context": "Vor dem Payroll-Finale sollen offene Hinweise dokumentiert und abgeschlossen werden.",
+    "dilemma": "Schnelle Schließung vs. Sorgfalt"
+  },
+  "D13-CEO-1": {
+    "id": "D13-CEO-1",
+    "day": 13,
+    "role": "CEO",
+    "title": "Abschlusskommunikation vor Tag 14",
+    "context": "Mitarbeitende, Kunden und Bank erwarten ein klar strukturiertes Update vor der finalen Phase.",
+    "dilemma": "Tempo vs. Abstimmung"
+  },
+  "D13-CEO-2": {
+    "id": "D13-CEO-2",
+    "day": 13,
+    "role": "CEO",
+    "title": "LOI/Partnerschaft – internes Erwartungsmanagement",
+    "context": "Das Team spekuliert über einen LOI; Unsicherheit über Auswirkungen. Gerüchte über Beteiligung von Investor verbreiten sich.",
+    "dilemma": "Transparenz vs. Vertraulichkeit"
+  },
+  "D13-CEO-3": {
+    "id": "D13-CEO-3",
+    "day": 13,
+    "role": "CEO",
+    "title": "Externe Berater – Mandat für Finale",
+    "context": "Bank fragt nach externer Begleitung für die Abschlussphase von möglichen Beteiligungsverhandlungen.",
+    "dilemma": "Kosten vs. Akzeptanz"
+  },
+  "D13-CEO-4": {
+    "id": "D13-CEO-4",
+    "day": 13,
+    "role": "CEO",
+    "title": "Finale Risiko-Landkarte freigeben",
+    "context": "Letzte Risiko-/Maßnahmenliste vor Tag 14 an Bank & Beirat?",
+    "dilemma": "Offenlegung vs. Angriffsfläche"
+  },
+  "D13-CEO-5": {
+    "id": "D13-CEO-5",
+    "day": 13,
+    "role": "CEO",
+    "title": "Letzte Klärungen Verkauf von United Pumps of America",
+    "context": "Vor dem Finale sollen Bank, Beirat, Key Accounts und Lieferanten synchron abgeholt werden.",
+    "dilemma": "Maximale Transparenz vs. gezielte Dosierung"
+  },
+  "D13-CFO-1": {
+    "id": "D13-CFO-1",
+    "day": 13,
+    "role": "CFO",
+    "title": "Vorbereitung Verkaufsdossier – United Pumps of America",
+    "context": "Der geplante Teilverkauf steht vor der Due Diligence. CFO muss Finanzteil des Dossiers vorbereiten: historische Zahlen, Cash-Impact, Covenants.",
+    "dilemma": "Transparenz vs. Verhandlungsposition"
+  },
+  "D13-CFO-2": {
+    "id": "D13-CFO-2",
+    "day": 13,
+    "role": "CFO",
+    "title": "Investor  – Bewertungsgrundlagen vorbereiten",
+    "context": "Ein Finanzinvestor signalisiert Einstieg bei Aurion. CFO muss Bewertungsmodelle, Cash-Bedarf und Beteiligungsvarianten vorbereiten.",
+    "dilemma": "Attraktive Bewertung vs. Realistische Erwartungen"
+  },
+  "D13-CFO-3": {
+    "id": "D13-CFO-3",
+    "day": 13,
+    "role": "CFO",
+    "title": "Working-Capital – letzte Quick Wins",
+    "context": "DSO/DPO/DIO laufen; noch kleinere Hebel möglich.",
+    "dilemma": "Ergebnis vs. Signalwirkung"
+  },
+  "D13-CFO-4": {
+    "id": "D13-CFO-4",
+    "day": 13,
+    "role": "CFO",
+    "title": "Review-Pack „Finale Sicht\"",
+    "context": "Bank erwartet klare Perspektive.",
+    "dilemma": "Ambition vs. Realismus"
+  },
+  "D13-CFO-5": {
+    "id": "D13-CFO-5",
+    "day": 13,
+    "role": "CFO",
+    "title": "Fee Letter & Informationsrechte – Verhandlungsabschluss",
+    "context": "Bank verlangt finale Klarheit: Höhe der Waiver-Fee, Reporting-Umfang und Trigger für Sonderrechte. CFO muss entscheiden, welche Kombination tragfähig ist.",
+    "dilemma": "Kostenbelastung vs. operative Flexibilität"
+  },
+  "D13-OPS-1": {
+    "id": "D13-OPS-1",
+    "day": 13,
+    "role": "OPS",
+    "title": "Produktionsplan – A-Kunden final absichern",
+    "context": "Pönalen drohen bei zwei A-Kunden; letzte 48h entscheidend.",
+    "dilemma": "Kosten vs. Loyalität"
+  },
+  "D13-OPS-2": {
+    "id": "D13-OPS-2",
+    "day": 13,
+    "role": "OPS",
+    "title": "Qualitätsnachweise – Kundenvertrauen stärken",
+    "context": "Kunden möchten dokumentierte Stabilisierung sehen.",
+    "dilemma": "Messaufwand vs. Wirkung"
+  },
+  "D13-OPS-3": {
+    "id": "D13-OPS-3",
+    "day": 13,
+    "role": "OPS",
+    "title": "Lieferantenabsicherung – letzte Lücken",
+    "context": "Zwei kritische Teile mit Lieferunsicherheit.",
+    "dilemma": "Höhere Preise vs. Lieferrisiko"
+  },
+  "D13-OPS-4": {
+    "id": "D13-OPS-4",
+    "day": 13,
+    "role": "OPS",
+    "title": "Logistik – Bündeln mit Ausnahmen",
+    "context": "Kostenkontrolle vs. Flexibilität: viele Kleinlieferungen / Einzelabrufe die Logistikkosten massiv nach oben.",
+    "dilemma": "Wenn man alles bündelt, sinken Kosten, aber Kunden leiden an Flexibilitätsverlust."
+  },
+  "D13-OPS-5": {
+    "id": "D13-OPS-5",
+    "day": 13,
+    "role": "OPS",
+    "title": "Ramp-up-Containment für A-Linien",
+    "context": "Für die nächsten 48 Stunden werden temporär erhöhte Prüftiefen diskutiert.",
+    "dilemma": "Tempo vs. Reklamationsrisiko"
+  },
+  "D13-HRLEGAL-1": {
+    "id": "D13-HRLEGAL-1",
+    "day": 13,
+    "role": "HRLEGAL",
+    "title": "Team-Ansprache: „Verkauf United Pumps of America\"",
+    "context": "Druck steigt; Erschöpfung sichtbar.",
+    "dilemma": "Motivation vs. Überforderung"
+  },
+  "D13-HRLEGAL-2": {
+    "id": "D13-HRLEGAL-2",
+    "day": 13,
+    "role": "HRLEGAL",
+    "title": "Teilverkauf United Pumps – Datenraum & Vertraulichkeit",
+    "context": "Für die Due Diligence des Käufers muss HR relevante Unterlagen (Verträge, Mitarbeiterlisten, Pensionspläne) bereitstellen. Datenschutz- und Geheimhaltungsfragen sind kritisch.",
+    "dilemma": "Transparenz für Käufer vs. Schutz sensibler Mitarbeiter- und Unternehmensdaten"
+  },
+  "D13-HRLEGAL-3": {
+    "id": "D13-HRLEGAL-3",
+    "day": 13,
+    "role": "HRLEGAL",
+    "title": "Konfliktprävention CFO/OPS",
+    "context": "Ressourcenkonflikte drohen erneut hochzukochen.",
+    "dilemma": "Top-down vs. Mediation"
+  },
+  "D13-HRLEGAL-4": {
+    "id": "D13-HRLEGAL-4",
+    "day": 13,
+    "role": "HRLEGAL",
+    "title": "Arbeitsrechtliche Absicherung bei Teilverkauf",
+    "context": "Der geplante Verkauf von United Pumps of America wirft arbeitsrechtliche Fragen auf: Betriebsübergang, Mitbestimmung, Sozialplan.",
+    "dilemma": "Rechtssicherheit vs. Geschwindigkeit"
+  },
+  "D13-HRLEGAL-5": {
+    "id": "D13-HRLEGAL-5",
+    "day": 13,
+    "role": "HRLEGAL",
+    "title": "Teilverkauf United Pumps – Arbeitsrechtliche Überleitung (§613a BGB)",
+    "context": "Im Carve-out müssen Mitarbeitende von United Pumps auf den Käufer übergehen. Rechtliche Pflichten (Information, Widerspruchsrechte, Sozialplan) sind komplex.",
+    "dilemma": "Rechtssicherheit vs. Transaktionsgeschwindigkeit"
+  },
+  "D14-CEO-1": {
+    "id": "D14-CEO-1",
+    "day": 14,
+    "role": "CEO",
+    "title": "Verkauf von United Pumps of America\"",
+    "context": "Abschlussstatement an Mitarbeitende, Kunden, Bank und Öffentlichkeit.",
+    "dilemma": "Realismus vs. Zuversicht"
+  },
+  "D14-CEO-2": {
+    "id": "D14-CEO-2",
+    "day": 14,
+    "role": "CEO",
+    "title": "Verkauf von United Pumps of Amercia finalisieren",
+    "context": "Bank erwartet Entscheidung.",
+    "dilemma": "Verbindlichkeit vs. Flexibilität"
+  },
+  "D14-CEO-3": {
+    "id": "D14-CEO-3",
+    "day": 14,
+    "role": "CEO",
+    "title": "Kunden-Beirat – Fortführung",
+    "context": "Ob und wie der Kundenbeirat fortgeführt wird.",
+    "dilemma": "Transparenz vs. Aufwand"
+  },
+  "D14-CEO-4": {
+    "id": "D14-CEO-4",
+    "day": 14,
+    "role": "CEO",
+    "title": "Einstieg Investor",
+    "context": "Abschluss der Vorverhandlungen mit aktivem Investor.",
+    "dilemma": "Cash vs. Abgabe von Einfluss"
+  },
+  "D14-CEO-5": {
+    "id": "D14-CEO-5",
+    "day": 14,
+    "role": "CEO",
+    "title": "Stakeholder-Kaskade freigeben",
+    "context": "Nach „Final View\" für Verkauf von United Pumps of America müssen Bank, Beirat, Key Accounts und Team koordiniert abgeholt werden.",
+    "dilemma": "Abschlussgefühl vs. laufende Erwartungs­steuerung"
+  },
+  "D14-CFO-1": {
+    "id": "D14-CFO-1",
+    "day": 14,
+    "role": "CFO",
+    "title": "Payroll heute final freigeben",
+    "context": "Löhne reputationskritisch; Cash genau prüfen.",
+    "dilemma": "Cash-Polster vs. Reputation"
+  },
+  "D14-CFO-2": {
+    "id": "D14-CFO-2",
+    "day": 14,
+    "role": "CFO",
+    "title": "Finale Liquiditätsbrücke (13-Wochen)",
+    "context": "Bank möchte Proof der Fortführungsfähigkeit.",
+    "dilemma": "Ambition vs. Realismus"
+  },
+  "D14-CFO-3": {
+    "id": "D14-CFO-3",
+    "day": 14,
+    "role": "CFO",
+    "title": "Lieferanten – Abschlussregime",
+    "context": "Standstill & Gleichbehandlung dokumentieren.",
+    "dilemma": "Stringenz vs. Einzelfall"
+  },
+  "D14-CFO-4": {
+    "id": "D14-CFO-4",
+    "day": 14,
+    "role": "CFO",
+    "title": "Kreditlinie – Waiver/Sideletter",
+    "context": "Formalisierung der Übergangsregeln.",
+    "dilemma": "Verhandlungshärte vs. Abschlussfähigkeit"
+  },
+  "D14-CFO-5": {
+    "id": "D14-CFO-5",
+    "day": 14,
+    "role": "CFO",
+    "title": "Proof of Funds & Payment Advice senden",
+    "context": "Bank und Top‑Lieferanten wollen Belege, dass Payroll und kritische Zahlungen heute angewiesen wurden.",
+    "dilemma": "Transparenz vs. Datenschutz/Signaleffekt"
+  },
+  "D14-OPS-1": {
+    "id": "D14-OPS-1",
+    "day": 14,
+    "role": "OPS",
+    "title": "A-Kunden-Lieferplan – Zusicherung",
+    "context": "Letzte kritische Lieferungen heute/morgen.",
+    "dilemma": "Kosten vs. Service"
+  },
+  "D14-OPS-2": {
+    "id": "D14-OPS-2",
+    "day": 14,
+    "role": "OPS",
+    "title": "Qualität – Finaler Nachweis",
+    "context": "Bank & Kunden wollen Stabilisierungsbeleg.",
+    "dilemma": "Aufwand vs. Signal"
+  },
+  "D14-OPS-3": {
+    "id": "D14-OPS-3",
+    "day": 14,
+    "role": "OPS",
+    "title": "Materialfreigaben – Steuerungslogik für Carve-out & Kernproduktion",
+    "context": "Nach LOI und laufenden Verhandlungen zum Verkauf United Pumps of America verlangen Bank und potenzieller Käufer belastbare Regeln für Materialeinsatz und Bestellungen. Ziel ist Kostenkontrolle ohne Liefertreue zu gefährden.",
+    "dilemma": "Kurzfristige Flexibilität für Kunden vs. Disziplin zur Kosten- und Cash-Steuerung"
+  },
+  "D14-OPS-4": {
+    "id": "D14-OPS-4",
+    "day": 14,
+    "role": "OPS",
+    "title": "Produktmix – Turnaround-Setup",
+    "context": "Nach schwachen Wochen soll der Produktmix neu ausgerichtet werden. Ziel ist ein kurzfristiger Ergebnisschub durch DB-starke Produkte (Deckungsbeitrag > 30 %). Gleichzeitig droht Risiko: wichtige Kunden könnten sich vernachlässigt fühlen, wenn ihre weniger profitablen Produkte nicht mehr priorisiert werden.",
+    "dilemma": "Maximierung kurzfristiger Ergebnisse vs. Aufrechterhaltung langfristiger Kundenbindung"
+  },
+  "D14-OPS-5": {
+    "id": "D14-OPS-5",
+    "day": 14,
+    "role": "OPS",
+    "title": "Hypercare 72h für A-Kunden",
+    "context": "Nach Final View sollen Reklamationsrisiken aktiv gemanagt werden.",
+    "dilemma": "Tempo/Kosten vs. Servicegrad"
+  },
+  "D14-HRLEGAL-1": {
+    "id": "D14-HRLEGAL-1",
+    "day": 14,
+    "role": "HRLEGAL",
+    "title": "Townhall „Verkauf United Pumps of America\"",
+    "context": "Abschlussformat mit Q&A.",
+    "dilemma": "Offenheit vs. Erwartungsmanagement"
+  },
+  "D14-HRLEGAL-2": {
+    "id": "D14-HRLEGAL-2",
+    "day": 14,
+    "role": "HRLEGAL",
+    "title": "Finalisierung Verkauf United Pumps of America – Closing-Package",
+    "context": "Der Verkauf der Tochter steht unmittelbar vor dem Signing. Alle Closing-Dokumente (SPA, Disclosure Letter, Arbeitsrechtliche Überleitungen) müssen finalisiert und unterschriftsreif sein.",
+    "dilemma": "Schnelles Closing vs. rechtliche Absicherung"
+  },
+  "D14-HRLEGAL-3": {
+    "id": "D14-HRLEGAL-3",
+    "day": 14,
+    "role": "HRLEGAL",
+    "title": "Compliance-Dossier an Bank",
+    "context": "Gleichbehandlung/Whistleblowing/DSFA als Paket.",
+    "dilemma": "Detailtiefe vs. Aufwand"
+  },
+  "D14-HRLEGAL-4": {
+    "id": "D14-HRLEGAL-4",
+    "day": 14,
+    "role": "HRLEGAL",
+    "title": "Konfliktprävention – Übergang in Normalbetrieb",
+    "context": "CFO/OPS Spannungen entschärfen, Regeln für Alltag.",
+    "dilemma": "Top-down vs. vereinbarte Regeln"
+  },
+  "D14-HRLEGAL-5": {
+    "id": "D14-HRLEGAL-5",
+    "day": 14,
+    "role": "HRLEGAL",
+    "title": "Abschlusskommunikation – Freigabe & Sperrfristen",
+    "context": "Für finale Statements/LOI‑Gerüchte wird eine klare Freigabe- und Sprachregelung benötigt.",
+    "dilemma": "Transparenz vs. Rechtsrisiko"
+  }
+}

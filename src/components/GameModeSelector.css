@@ -1,0 +1,669 @@
+/* src/components/GameModeSelector.css */
+
+.gms-root {
+  min-height: 100vh;
+  background: #0b1220;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Canvas für Hintergrund-Animation - WICHTIG: pointer-events none! */
+.gms-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.7;
+  pointer-events: none !important; /* KRITISCH: Canvas darf keine Klicks abfangen */
+}
+
+/* Header */
+.gms-header {
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(180deg, rgba(15,31,55,0.98) 0%, rgba(11,18,32,0.95) 100%);
+  border-bottom: 2px solid rgba(20,184,166,0.3);
+  backdrop-filter: blur(12px);
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+.gms-header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.gms-logo {
+  height: 48px;
+  width: auto;
+  filter: drop-shadow(0 0 15px rgba(37,99,235,0.4));
+  transition: filter 0.3s ease;
+  margin-left: 70px;
+}
+
+.gms-logo:hover {
+  filter: drop-shadow(0 0 25px rgba(20,184,166,0.6));
+}
+
+.gms-header-text {
+  font-size: 26px;
+  font-weight: 700;
+  color: #e6eefc;
+  margin: 0;
+  text-shadow: 0 0 30px rgba(37,99,235,0.5), 0 2px 4px rgba(0,0,0,0.3);
+  letter-spacing: 0.5px;
+}
+
+/* Hauptbereich */
+.gms-main {
+  flex: 1;
+  position: relative;
+  z-index: 5;
+  padding: 80px 20px 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gms-content {
+  width: 100%;
+  max-width: 1300px;
+  position: relative;
+  z-index: 10; /* Sicherstellen dass Content über Canvas liegt */
+}
+
+/* Hero Bereich */
+.gms-hero {
+  text-align: center;
+  margin-bottom: 80px;
+  position: relative;
+  pointer-events: none; /* Hero-Text nicht klickbar */
+}
+
+.gms-title {
+  font-size: clamp(80px, 10vw, 140px);
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: -3px;
+  position: relative;
+  display: inline-block;
+  background: linear-gradient(135deg, 
+    #ffffff 0%, 
+    #60a5fa 20%, 
+    #2563eb 40%, 
+    #14b8a6 60%, 
+    #10b981 80%, 
+    #60a5fa 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 4s ease infinite, glow-pulse 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 40px rgba(37,99,235,0.4));
+  user-select: none;
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { 
+    filter: drop-shadow(0 0 40px rgba(37,99,235,0.4)) brightness(1);
+    transform: scale(1);
+  }
+  50% { 
+    filter: drop-shadow(0 0 60px rgba(20,184,166,0.6)) brightness(1.1);
+    transform: scale(1.02);
+  }
+}
+
+.gms-subtitle {
+  font-size: clamp(18px, 2.2vw, 28px);
+  color: #8b9cb8;
+  margin: 20px 0 0;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  opacity: 0.9;
+  font-weight: 300;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  user-select: none;
+}
+
+/* Karten-Grid */
+.gms-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 32px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 20; /* Karten über allem anderen */
+}
+
+/* Karten - KRITISCH für sichere Navigation */
+.gms-card {
+  position: relative;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  z-index: 30; /* Hoher z-index für Karten */
+  pointer-events: auto !important; /* Explizit klickbar */
+  user-select: none; /* Keine Text-Selektion */
+  -webkit-tap-highlight-color: transparent; /* Kein Tap-Highlight auf Mobile */
+}
+
+.gms-card:hover {
+  transform: translateY(-12px) scale(1.03);
+  z-index: 100;
+}
+
+.gms-card:active {
+  transform: translateY(-6px) scale(1.01); /* Visuelles Feedback beim Klick */
+}
+
+.gms-card:focus-visible {
+  outline: 3px solid rgba(20,184,166,0.6);
+  outline-offset: 6px;
+  border-radius: 24px;
+}
+
+/* Animation für ausgewählte Karte */
+.gms-card-selected {
+  animation: card-select 0.3s ease-out;
+  pointer-events: none !important; /* Während Animation nicht klickbar */
+}
+
+@keyframes card-select {
+  0% { 
+    transform: scale(1); 
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+  50% { 
+    transform: scale(1.05); 
+    box-shadow: 0 20px 60px rgba(37,99,235,0.8);
+  }
+  100% { 
+    transform: scale(1.02); 
+    box-shadow: 0 15px 50px rgba(37,99,235,0.6);
+  }
+}
+
+/* Glow-Effekt hinter der Karte */
+.gms-card-glow {
+  position: absolute;
+  inset: -4px;
+  border-radius: 24px;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: -1; /* Glow hinter der Karte */
+  filter: blur(20px);
+  pointer-events: none; /* Glow nicht klickbar */
+}
+
+.gms-card:hover .gms-card-glow {
+  opacity: 1;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Verschiedene Glow-Farben für jede Karte */
+.gms-card-single .gms-card-glow {
+  background: radial-gradient(circle at 50% 50%, 
+    rgba(37,99,235,0.5), 
+    rgba(59,130,246,0.3) 40%, 
+    transparent 70%
+  );
+}
+
+.gms-card-multi .gms-card-glow {
+  background: radial-gradient(circle at 50% 50%, 
+    rgba(20,184,166,0.5), 
+    rgba(16,185,129,0.3) 40%, 
+    transparent 70%
+  );
+}
+
+.gms-card-admin .gms-card-glow {
+  background: radial-gradient(circle at 50% 50%, 
+    rgba(168,85,247,0.5), 
+    rgba(139,92,246,0.3) 40%, 
+    transparent 70%
+  );
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    transform: scale(1); 
+    opacity: 0.8;
+  }
+  50% { 
+    transform: scale(1.1); 
+    opacity: 1;
+  }
+}
+
+/* Karten-Inhalt */
+.gms-card-content {
+  position: relative;
+  background: linear-gradient(145deg, 
+    rgba(15,31,55,0.95) 0%, 
+    rgba(11,18,32,0.98) 50%,
+    rgba(8,15,28,0.95) 100%
+  );
+  border: 2px solid;
+  border-radius: 24px;
+  padding: 40px;
+  backdrop-filter: blur(20px);
+  box-shadow: 
+    0 10px 40px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    inset 0 -1px 0 rgba(0,0,0,0.3);
+  z-index: 1;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none; /* Inhalt selbst nicht klickbar, nur die Karte */
+}
+
+.gms-card-single .gms-card-content {
+  border-color: rgba(37,99,235,0.3);
+  background: linear-gradient(145deg,
+    rgba(15,31,55,0.95) 0%,
+    rgba(13,27,50,0.98) 50%,
+    rgba(10,20,40,0.95) 100%
+  );
+}
+
+.gms-card-multi .gms-card-content {
+  border-color: rgba(20,184,166,0.3);
+  background: linear-gradient(145deg,
+    rgba(15,35,35,0.95) 0%,
+    rgba(12,30,30,0.98) 50%,
+    rgba(10,25,25,0.95) 100%
+  );
+}
+
+.gms-card-admin .gms-card-content {
+  border-color: rgba(168,85,247,0.3);
+  background: linear-gradient(145deg,
+    rgba(20,15,35,0.95) 0%,
+    rgba(18,12,30,0.98) 50%,
+    rgba(15,10,25,0.95) 100%
+  );
+}
+
+.gms-card:hover .gms-card-content {
+  box-shadow: 
+    0 20px 60px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    inset 0 -1px 0 rgba(0,0,0,0.4);
+  transform: rotateX(2deg) rotateY(-2deg);
+}
+
+.gms-card-single:hover .gms-card-content {
+  border-color: rgba(37,99,235,0.6);
+}
+
+.gms-card-multi:hover .gms-card-content {
+  border-color: rgba(20,184,166,0.6);
+}
+
+.gms-card-admin:hover .gms-card-content {
+  border-color: rgba(168,85,247,0.6);
+}
+
+/* Icons */
+.gms-card-icon {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    0 8px 16px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.1);
+  pointer-events: none; /* Icon nicht klickbar */
+}
+
+.gms-card-icon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  opacity: 0.3;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+}
+
+.gms-card-single .gms-card-icon {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.gms-card-multi .gms-card-icon {
+  background: linear-gradient(135deg, #10b981, #14b8a6);
+}
+
+.gms-card-admin .gms-card-icon {
+  background: linear-gradient(135deg, #a855f7, #8b5cf6);
+}
+
+.gms-card-icon svg {
+  width: 36px;
+  height: 36px;
+  color: #ffffff;
+  z-index: 1;
+  position: relative;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+/* Titel und Beschreibung */
+.gms-card-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #e6eefc;
+  margin: 0 0 16px;
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  user-select: none;
+}
+
+.gms-card-desc {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #94a3b8;
+  margin: 0 0 28px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  user-select: none;
+}
+
+/* Karten-Footer */
+.gms-card-footer {
+  padding-top: 24px;
+  border-top: 1px solid rgba(37,99,235,0.15);
+  pointer-events: none;
+}
+
+.gms-card-action {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.3s ease;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  user-select: none;
+}
+
+.gms-card-single .gms-card-action {
+  color: #60a5fa;
+}
+
+.gms-card-multi .gms-card-action {
+  color: #5eead4;
+}
+
+.gms-card-admin .gms-card-action {
+  color: #c084fc;
+}
+
+.gms-card:hover .gms-card-action {
+  letter-spacing: 1.5px;
+  transform: translateX(6px);
+}
+
+/* Footer */
+.gms-footer {
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(180deg, 
+    rgba(11,18,32,0.95) 0%, 
+    rgba(15,31,55,0.98) 100%
+  );
+  border-top: 2px solid rgba(20,184,166,0.3);
+  padding: 28px 20px;
+  margin-top: auto;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+}
+
+.gms-footer-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.gms-footer-copyright {
+  color: #8b9cb8;
+  font-size: 15px;
+  margin-bottom: 14px;
+  opacity: 0.9;
+}
+
+.gms-footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.gms-footer-link {
+  color: #60a5fa;
+  text-decoration: none;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  position: relative;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.gms-footer-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #2563eb, #14b8a6);
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+.gms-footer-link:hover {
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(37,99,235,0.5);
+}
+
+.gms-footer-link:hover::after {
+  width: 100%;
+}
+
+/* Modal für Footer-Links */
+.gms-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 18, 32, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+  padding: 20px;
+}
+
+.gms-modal {
+  background: linear-gradient(145deg, rgba(15,31,55,0.98), rgba(11,18,32,0.98));
+  border: 2px solid rgba(37,99,235,0.3);
+  border-radius: 20px;
+  padding: 32px;
+  width: min(800px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 
+    0 20px 60px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.gms-modal h2 {
+  color: #e6eefc;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 28px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.gms-modal p {
+  color: #94a3b8;
+  line-height: 1.6;
+  font-size: 16px;
+}
+
+.gms-modal-close {
+  background: linear-gradient(135deg, #14b8a6, #10b981);
+  color: #ffffff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 24px;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(20,184,166,0.3);
+}
+
+.gms-modal-close:hover {
+  background: linear-gradient(135deg, #10b981, #059669);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(20,184,166,0.4);
+}
+
+/* Schriftfarbe im Modal */
+.gms-modal,
+.gms-modal-content,
+.gms-modal-text {
+  color: #fff;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .gms-header-inner {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .gms-header-text {
+    font-size: 20px;
+    text-align: center;
+  }
+  
+  .gms-main {
+    padding: 60px 16px 80px;
+  }
+  
+  .gms-cards {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  
+  .gms-card-content {
+    padding: 32px;
+  }
+  
+  .gms-hero {
+    margin-bottom: 60px;
+  }
+  
+  .gms-title {
+    font-size: clamp(60px, 15vw, 100px);
+  }
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+/* Zusätzlicher Glanz-Effekt für Karten beim Hover */
+.gms-card-content::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255,255,255,0.02) 50%,
+    transparent 70%
+  );
+  transform: rotate(45deg);
+  transition: all 0.6s;
+  opacity: 0;
+  pointer-events: none; /* Glanz nicht klickbar */
+}
+
+.gms-card:hover .gms-card-content::after {
+  opacity: 1;
+  animation: shimmer 0.6s ease-in-out;
+}
+/* Disabled State für Karten während Navigation */
+.gms-card-disabled {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+.gms-card-disabled .gms-card-content {
+  filter: grayscale(50%);
+}
+
+.gms-card-disabled:hover {
+  transform: none !important;
+}
+
+.gms-card-disabled .gms-card-glow {
+  display: none;
+}
+
+/* Debug-Klasse für Entwicklung (kann später entfernt werden) */
+.gms-navigation-active::before {
+  content: "Navigation aktiv...";
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 0, 0, 0.8);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  z-index: 10000;
+  font-size: 14px;
+  display: none; /* Standardmäßig ausgeblendet */
+}
+
+/* Nur im Debug-Modus anzeigen */
+body.debug-mode .gms-navigation-active::before {
+  display: block;
+}

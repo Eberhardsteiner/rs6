@@ -1,0 +1,1108 @@
+[
+  {
+    "id": "N1",
+    "day": 1,
+    "title": "Hausbank prüft Linienkürzung bei APS",
+    "source": "bank",
+    "severity": "critical"
+  },
+  {
+    "id": "N2",
+    "day": 1,
+    "title": "ChemAlloy fordert Vorkasse",
+    "source": "supplier",
+    "severity": "high"
+  },
+  {
+    "id": "N3",
+    "day": 1,
+    "title": "LinkedIn-Kommentar: „Zahlungsverzug?\"",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N4",
+    "day": 1,
+    "title": "Zwei Bewerbende ziehen Bewerbung zurück",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N5",
+    "day": 1,
+    "title": "A-Kunde fragt nach Terminsicherheit",
+    "source": "customer",
+    "severity": "high"
+  },
+  {
+    "id": "N6",
+    "day": 1,
+    "title": "Logistikpartner will Konditionen prüfen",
+    "source": "supplier",
+    "severity": "medium"
+  },
+  {
+    "id": "N7",
+    "day": 1,
+    "title": "Whistleblowing-Portal: neue Meldung",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N1-F1",
+    "day": 1,
+    "title": "Brandschutzübung um 12:00 Uhr",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N1-F3",
+    "day": 1,
+    "title": "Kurzzeitiger Stromausfall",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N2-1",
+    "day": 2,
+    "title": "Presse greift Gerüchte auf",
+    "source": "press",
+    "severity": "high"
+  },
+  {
+    "id": "N2-2",
+    "day": 2,
+    "title": "Lieferant prüft Vorkasse",
+    "source": "supplier",
+    "severity": "medium"
+  },
+  {
+    "id": "N2-3",
+    "day": 2,
+    "title": "Social Media Debatte",
+    "source": "press",
+    "severity": "low"
+  },
+  {
+    "id": "N2-4",
+    "day": 2,
+    "title": "Kunde fragt nach Terminschutz",
+    "source": "customer",
+    "severity": "medium"
+  },
+  {
+    "id": "N2-F1",
+    "day": 2,
+    "title": "Brandschutzübung um 11:30 Uhr",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N2-F3",
+    "day": 2,
+    "title": "IT-Wartung kurzfristig",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N3-1",
+    "day": 3,
+    "title": "Interview angekündigt",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N3-2",
+    "day": 3,
+    "title": "A‑Kunde droht Pönale",
+    "source": "customer",
+    "severity": "high"
+  },
+  {
+    "id": "N3-3",
+    "day": 3,
+    "title": "Behörde verlangt Unterlagen",
+    "source": "authority",
+    "severity": "medium"
+  },
+  {
+    "id": "N3-4",
+    "day": 3,
+    "title": "KV diskutiert Limits",
+    "source": "supplier",
+    "severity": "low"
+  },
+  {
+    "id": "N3-F1",
+    "day": 3,
+    "title": "Sperrung Nord-Tor",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N3-F2",
+    "day": 3,
+    "title": "Kantine – Kassenupdate",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N3-F3",
+    "day": 3,
+    "title": "IT‑Wartung: Fileserver",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N3-F4",
+    "day": 3,
+    "title": "Klimatisierung: Drosselbetrieb am Nachmittag",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N4-1",
+    "day": 4,
+    "title": "Banktermin angesetzt",
+    "source": "bank",
+    "severity": "high"
+  },
+  {
+    "id": "N4-2",
+    "day": 4,
+    "title": "Lieferant droht Stopp",
+    "source": "supplier",
+    "severity": "high"
+  },
+  {
+    "id": "N4-3",
+    "day": 4,
+    "title": "Presse greift Thema erneut auf",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N4-4",
+    "day": 4,
+    "title": "BR fordert Info",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N4-5",
+    "day": 4,
+    "title": "Krisenstab verschärft Taktung",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N4-6",
+    "day": 4,
+    "title": "Liquiditätsreport Tag 3 ausgewertet",
+    "source": "finance",
+    "severity": "medium"
+  },
+  {
+    "id": "N4-7",
+    "day": 4,
+    "title": "Ersatzlieferant für Engpassteil in Prüfung",
+    "source": "supplier",
+    "severity": "medium"
+  },
+  {
+    "id": "N4-8",
+    "day": 4,
+    "title": "Intranet‑FAQ zu Kurzarbeit aktualisiert",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N4-F1",
+    "day": 4,
+    "title": "Vortrag Rückengesundheit",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N4-F2",
+    "day": 4,
+    "title": "Aufgrund eines Elektronikfehlers kann die Kantine heute keine warmen Speisen anbieten",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N4-F3",
+    "day": 4,
+    "title": "IT: Kurzfristige VPN‑Wartung",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N4-F4",
+    "day": 4,
+    "title": "Klima: Wartung in Trakt A",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N5-1",
+    "day": 5,
+    "title": "Bankgespräch geführt",
+    "source": "bank",
+    "severity": "critical"
+  },
+  {
+    "id": "N5-2",
+    "day": 5,
+    "title": "S&L-Angebote auf dem Tisch",
+    "source": "press",
+    "severity": "low"
+  },
+  {
+    "id": "N5-3",
+    "day": 5,
+    "title": "Kunden warten auf Signal",
+    "source": "customer",
+    "severity": "high"
+  },
+  {
+    "id": "N5-4",
+    "day": 5,
+    "title": "Belegschaft fragt nach Lohnlauf",
+    "source": "internal",
+    "severity": "high"
+  },
+  {
+    "id": "N5-5",
+    "day": 5,
+    "title": "Interviewanfrage vom Regional‑TV",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N5-6",
+    "day": 5,
+    "title": "Fördermittel‑Vorprüfung signalisiert Chancen",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N5-7",
+    "day": 5,
+    "title": "Spediteur führt Dieselzuschlag wieder ein",
+    "source": "supplier",
+    "severity": "medium"
+  },
+  {
+    "id": "N5-8",
+    "day": 5,
+    "title": "Compliance‑Hinweis anonym eingegangen",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N5-9",
+    "day": 5,
+    "title": "Kurzzeitige Netzwerklatenzen im Intranet",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N5-10",
+    "day": 5,
+    "title": "Zufahrt Nord wegen Baustelle eingeschränkt",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N5-11",
+    "day": 5,
+    "title": "Geräuschpegel in Halle 1 durch Filtertausch",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N5-12",
+    "day": 5,
+    "title": "E‑Mail‑Spamwelle: Quarantäne strenger",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N6-1",
+    "day": 6,
+    "title": "Auflagenbrief der Bank eingetroffen",
+    "source": "bank",
+    "severity": "critical"
+  },
+  {
+    "id": "N6-2",
+    "day": 6,
+    "title": "S&L: LOI‑Entwurf und DD‑Anforderung",
+    "source": "internal",
+    "severity": "high"
+  },
+  {
+    "id": "N6-3",
+    "day": 6,
+    "title": "Top‑Kunden fordern Lieferplan T+60",
+    "source": "customer",
+    "severity": "high"
+  },
+  {
+    "id": "N6-4",
+    "day": 6,
+    "title": "BR fordert Kurzarbeitsprüfung",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N6-5",
+    "day": 6,
+    "title": "Fördermittelstelle bittet um Unterlagen",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N6-6",
+    "day": 6,
+    "title": "Regional‑TV terminiert Beitrag",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N6-7",
+    "day": 6,
+    "title": "Zweitlieferant signalisiert Startfenster",
+    "source": "supplier",
+    "severity": "medium"
+  },
+  {
+    "id": "N6-8",
+    "day": 6,
+    "title": "Compliance: Vorprüfung startet",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N6-9",
+    "day": 6,
+    "title": "ÖPNV‑Warnstreik angekündigt",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N6-10",
+    "day": 6,
+    "title": "Zutrittsleser werden ausgetauscht",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N6-11",
+    "day": 6,
+    "title": "Wissensdatenbank: Suchfunktion instabil",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N6-12",
+    "day": 6,
+    "title": "Fototermin Imagebroschüre verschoben",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N7-1",
+    "day": 7,
+    "title": "Payroll ausgezahlt",
+    "source": "internal",
+    "severity": "critical"
+  },
+  {
+    "id": "N7-2",
+    "day": 7,
+    "title": "Kundenvertragsgespräche",
+    "source": "customer",
+    "severity": "high"
+  },
+  {
+    "id": "N7-3",
+    "day": 7,
+    "title": "Bank erfragt Update",
+    "source": "bank",
+    "severity": "medium"
+  },
+  {
+    "id": "N7-4",
+    "day": 7,
+    "title": "QS im Fokus",
+    "source": "press",
+    "severity": "low"
+  },
+  {
+    "id": "N7-5",
+    "day": 7,
+    "title": "TV-Beitrag: O-Ton heute angefragt",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N7-6",
+    "day": 7,
+    "title": "Fördermittel: Unterlagenfrist gesetzt",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N7-7",
+    "day": 7,
+    "title": "Zweitlieferant: PPAP-Slot bestätigt",
+    "source": "supplier",
+    "severity": "medium"
+  },
+  {
+    "id": "N7-8",
+    "day": 7,
+    "title": "Compliance: Vorprüfung – Erstbefund",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N7-9",
+    "day": 7,
+    "title": "E-Ladesäulen außer Betrieb",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N7-10",
+    "day": 7,
+    "title": "Kurzzeitige Lichtflackerer gemeldet",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N7-11",
+    "day": 7,
+    "title": "VPN-Neuanmeldung erforderlich",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N7-12",
+    "day": 7,
+    "title": "Markierungen in Halle 2 erneuert",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N08-F1",
+    "day": 8,
+    "title": "Lokale Kurznotiz",
+    "source": "press",
+    "severity": "low"
+  },
+  {
+    "id": "N08-F2",
+    "day": 8,
+    "title": "Facility: Routine",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N08-F3",
+    "day": 8,
+    "title": "IT: Backup",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N08-F4",
+    "day": 8,
+    "title": "KVP‑Notiz",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N8-1",
+    "day": 8,
+    "title": "Waiver-Termin bestätigt",
+    "source": "bank",
+    "severity": "high"
+  },
+  {
+    "id": "N8-2",
+    "day": 8,
+    "title": "TV-Beitrag: Reaktionen",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N8-3",
+    "day": 8,
+    "title": "PPAP-Vorbereitung läuft",
+    "source": "supplier",
+    "severity": "high"
+  },
+  {
+    "id": "N8-4",
+    "day": 8,
+    "title": "Compliance: Maßnahmen nötig",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N8-5",
+    "day": 8,
+    "title": "Stakeholder-Newsletter: Entwurf liegt vor",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N8-6",
+    "day": 8,
+    "title": "Fördermittel: Kofinanzierungsnachweis gefordert",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N8-7",
+    "day": 8,
+    "title": "Pilotcharge: Dispositionsvorschlag",
+    "source": "supplier",
+    "severity": "medium"
+  },
+  {
+    "id": "N8-8",
+    "day": 8,
+    "title": "BR-Termin zur Compliance-Kommunikation",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N8-9",
+    "day": 8,
+    "title": "Stipendium abgesagt",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N8-10",
+    "day": 8,
+    "title": "Wassersprudler defekt",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N8-11",
+    "day": 8,
+    "title": "Praktikantenplätze",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N9-1",
+    "day": 9,
+    "title": "Waiver-Meeting durchgeführt",
+    "source": "bank",
+    "severity": "critical"
+  },
+  {
+    "id": "N9-2",
+    "day": 9,
+    "title": "Kunden verlängern selektiv",
+    "source": "customer",
+    "severity": "high"
+  },
+  {
+    "id": "N9-3",
+    "day": 9,
+    "title": "Lieferanten fordern Plan",
+    "source": "supplier",
+    "severity": "medium"
+  },
+  {
+    "id": "N9-4",
+    "day": 9,
+    "title": "Compliance im Fokus",
+    "source": "press",
+    "severity": "low"
+  },
+  {
+    "id": "N9-5",
+    "day": 9,
+    "title": "Presse greift Klarstellung auf",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N9-6",
+    "day": 9,
+    "title": "Zwischenlinie/Top-up in Aussicht",
+    "source": "bank",
+    "severity": "medium"
+  },
+  {
+    "id": "N9-7",
+    "day": 9,
+    "title": "Pilotcharge: Erste Befunde aus QS",
+    "source": "supplier",
+    "severity": "medium"
+  },
+  {
+    "id": "N9-8",
+    "day": 9,
+    "title": "BR-Vereinbarung zu Compliance in Arbeit",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N9-9",
+    "day": 9,
+    "title": "Zutrittsleser reagieren verzögert",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N9-10",
+    "day": 9,
+    "title": "Parkhaus Ost kurzzeitig gesperrt",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N9-11",
+    "day": 9,
+    "title": "Telefonanlage erhält Update",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N9-12",
+    "day": 9,
+    "title": "Zustelldienst meldet Verzögerungen",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N10-1",
+    "day": 10,
+    "title": "Bank-Zwischenprüfung angekündigt",
+    "source": "bank",
+    "severity": "critical"
+  },
+  {
+    "id": "N10-2",
+    "day": 10,
+    "title": "Industriepartner drängt auf LOI",
+    "source": "customer",
+    "severity": "high"
+  },
+  {
+    "id": "N10-3",
+    "day": 10,
+    "title": "Qualitätslücken öffentlich diskutiert",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N10-4",
+    "day": 10,
+    "title": "Team wartet auf OKR-Review",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N10-5",
+    "day": 10,
+    "title": "Presse fragt nach Zwischenbilanz-Interview",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N10-6",
+    "day": 10,
+    "title": "Zwischenlinie/Top-up: Term Sheet übermittelt",
+    "source": "bank",
+    "severity": "medium"
+  },
+  {
+    "id": "N10-7",
+    "day": 10,
+    "title": "Serienstart-Check: Ressourcenplanung",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N10-8",
+    "day": 10,
+    "title": "LOI/NDA: Rückfragen des Partners",
+    "source": "customer",
+    "severity": "medium"
+  },
+  {
+    "id": "N10-F1",
+    "day": 10,
+    "title": "Zufahrt Nord halbseitig gesperrt",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N10-F2",
+    "day": 10,
+    "title": "Spamfilter schärfer eingestellt",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N10-F3",
+    "day": 10,
+    "title": "Umschaltung Mittelspannung 22:00",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N10-F4",
+    "day": 10,
+    "title": "Lokalbahn meldet Verspätungen",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N11-1",
+    "day": 11,
+    "title": "Zwischenprüfung morgen bestätigt",
+    "source": "bank",
+    "severity": "critical"
+  },
+  {
+    "id": "N11-2",
+    "day": 11,
+    "title": "Standstill einzelner Lieferanten endet",
+    "source": "supplier",
+    "severity": "high"
+  },
+  {
+    "id": "N11-3",
+    "day": 11,
+    "title": "Kunden möchten „Fortschrittsindikatoren\"",
+    "source": "customer",
+    "severity": "medium"
+  },
+  {
+    "id": "N11-4",
+    "day": 11,
+    "title": "Gerüchte über LOI",
+    "source": "press",
+    "severity": "low"
+  },
+  {
+    "id": "N11-5",
+    "day": 11,
+    "title": "Key Accounts reagieren positiv auf Fact‑Sheet",
+    "source": "customer",
+    "severity": "medium"
+  },
+  {
+    "id": "N11-6",
+    "day": 11,
+    "title": "Term Sheet: Bank erbittet Sensitivitäten",
+    "source": "bank",
+    "severity": "medium"
+  },
+  {
+    "id": "N11-7",
+    "day": 11,
+    "title": "Serienstart: QS‑Kapazitäten knapp",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N11-8",
+    "day": 11,
+    "title": "Ethik‑Hotline: neuer Hinweis eingegangen",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N11-F1",
+    "day": 11,
+    "title": "WLAN‑Controller Neustart um 12:30 Uhr",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N11-F2",
+    "day": 11,
+    "title": "Leichte Wasserspur im Flur West",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N11-F3",
+    "day": 11,
+    "title": "Zählerablesung Strom am Nachmittag",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N11-F4",
+    "day": 11,
+    "title": "Externe Besuchergruppen gemeldet",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N12-1",
+    "day": 12,
+    "title": "Bank-Zwischenprüfung startet",
+    "source": "bank",
+    "severity": "critical"
+  },
+  {
+    "id": "N12-2",
+    "day": 12,
+    "title": "Kunden beobachten aufmerksam",
+    "source": "customer",
+    "severity": "high"
+  },
+  {
+    "id": "N12-3",
+    "day": 12,
+    "title": "Branchenblog spekuliert über Carve-out",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N12-4",
+    "day": 12,
+    "title": "Team fragt nach Ziele-Korridoren",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N12-5",
+    "day": 12,
+    "title": "Review-Feedback: Auftritt des CEO überzeugt – Nachweise nachreichen",
+    "source": "bank",
+    "severity": "medium"
+  },
+  {
+    "id": "N12-6",
+    "day": 12,
+    "title": "CFO: Zielkorridore vorläufig abgestimmt",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N12-7",
+    "day": 12,
+    "title": "OPS: Ramp-up nur mit zusätzlicher Prüftiefe realisierbar",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N12-8",
+    "day": 12,
+    "title": "HR/Legal: Hotline-Fall kann vorläufig geschlossen werden",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N12-F1",
+    "day": 12,
+    "title": "E-Mail-Gateway: kurzes Greylisting aktiv",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N12-F2",
+    "day": 12,
+    "title": "Parkdeck B teilweise gesperrt",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N12-F3",
+    "day": 12,
+    "title": "Smartcards: Re-Initialisierung",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N12-F4",
+    "day": 12,
+    "title": "Heizkreis-Kalibrierung Gebäude A",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N13-1",
+    "day": 13,
+    "title": "Payroll morgen fällig",
+    "source": "internal",
+    "severity": "critical"
+  },
+  {
+    "id": "N13-2",
+    "day": 13,
+    "title": "Kunden fordern finale Zusicherung",
+    "source": "customer",
+    "severity": "high"
+  },
+  {
+    "id": "N13-3",
+    "day": 13,
+    "title": "Lieferkettenlage stabilisiert sich",
+    "source": "supplier",
+    "severity": "medium"
+  },
+  {
+    "id": "N13-4",
+    "day": 13,
+    "title": "Blog spekuliert über LOI-Timing",
+    "source": "press",
+    "severity": "low"
+  },
+  {
+    "id": "N13-5",
+    "day": 13,
+    "title": "CEO: Message House final abgestimmt",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N13-6",
+    "day": 13,
+    "title": "CFO: Fee Letter liegt im Entwurf vor",
+    "source": "bank",
+    "severity": "medium"
+  },
+  {
+    "id": "N13-7",
+    "day": 13,
+    "title": "OPS: A-Linien mit temporärem Containment",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N13-8",
+    "day": 13,
+    "title": "HR/Legal: Finale Q&A zu LOI/Carve-out intern geteilt",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N13-F1",
+    "day": 13,
+    "title": "Lastenaufzug Halle 2 wird gewartet",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N13-F2",
+    "day": 13,
+    "title": "Telefonanlage: neue Bandansage",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N13-F3",
+    "day": 13,
+    "title": "Besucherparkplätze knapp",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N13-F4",
+    "day": 13,
+    "title": "VPN-Client Update verteilt",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N14-1",
+    "day": 14,
+    "title": "Payroll heute fällig",
+    "source": "internal",
+    "severity": "critical"
+  },
+  {
+    "id": "N14-2",
+    "day": 14,
+    "title": "Bank wartet auf Final View",
+    "source": "bank",
+    "severity": "high"
+  },
+  {
+    "id": "N14-3",
+    "day": 14,
+    "title": "A-Kunden fordern Zusicherung",
+    "source": "customer",
+    "severity": "high"
+  },
+  {
+    "id": "N14-4",
+    "day": 14,
+    "title": "Blog: „Turnaround bei APS?\"",
+    "source": "press",
+    "severity": "medium"
+  },
+  {
+    "id": "N14-5",
+    "day": 14,
+    "title": "CEO: T+1/T+7-Kaskade angefragt",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N14-6",
+    "day": 14,
+    "title": "CFO: Zahlungsnachweise angefragt",
+    "source": "bank",
+    "severity": "medium"
+  },
+  {
+    "id": "N14-7",
+    "day": 14,
+    "title": "OPS: Hypercare-Fenster vorgeschlagen",
+    "source": "customer",
+    "severity": "medium"
+  },
+  {
+    "id": "N14-8",
+    "day": 14,
+    "title": "HR/Legal: Abschluss‑Disclosure abstimmen",
+    "source": "internal",
+    "severity": "medium"
+  },
+  {
+    "id": "N14-F1",
+    "day": 14,
+    "title": "PV‑Anlage: Sichtprüfung bestanden",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N14-F2",
+    "day": 14,
+    "title": "E‑Ladesäulen Nord kurzzeitig belegt",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N14-F3",
+    "day": 14,
+    "title": "Drucker-Tinte wird getauscht",
+    "source": "internal",
+    "severity": "low"
+  },
+  {
+    "id": "N14-F4",
+    "day": 14,
+    "title": "Pflasterarbeiten Zufahrt West",
+    "source": "internal",
+    "severity": "low"
+  }
+]
