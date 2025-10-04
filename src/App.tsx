@@ -11,7 +11,7 @@ import ExportButtons from '@/components/exports/ExportButtons';
 import DebriefButton from '@/components/exports/DebriefButton';
 import IntranetButton from '@/components/intranet/IntranetButton';
 import InsolvencyModal from '@/components/dialogs/InsolvencyModal';
-import InfoButtons from '@/components/info/InfoButtos'; 
+import InfoButtons from '@/components/info/InfoButtons'; 
 import EndingView from '@/ui/EndingView';
 import KpiHistoryModal from '@/components/hud/KpiHistoryModal';
 import UserNotesField from '@/components/notes/UserNotesField';
