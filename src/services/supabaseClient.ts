@@ -36,12 +36,15 @@ export interface Player {
   game_id: string;
   user_id: string;
   is_gm: boolean;
-  name?: string;
+  name: string;
   display_name: string;
-  role: 'ceo' | 'cfo' | 'ops' | 'hrlegal' | 'trainer' | null;
+  role: 'CEO' | 'CFO' | 'OPS' | 'HRLEGAL' | 'TRAINER' | null;
   joined_at: string;
+  last_seen_at?: string;
   last_seen?: string;
-  is_ready: boolean;
+  is_active?: boolean;
+  ready?: boolean;
+  is_ready?: boolean;
   game_state?: Record<string, any>;
 }
 
