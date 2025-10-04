@@ -27,7 +27,7 @@ function evalKpiRule(current: number, op: KpiRuleOpLocal, value: number): boolea
     default:   return false;
   }
 }
-function evalConditions(conds: any, state: GameState): boolean {
+function evalConditions(conds: unknown, state: GameState): boolean {
   if (!conds || typeof conds !== 'object') return true;
   const c = conds as ConditionSetLocal;
   const day = state.day;
@@ -37,7 +37,7 @@ function evalConditions(conds: any, state: GameState): boolean {
   if (Array.isArray(c.kpi)) {
     for (const r of c.kpi) {
       const key = r?.key as KpiKeyLocal;
-      const v = (state.kpi as any)[key];
+      const v = state.kpi[key];
       if (!evalKpiRule(Number(v) || 0, r?.op as KpiRuleOpLocal, Number(r?.value) || 0)) return false;
     }
   }
@@ -47,7 +47,7 @@ function evalConditions(conds: any, state: GameState): boolean {
 // Action-Typen (Top-Level, nicht in Blöcken definieren!)
 export type Action =
   | { type: 'INIT'; payload: Partial<GameState> }
-  | { type: 'SCENARIO_IMPORT'; mode?: 'merge'|'replace'; compiled: { scheduledDeltas?: Record<number, any[]>; randomNews?: Record<number, any[]>; meta?: any } }
+  | { type: 'SCENARIO_IMPORT'; mode?: 'merge'|'replace'; compiled: { scheduledDeltas?: Record<number, Array<Partial<KPI>>>; randomNews?: Record<number, unknown[]>; meta?: Record<string, unknown> } }
   | { type: 'CHOOSE_OPTION';
       blockId: string; day: number; role: RoleId;
       optId: 'a'|'b'|'c'|'d'; optLabel: string;
@@ -84,15 +84,14 @@ function mergeDelta(base: KPI, delta?: Partial<KPI>): KPI {
   (Object.keys(delta) as (keyof KPI)[]).forEach(k => {
     const v = delta[k];
     if (typeof v === 'number' && Number.isFinite(v)) {
-      // Geldwerte runden wir auf ganze EUR, Punkte auf ganze Punkte
-      (next as any)[k] = Math.round(((base as any)[k] ?? 0) + v);
+      next[k] = Math.round((base[k] ?? 0) + v);
     }
   });
   return next;
 }
 
 function sumDeltas(deltas: Array<Partial<KPI>>): Partial<KPI> {
-  const acc: any = {};
+  const acc: Partial<Record<keyof KPI, number>> = {};
   for (const d of deltas) {
     for (const k of Object.keys(d) as (keyof KPI)[]) {
       const v = d[k];
@@ -109,22 +108,22 @@ function clamp01to100(v: number): number {
 }
 
 // === Ereignis-Intensität (Admin-gesteuert) ===
-function __readEventIntensityByDay(meta?: any): number[] {
+function __readEventIntensityByDay(meta?: { intensityByDay?: number[] }): number[] {
   try {
     // 1) aus Global (AdminPanel)
-    const arrG = (globalThis as any).__eventIntensityByDay;
-    if (Array.isArray(arrG) && arrG.length >= 14) return arrG.map((x: any)=>Number(x)||0).slice(0,14);
+    const arrG = globalThis.__eventIntensityByDay;
+    if (Array.isArray(arrG) && arrG.length >= 14) return arrG.map((x: number)=>Number(x)||0).slice(0,14);
   } catch {}
   try {
     // 2) aus EngineMeta (falls Szenario/Init gesetzt)
     const arrM = Array.isArray(meta?.intensityByDay) ? meta.intensityByDay : null;
-    if (arrM && arrM.length >= 14) return arrM.map((x: any)=>Number(x)||0).slice(0,14);
+    if (arrM && arrM.length >= 14) return arrM.map((x: number)=>Number(x)||0).slice(0,14);
   } catch {}
   // 3) Fallback: neutral
   return Array.from({length:14}, ()=>1);
 }
-function __intensityMultiplierForDay(day: number, meta?: any): number {
-  const enabled = !!((globalThis as any).__featureEventIntensity);
+function __intensityMultiplierForDay(day: number, meta?: { intensityByDay?: number[] }): number {
+  const enabled = !!globalThis.__featureEventIntensity;
   if (!enabled) return 1;
   const arr = __readEventIntensityByDay(meta);
   const idx = Math.max(0, Math.min(13, (Math.floor(day)-1)));
@@ -139,9 +138,9 @@ function __mapMultiplierToNewsIntensity(m: number): NewsIntensity {
   return 'normal';
 }
 function __scaleDelta(d: Partial<KPI>, m: number): Partial<KPI> {
-  const out: any = {};
+  const out: Partial<Record<keyof KPI, number>> = {};
   (Object.keys(d || {}) as (keyof KPI)[]).forEach(k => {
-    const v = (d as any)[k];
+    const v = d[k];
     if (typeof v === 'number' && Number.isFinite(v)) out[k] = Math.round(v * m);
   });
   return out;
@@ -150,7 +149,7 @@ function __scaleDelta(d: Partial<KPI>, m: number): Partial<KPI> {
 
 // Invariante: Bankvertrauen fällt bei negativer Liquidität sofort auf 0
 function enforceBankTrustInvariant(kpi: KPI): KPI {
-  if (!kpi) return kpi as any;
+  if (!kpi) return kpi;
   const clampedPoints = {
     ...kpi,
     customerLoyalty: clamp01to100(kpi.customerLoyalty),
@@ -165,7 +164,7 @@ function enforceBankTrustInvariant(kpi: KPI): KPI {
 
 // Insolvenzeinschätzung
 function shouldBeInsolvent(kpi: KPI): boolean {
-  const mode = (globalThis as any).__insolvencyMode as ('hard'|'soft'|'off') | undefined;
+  const mode = globalThis.__insolvencyMode;
   if (mode === 'off') return false;
   if (mode === 'hard') return kpi.cashEUR < 0;
   if (mode === 'soft') return kpi.cashEUR < -10000;
@@ -176,8 +175,15 @@ type InsolvencyMode = 'hard'|'soft'|'off';
 type InsolvencyCause = 'NEGATIVE_CASH'|'PAYROLL_UNPAID'|'EXTERNAL'|'OTHER';
 
 function getInsolvencyMode(): InsolvencyMode {
-  const m = (globalThis as any).__insolvencyMode as InsolvencyMode | undefined;
+  const m = globalThis.__insolvencyMode;
   return (m === 'hard' || m === 'soft' || m === 'off') ? m : 'hard';
+}
+
+interface InsolvencyMeta {
+  insoWarnings?: Array<{ day: number; cause: string; cashEUR: number; ts: number }>;
+  suppressedInsolvencyReasons?: Array<{ day: number; cause: string; cashEUR: number; ts: number }>;
+  suppressedInsolvencyCount?: number;
+  [key: string]: unknown;
 }
 
 function applyInsolvencyPolicy(
@@ -185,9 +191,9 @@ function applyInsolvencyPolicy(
   cause: InsolvencyCause,
   day: number,
   cashEUR: number,
-  metaIn: any
-): { isOver: boolean; insolvency: boolean; meta: any } {
-  const meta = { ...(metaIn ?? {}) };
+  metaIn: InsolvencyMeta
+): { isOver: boolean; insolvency: boolean; meta: InsolvencyMeta } {
+  const meta: InsolvencyMeta = { ...(metaIn ?? {}) };
 
   if (mode === 'hard') {
     return { isOver: true, insolvency: true, meta };

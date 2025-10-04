@@ -14,15 +14,42 @@ export interface EngineMeta {
   scheduledDeltas?: Record<number, Array<Partial<KPI>>>;
   randomNews?: Record<number, DayNewsItem[]>;
   suppressedInsolvencyCount?: number;
-  
-// NEU: Tägliche Zufallswerte
-    /** Ereignis-Intensität je Tag (1..14), Multiplikator; 1 = normal */
+
+  /** Ereignis-Intensität je Tag (1..14), Multiplikator; 1 = normal */
   intensityByDay?: number[];
-dailyRandomValues?: Record<number, DailyRandomValues>;
+  dailyRandomValues?: Record<number, DailyRandomValues>;
   currentDayRandoms?: DailyRandomValues;
-  
-  // Erweiterungs-Haken für Admin/Runtime-Flags
-  [key: string]: any;
+
+  /** Scoring-Gewichte für Endpunkte */
+  scoringWeights?: Record<string, number>;
+
+  /** Start-Zeitstempel */
+  startedAt?: string;
+
+  /** Aktive Rollen im Spiel */
+  roles?: RoleId[];
+
+  /** Diskontsatz für NPV-Berechnung */
+  discountRatePA?: number;
+
+  /** Länge eines Spieltags in realen Tagen */
+  dayLengthInDays?: number;
+
+  /** Szenario-Metadaten (aus importierten Szenarios) */
+  scenarioMeta?: Record<string, unknown>;
+
+  /** Multiplayer-Kommunikation */
+  commsAll?: Array<{ role: RoleId; day: number; text: string }>;
+  commsSelf?: { role: RoleId; day: number; text: string };
+
+  /** Multiplayer-Rolle */
+  multiplayerRole?: RoleId;
+
+  /** Export-Notiz */
+  exportNote?: string;
+
+  /** Timestamp für Zustandsspeicherung */
+  ts?: number;
 }
 export interface DailyRandomValues {
   cashInflow: number;

@@ -90,7 +90,7 @@ function fmtEUR(n: number) {
 // Admin-Feature-Flag sicher lesen (Global → LocalStorage-Fallback)
 function __readWhatIfFlag(): boolean {
   try {
-    const g: any = (globalThis as any);
+    const g = globalThis;
     if (typeof g.__featureWhatIfPreview === 'boolean') return !!g.__featureWhatIfPreview;
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem('adminSettings');
@@ -113,21 +113,21 @@ const computeDaySeconds = (nRoles: number) => 8 * 60 * Math.max(1, nRoles);
 
 // ---- Rundenzeit-Override lesen (Admin) ----
 function __getRoundTimeMode(): 'off'|'global'|'matrix' {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const m = g.__roundTimeMode;
   return (m === 'global' || m === 'matrix') ? m : 'off';
 }
 function __getRoundTimeGrace(): number | undefined {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const n = Number(g.__roundTimeGraceSec);
   return Number.isFinite(n) ? n : undefined;
 }
 function __getRoundTimeMatrix(): Record<number, Partial<Record<RoleId, number>>> | undefined {
-  const g: any = globalThis as any;
-  return g.__roundTimeMatrix as any;
+  const g = globalThis;
+  return g.__roundTimeMatrix;
 }
 function __getRoundTimeGlobalSec(): number | undefined {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const n = Number(g.__roundTimeGlobalSec);
   return (Number.isFinite(n) && n > 0) ? n : undefined;
 }
@@ -143,14 +143,14 @@ function getConfiguredDaySecondsFor(day: number, roles: RoleId[]): number | unde
   if (mode === 'matrix') {
     const M = __getRoundTimeMatrix();
     if (M) {
-      const row = (M as any)[day] || (M as any)[String(day)];
+      const row = M[day] || M[String(day) as unknown as number];
       if (row && typeof row === 'object') {
-        let sum = 0, any = false;
+        let sum = 0, found = false;
         for (const r of roles) {
-          const v = Number((row as any)[r]);
-          if (Number.isFinite(v) && v > 0) { sum += v; any = true; }
+          const v = Number(row[r]);
+          if (Number.isFinite(v) && v > 0) { sum += v; found = true; }
         }
-        if (any) return sum;
+        if (found) return sum;
       }
     }
   }
@@ -274,9 +274,10 @@ export default function App({ onBackToHome }: AppProps) {
   React.useEffect(() => {
     const handler = (e: Event) => {
       try {
-        const amtReq = Math.round(Number((e as CustomEvent).detail?.amount) || 0);
+        const customEvt = e as CustomEvent<{ amount: number }>;
+        const amtReq = Math.round(Number(customEvt.detail?.amount) || 0);
         if (!Number.isFinite(amtReq) || amtReq <= 0) return;
-        const g: any = globalThis as any;
+        const g = globalThis;
         const bankOn = !!g.__featureBankMechanics;
         if (!bankOn) return;
         const creditLine = Number((g.__bankSettings?.creditLineEUR ?? g.__bankCreditLineEUR) || 0);
@@ -291,16 +292,16 @@ export default function App({ onBackToHome }: AppProps) {
         try { if (typeof localStorage !== 'undefined') localStorage.setItem('bank:lastDraw', String(amt)); } catch {}
 
         // 2) KPI-Liquidität erhöhen (Reducer-seitig robust, kein 'debt' im Projekt)
-        dispatch({ type: 'ADMIN_ADD_KPI', delta: { cashEUR: amt } } as any);
+        dispatch({ type: 'ADMIN_ADD_KPI', delta: { cashEUR: amt } });
 
         // 3) Optional: Store-Shadow der Bankdaten sanft mergen (falls vorhanden)
-        dispatch({ type: 'INIT', payload: { usedCreditEUR: used } } as any);
+        dispatch({ type: 'INIT', payload: { usedCreditEUR: used } });
       } catch {
         // ignore
       }
     };
-    window.addEventListener('bank:draw-now', handler as any);
-    return () => window.removeEventListener('bank:draw-now', handler as any);
+    window.addEventListener('bank:draw-now', handler);
+    return () => window.removeEventListener('bank:draw-now', handler);
   }, []);
 
   // ✅ ReportStore-Start (Dein Snippet), jetzt korrekt nach der state-Deklaration
@@ -362,31 +363,34 @@ export default function App({ onBackToHome }: AppProps) {
   // Szenario-Import (Editor)
   React.useEffect(() => {
     const onImport = (e: Event) => {
-      const detail = (e as CustomEvent).detail || {};
-      dispatch({ type: 'SCENARIO_IMPORT', mode: detail.mode, compiled: { scheduledDeltas: detail.scheduledDeltas, randomNews: detail.randomNews, meta: detail.meta } } as any);
+      const customEvt = e as CustomEvent<{ mode?: 'merge'|'replace'; scheduledDeltas?: Record<number, Array<Partial<KPI>>>; randomNews?: Record<number, unknown[]>; meta?: Record<string, unknown> }>;
+      const detail = customEvt.detail || {};
+      dispatch({ type: 'SCENARIO_IMPORT', mode: detail.mode, compiled: { scheduledDeltas: detail.scheduledDeltas, randomNews: detail.randomNews, meta: detail.meta } });
     };
     window.addEventListener('admin:scenario:import', onImport as EventListener);
-    return () => { window.removeEventListener('admin:scenario:import', onImport as any); };
+    return () => { window.removeEventListener('admin:scenario:import', onImport as EventListener); };
   }, []);
 
   // Admin-Bridge (Settings + KPI + Reset)
   React.useEffect(() => {
     const onSettings = (e: Event) => {
-      const d = (e as CustomEvent<AdminSettings>).detail;
+      const customEvt = e as CustomEvent<AdminSettings>;
+      const d = customEvt.detail;
+      const dExt = d as AdminSettings & { dayDurationSec?: number; gracePeriodSec?: number; difficultyAffectsRandoms?: boolean; difficultyAffectsScoring?: boolean };
       const rolesNow = (state.playerRoles && state.playerRoles.length) ? state.playerRoles : [state.playerRole];
       const autoSecNow = computeDaySeconds(rolesNow.length || 1);
       const confSecNow = getConfiguredDaySecondsFor(state.day || 1, rolesNow);
-      setDaySeconds(typeof confSecNow === 'number' ? confSecNow : (typeof (d as any).dayDurationSec === 'number' ? (d as any).dayDurationSec : autoSecNow));
-      if (typeof (d as any).gracePeriodSec === 'number') setGraceSeconds((d as any).gracePeriodSec);
+      setDaySeconds(typeof confSecNow === 'number' ? confSecNow : (typeof dExt.dayDurationSec === 'number' ? dExt.dayDurationSec : autoSecNow));
+      if (typeof dExt.gracePeriodSec === 'number') setGraceSeconds(dExt.gracePeriodSec);
       else { const gg = __getRoundTimeGrace(); if (typeof gg === 'number') setGraceSeconds(gg); }
-      if (d.difficulty) { (globalThis as any).__npcDifficulty = d.difficulty; }
-      if (typeof d.randomNews === 'boolean') { (globalThis as any).__randomNews = d.randomNews; }
-      if (typeof d.seed === 'number' && d.seed) { (globalThis as any).__rng = makeRng(d.seed); }
-      if (d.npcProfile) { (globalThis as any).__npcProfile = d.npcProfile; }
-      if (d.leakage) { (globalThis as any).__leakageRole = { ...((globalThis as any).__leakageRole||{}), ...d.leakage }; }
-      if (d.insolvencyMode) { (globalThis as any).__insolvencyMode = d.insolvencyMode; } // ← NEU
-      if (typeof (d as any).difficultyAffectsRandoms === 'boolean') { (globalThis as any).__difficultyAffectsRandoms = !!(d as any).difficultyAffectsRandoms; }
-      if (typeof (d as any).difficultyAffectsScoring === 'boolean') { (globalThis as any).__difficultyAffectsScoring = !!(d as any).difficultyAffectsScoring; }
+      if (d.difficulty) { globalThis.__npcDifficulty = d.difficulty; }
+      if (typeof d.randomNews === 'boolean') { globalThis.__randomNews = d.randomNews; }
+      if (typeof d.seed === 'number' && d.seed) { globalThis.__rng = makeRng(d.seed); }
+      if (d.npcProfile) { globalThis.__npcProfile = d.npcProfile; }
+      if (d.leakage) { globalThis.__leakageRole = { ...(globalThis.__leakageRole||{}), ...d.leakage }; }
+      if (d.insolvencyMode) { globalThis.__insolvencyMode = d.insolvencyMode; }
+      if (typeof dExt.difficultyAffectsRandoms === 'boolean') { globalThis.__difficultyAffectsRandoms = !!dExt.difficultyAffectsRandoms; }
+      if (typeof dExt.difficultyAffectsScoring === 'boolean') { globalThis.__difficultyAffectsScoring = !!dExt.difficultyAffectsScoring; }
     };
     const onKpiSet = (e: Event) => {
       const kpi = (e as CustomEvent<Partial<KPI>>).detail;
@@ -405,9 +409,9 @@ export default function App({ onBackToHome }: AppProps) {
 
     return () => {
       window.removeEventListener('admin:settings', onSettings);
-      window.removeEventListener('admin:kpi:set', onKpiSet as any);
-      window.removeEventListener('admin:kpi:add', onKpiAdd as any);
-      window.removeEventListener('admin:reset', onReset as any);
+      window.removeEventListener('admin:kpi:set', onKpiSet);
+      window.removeEventListener('admin:kpi:add', onKpiAdd);
+      window.removeEventListener('admin:reset', onReset as EventListener);
     };
   }, []);
 
@@ -519,7 +523,7 @@ export default function App({ onBackToHome }: AppProps) {
   // advanceDay: Schalter setzen -> NPC-Entscheidungen -> Tag weiter
   const advanceDay = React.useCallback(() => {
     // Flag direkt setzen (ohne Hilfsvariable)
-    (globalThis as any).__playerIdleToday = !state.log.some(e =>
+    globalThis.__playerIdleToday = !state.log.some(e =>
       e.day === state.day &&
       ((e.blockId && e.chosenOptionId) || (typeof e.customText === 'string' && e.customText.trim()))
     );
