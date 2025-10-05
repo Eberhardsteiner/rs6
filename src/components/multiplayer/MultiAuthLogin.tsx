@@ -78,7 +78,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             is_active: true,
             last_seen: new Date().toISOString()
           }, { onConflict: 'game_id,user_id' })
-          .select()
+          .select('id, game_id, user_id, is_gm, name, display_name, role, joined_at, last_seen_at, last_seen, is_active, ready, is_ready, game_state')
           .single();
 
         // Optional: Mitgliedschaft für RLS ergänzen (nicht kritisch, Fehler werden geloggt)
@@ -1660,7 +1660,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
                 difficulty: 'medium',
                 game_mode: 'standard'
               })
-              .select()
+              .select('id, name, created_by, created_at, state, status, current_day, kpi_values, session_code, join_code, host_id, difficulty, game_mode, scenario_data, theme, max_players, settings, start_at, updated_at')
               .single();
             if (createErr) throw createErr;
             finalGameId = newGame.id;
@@ -1687,7 +1687,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
               is_active: true,
               last_seen: new Date().toISOString()
             }, { onConflict: 'game_id,user_id' })
-            .select()
+            .select('id, game_id, user_id, is_gm, name, display_name, role, joined_at, last_seen_at, last_seen, is_active, ready, is_ready, game_state')
             .single();
 
           if (upErr) {
@@ -1779,7 +1779,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
                 publicPerception: 50
               }
             })
-            .select()
+            .select('id, name, created_by, created_at, state, status, current_day, kpi_values, session_code, join_code, host_id, difficulty, game_mode, scenario_data, theme, max_players, settings, start_at, updated_at')
             .single();
           if (createErr) throw createErr;
           finalGameId = newGame.id;
@@ -1806,7 +1806,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             is_active: true,
             last_seen: new Date().toISOString()
           }, { onConflict: 'game_id,user_id' })
-          .select()
+          .select('id, game_id, user_id, is_gm, name, display_name, role, joined_at, last_seen_at, last_seen, is_active, ready, is_ready, game_state')
           .single();
 
         if (upErr) {

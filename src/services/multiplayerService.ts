@@ -396,7 +396,7 @@ export class MultiplayerService {
       // Game Info
       const { data: game, error: gameError } = await supabase
         .from('games')
-        .select()
+        .select('id, game_id, user_id, is_gm, name, display_name, role, joined_at, last_seen_at, last_seen, is_active, ready, is_ready, game_state')
         .eq('id', this.gameId)
         .single();
 
@@ -405,7 +405,7 @@ export class MultiplayerService {
       // Players Info - sortiere nach joined_at statt created_at
       const { data: players, error: playersError } = await supabase
         .from('players')
-        .select()
+        .select('id, name, created_by, created_at, state, status, current_day, kpi_values, session_code, join_code, host_id, difficulty, game_mode, scenario_data, theme, max_players, settings, start_at, updated_at')
         .eq('game_id', this.gameId)
         .order('joined_at', { ascending: true });
 
