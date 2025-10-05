@@ -80,7 +80,7 @@ import { errorHandler } from '@/utils/errorHandler';
 import { resolveGameTheme } from './helpers/themeHelpers';
 import { computeRoundSecondsForDay, readGraceSeconds } from './helpers/roundTimeHelpers';
 import { getBlocksForDay, getNewsForDay } from './helpers/scenarioDataLoader';
-import { getScoringWeightsSafe } from './helpers/scoringHelpers';
+import { readScenarioOverride, getScoringWeightsSafe, scoreOptionByKpiDelta, readBaseErrorByDifficulty, computeAdaptiveFactorFromSnapshots, getRng, chooseNpcOptionWithDifficulty, inferRelatedDecisionIds } from './helpers/scoringHelpers';
 import { setupPdfMake } from './helpers/pdfSetup';
 
 
@@ -168,6 +168,46 @@ function TrainerPresenceLamp({ gameId }: { gameId: string }) {
  * (×0.9–1.2) basierend auf den letzten zwei Tagen (weiche KPIs).
  * Wirkt ausschließlich auf die What‑If‑Vorschau im MP (NPC‑Autopilot).
  */
+  const soft =
+    (Number(d.bankTrust || 0) * w.bankTrust) +
+    (Number(d.publicPerception || 0) * w.publicPerception) +
+    (Number(d.customerLoyalty || 0) * w.customerLoyalty) +
+    (Number(d.workforceEngagement || 0) * w.workforceEngagement);
+  // Cash/P&L skalieren, damit Größenordnung vergleichbar bleibt
+  const hard = (Number(d.cashEUR || 0) / 1000) + (Number(d.profitLossEUR || 0) / 1000);
+  return soft + hard;
+}
+
+function readBaseErrorByDifficulty(): number {
+  const g = globalThis;
+  const diff = (g.__npcDifficulty || g.__mode || 'normal') as ('easy'|'normal'|'hard');
+  switch (diff) {
+    case 'easy': return 0.08;
+    case 'hard': return 0.25;
+    default: return 0.15;
+  }
+}
+
+/** Ermittelt adaptiven Skalierungsfaktor (0.9..1.2) aus den letzten zwei Tagen (weiche KPIs). */
+function computeAdaptiveFactorFromSnapshots(snapshots: unknown[]): number {
+  const g = globalThis;
+  if (!g.__adaptiveDifficultyLightEnabled) return 1.0;
+
+  try {
+    if (!Array.isArray(snapshots) || snapshots.length < 2) return 1.0;
+    const k0 = snapshots[0]?.state?.kpi || {};
+    const k1 = snapshots[1]?.state?.kpi || {};
+    const s0 = Number(k0.customerLoyalty || 50) + Number(k0.bankTrust || 50) +
+               Number(k0.workforceEngagement || 50) + Number(k0.publicPerception || 50);
+    const s1 = Number(k1.customerLoyalty || 50) + Number(k1.bankTrust || 50) +
+               Number(k1.workforceEngagement || 50) + Number(k1.publicPerception || 50);
+    const diffAvg = ((s0 - s1) / 4); // [-100..100]
+    const scale = Math.max(-0.1, Math.min(0.2, diffAvg / 250)); // -0.1..0.2
+    return 1.0 + scale;
+  } catch {
+    return 1.0;
+  }
+}
 
 async function computeAdaptiveFactor(gameId: string): Promise<number> {
   const g = globalThis;
@@ -185,6 +225,47 @@ async function computeAdaptiveFactor(gameId: string): Promise<number> {
   }
 }
 
+function getRng(): () => number {
+  const g = globalThis;
+  const r = g.__rng;
+  return typeof r === 'function' ? r : Math.random;
+}
+
+/** Wählt eine NPC‑Option, die je nach Schwierigkeit + adaptivem Faktor bewusst nicht immer optimal ist. */
+function chooseNpcOptionWithDifficulty(
+  b: DecisionBlock,
+  role: RoleId,
+  kpi: KPI,
+  adaptiveFactor = 1.0,
+  rng: () => number = Math.random
+): string {
+  const options = b.options || [];
+  if (!options?.length) return pickOptionForBlock(b, role, kpi);
+
+  // Optionen nach Heuristik bewerten
+  const scored = options
+    .map((o: unknown) => ({ id: o.id, opt: o, score: scoreOptionByKpiDelta(o) }))
+    .sort((a: { score: number }, b: { score: number }) => b.score - a.score);
+
+  const bestId = scored[0]?.id ?? pickOptionForBlock(b, role, kpi);
+
+  // Fehlerwahrscheinlichkeit aus Schwierigkeit × adaptiver Faktor
+  const base = readBaseErrorByDifficulty();
+  const errorProb = Math.max(0.02, Math.min(0.45, base * adaptiveFactor));
+
+  if (rng() < errorProb && scored.length > 1) {
+    // Leicht suboptimale Wahl (zweite Wahl); selten deutlich schlechter (untere Hälfte).
+    if (rng() < 0.75) {
+      return scored[Math.min(1, scored.length - 1)].id;
+    } else {
+      const lowerStart = Math.floor(scored.length / 2);
+      const idx = lowerStart + Math.floor(rng() * Math.max(1, scored.length - lowerStart));
+      return scored[Math.min(idx, scored.length - 1)].id;
+    }
+  }
+
+  return bestId;
+}
 
 
 // Types
@@ -202,6 +283,72 @@ interface KpiEstimate {
   actualValue?: number;
 }
 
+// Helper functions
+function getBlocksForDay(day: number): DecisionBlock[] {
+  // 1) Admin/Editor-Override
+  const override = readScenarioOverride('blocks', day) as DecisionBlock[] | null;
+  if (override) return override;
+
+  // 2) Standard
+  switch (day) {
+    case 1:  return day1Blocks;
+    case 2:  return day2Blocks;
+    case 3:  return day3Blocks;
+    case 4:  return day4Blocks;
+    case 5:  return day5Blocks;
+    case 6:  return day6Blocks;
+    case 7:  return day7Blocks;
+    case 8:  return day8Blocks;
+    case 9:  return day9Blocks;
+    case 10: return day10Blocks;
+    case 11: return day11Blocks;
+    case 12: return day12Blocks;
+    case 13: return day13Blocks;
+    case 14: return day14Blocks;
+    default: return [];
+  }
+}
+
+
+function getNewsForDay(day: number): DayNewsItem[] {
+  // 1) Admin/Editor-Override
+  const override = readScenarioOverride('news', day) as DayNewsItem[] | null;
+  if (override) return override;
+
+  // 2) Standard
+  switch (day) {
+    case 1:  return day1News;
+    case 2:  return day2News;
+    case 3:  return day3News;
+    case 4:  return day4News;
+    case 5:  return day5News;
+    case 6:  return day6News;
+    case 7:  return day7News;
+    case 8:  return day8News;
+    case 9:  return day9News;
+    case 10: return day10News;
+    case 11: return day11News;
+    case 12: return day12News;
+    case 13: return day13News;
+    case 14: return day14News;
+    default: return [];
+  }
+}
+
+
+
+function inferRelatedDecisionIds(category: string, blocks: DecisionBlock[]): string[] {
+  const pick = (roles: RoleId[]) => blocks.filter(b => roles.includes(b.role)).map(b => b.id);
+  switch (category) {
+    case 'bank':     return pick(['CEO','CFO']);
+    case 'supplier': return pick(['OPS','CFO']);
+    case 'customer': return pick(['OPS','CEO']);
+    case 'press':    return pick(['CEO','HRLEGAL']);
+    case 'internal': return pick(['HRLEGAL']);
+    case 'authority':return pick(['CFO','HRLEGAL']);
+    default:         return [];
+  }
+}
 
 // Export Report Button Component
 function ExportReportButtonMP({ 
