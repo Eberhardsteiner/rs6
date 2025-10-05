@@ -290,7 +290,6 @@ function MultiplayerGameViewInner({
   onLeave 
 }: MultiplayerGameViewProps) {
 
-  
 // ---- Theme Binding (Classic / Business / Dynamic) via AdminPanel ----
 const [themeMode, setThemeMode] = useState<ThemeMode>('classic');
 useEffect(() => {
@@ -442,7 +441,6 @@ useEffect(() => {
   };
 }, [gameId, state.day]);
 
-  
   const [showInsolvencyView, setShowInsolvencyView] = useState(false);
   const [attachmentModalContent, setAttachmentModalContent] = useState<{ title: string; content: string } | null>(null);
   const [whatIfEnabled, setWhatIfEnabled] = useState<boolean>(false);
@@ -563,11 +561,6 @@ useEffect(() => {
   // Slots-Metadaten initial einlesen
   useEffect(() => { refreshSlotsMeta(); }, [refreshSlotsMeta]);
 
-  
-
-  
-
-  
   // States for optional components
   const [CoachController, setCoachController] = useState<unknown>(null);
   const [InfoButtons, setInfoButtons] = useState<unknown>(() => () => null);
@@ -755,7 +748,6 @@ useEffect(() => {
           }
         });
 
-        
         // SYNCHRONIZED RANDOM VALUES using Seed
         let allRandomValues: Record<number, Partial<KPI>> = {};
         let randomNews: Record<number, Partial<KPI>> = {};
@@ -826,7 +818,6 @@ if (globalThis.__randomNews) {
   played.push(...items.map((n: { title: string }) => n.title));
 }
 
-         
           }
 
           const currentDayRng = makeRng(ensuredSeed + gameInfo.game.current_day * 1000);
@@ -923,7 +914,6 @@ useEffect(() => {
               globalThis.__rng = dayRng;
             }
 
-            
             const randomValues = generateDailyRandomValues(game.kpi_values?.cashEUR || 100000);
             dispatch({
               type: 'INIT',
@@ -1013,7 +1003,6 @@ function mapSeverityForUi(s: 'low'|'mid'|'high'): 'low'|'medium'|'high' {
   return s === 'mid' ? 'medium' : s;
 }
 
-  
 function mergeDelta(a: Partial<KPI>, b: Partial<KPI>): Partial<KPI> {
    const out: Record<string, unknown> = { ...(a || {}) };
    (Object.keys(b || {}) as (keyof KPI)[]).forEach((k) => {
@@ -1104,7 +1093,6 @@ function computeInvariantDelta(nextKpi: KPI, history: KPI[]): Partial<KPI> {
   return delta;
 }
 
-  
   // Handler functions
  const handleDayAdvance = async (newDay: number, kpiDelta: Partial<KPI>) => {
   // Datum des neuen Tages (09:00) vorbereiten
@@ -1158,8 +1146,6 @@ function computeInvariantDelta(nextKpi: KPI, history: KPI[]): Partial<KPI> {
     errorHandler.warn('ReportStore update failed', err, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'advance-day' });
   }
 };
-
-      
 
  const declareInsolvency = () => {
   if (role === 'CEO') {
@@ -1286,7 +1272,6 @@ const [creditError, setCreditError] = useState<string | null>(null);
     try {
       setCreditBusy(true);
  
-
       // 1) Entscheidung protokollieren (Upsert)
       await upsertDecision(supabase, {
         game_id: gameId,
@@ -1319,7 +1304,6 @@ await supabase.from('games').update({ kpi_values: nextKpi }).eq('id', gameId);
     }
   };
 
-  
 // --- PATCH: Persistiere Entscheidungen robust via Upsert (DB hat UNIQUE auf game_id,player_id,day,block_id) ---
 const handleDecisionMade = useCallback(async (...args: unknown[]) => {
   try {
@@ -1362,7 +1346,6 @@ const handleDecisionMade = useCallback(async (...args: unknown[]) => {
   }
 }, [gameId, state.day]);
 
-  
 const runPreview = useCallback(async () => {
     try {
       if (!whatIfEnabled) {
@@ -1491,11 +1474,9 @@ const newsRandom = useMemo(() => {
 
 const news = useMemo(() => [...newsBase, ...newsInjected, ...newsRandom], [newsBase, newsInjected, newsRandom]);
 
-  
   // Narrative handling
   const dayNarr = narrativesByDay[state.day];
     
-
   const selectedNews = openNewsId ? news.find(n => n.id === openNewsId) : null;
   const beatRaw: NarrativeBeat | null = openNewsId && dayNarr
     ? dayNarr.beats.find(b => b.newsId === openNewsId) || null
@@ -1720,7 +1701,6 @@ if (showInsolvencyView && state.insolvency) {
   );
 }
 
-  
 // HAUPT-RETURN - nur HIER die Änderungen machen
 return (
   <div className={`mp-theme theme-${gameTheme}`}>
@@ -1820,118 +1800,14 @@ return (
             Spieler: <strong>{playerName}</strong> • Rolle: <strong>{role}</strong>
           </div>
 
-          {/* KPI Display with communication inputs */}
-          <div style={{ marginBottom: 16 }}>
-            <h3>KPIs</h3>
-            <KpiCockpit
-              kpi={getVisibleKpi()}
-              kpiHistory={state.kpiHistory}
-              onOpenHistory={setShowHistoryKey}
-              visibleKpis={MultiplayerService.getRoleKpiVisibility(role)}
-            />
-            
-            {/* Input fields for non-visible KPIs */}
-            <div style={{ marginTop: 12, padding: 12, background: '#f3f4f6', borderRadius: 8 }}>
-              <h4 style={{ fontSize: 14, marginBottom: 8, color: '#374151' }}>
-                📊 Von anderen gemeldete KPIs (Tag {state.day})
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                {Object.keys(state.kpi).map(key => {
-                  const kpiKey = key as keyof KPI;
-                  const visibleKpis = MultiplayerService.getRoleKpiVisibility(role);
-                  if (visibleKpis.includes(kpiKey)) return null;
-                  
-                  const labels: Record<keyof KPI, string> = {
-                    cashEUR: 'Liquidität (€)',
-                    profitLossEUR: 'G/V (€)',
-                    customerLoyalty: 'Kundentreue',
-                    bankTrust: 'Bankvertrauen',
-                    workforceEngagement: 'Belegschaft',
-                    publicPerception: 'Öff. Wahrnehmung'
-                  };
-                  
-                  return (
-                    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <label style={{ fontSize: 11, color: '#6b7280' }}>
-                        {labels[kpiKey]}
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="?"
-                        value={currentKpiInputs[kpiKey] || ''}
-                        onChange={(e) => handleKpiInput(kpiKey, e.target.value)}
-                        style={{
-                          padding: '4px 8px',
-                          borderRadius: 4,
-                          border: '1px solid #d1d5db',
-                          fontSize: 12,
-                          color: '#374151',
-                          background: '#ffffff'
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-           {/* --- MP: Kreditaufnahme (nur CFO, nur wenn Admin erlaubt) --- */}
-           {role === 'CFO' && allowCreditMP && !creditSettings?.enabled && (
-              <div
-                style={{
-                  marginTop: 12,
-                  padding: 12,
-                  background: '#eef2ff',
-                  border: '1px solid #c7d2fe',
-                  borderRadius: 8
-                }}
-              >
-                <h4 style={{ fontSize: 14, margin: 0, color: '#3730a3' }}>🏦 Kreditaufnahme (MP)</h4>
-                <p style={{ fontSize: 12, color: '#4b5563', margin: '8px 0 12px' }}>
-                  Sichtbar nur für CFO • vom Admin freigeschaltet
-                </p>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    placeholder="Betrag in €"
-                    value={creditAmount}
-                    onChange={(e) => setCreditAmount(e.target.value)}
-                    style={{
-                      flex: 1,
-                      padding: '6px 8px',
-                      borderRadius: 6,
-                      border: '1px solid #c7d2fe',
-                      fontSize: 13,
-                      color: '#111827',
-                      background: '#ffffff'
-                    }}
-                  />
-                  <button
-                    onClick={handleCreditDraw}
-                    disabled={creditBusy}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 6,
-                      border: 'none',
-                      background: '#6366f1',
-                      color: 'white',
-                      fontWeight: 600,
-                      cursor: creditBusy ? 'not-allowed' : 'pointer'
-                    }}
-                    title="Erhöht die Liquidität (sofort) und protokolliert die Maßnahme"
-                  >
-                    {creditBusy ? '…' : 'Kredit ziehen'}
-                  </button>
-                </div>
-                {creditError && (
-                  <div style={{ color: '#b91c1c', fontSize: 12, marginTop: 6 }}>
-                    {creditError}
-                  </div>
-                )}
-              </div>
-            )}
+          <KpiSection
+            state={state}
+            role={role}
+            currentKpiInputs={currentKpiInputs}
+            onKpiInput={handleKpiInput}
+            onOpenHistory={(key) => setShowHistoryKey(key as string)}
+            getVisibleKpi={getVisibleKpi}
+          />
           {/* CFO Credit Panel - Only visible to CFO role when enabled */}
           {role === 'CFO' && creditSettings?.enabled && (
             <CFOCreditPanel
@@ -2031,7 +1907,6 @@ return (
               </div>
             )}
 
-            
             <details style={{ marginTop: 12 }}>
               <summary style={{ 
                 cursor: 'pointer', 
@@ -2049,52 +1924,16 @@ return (
           
           <IntranetButton day={state.day} />
 
-          {/* Other Players */}
-          <div style={{ marginBottom: 16 }}>
-            <h3>Andere Spieler</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {otherPlayers.map(player => (
-                <div key={player.id} style={{
-                  padding: 8,
-                  background: '#f3f4f6',
-                  borderRadius: 6,
-                  display: 'flex',
-                  justifyContent: 'space-between'
-                }}>
-                  <span style={{ color: '#374151' }}>{player.name}</span>
-                  <span style={{
-                    padding: '2px 6px',
-                    background: '#6366f1',
-                    color: 'white',
-                    borderRadius: 4,
-                    fontSize: 12
-                  }}>
-                    {player.role || 'Keine Rolle'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <OtherPlayersSection otherPlayers={otherPlayers} />
         </div>
 
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
-        {/* News Column */}
-        <div className="card" style={{ 
-  flex: '2 1 480px',
-  margin: '12px',
-  backgroundColor: 'rgba(255, 255, 255, 0.98)',
-  boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
-}}>
-          <h3>News</h3>
-          <NewsFeed
-            items={news}
-            onOpenNarrative={(id) => setOpenNewsId(id)}
-          />
-          <RandomNewsPanel
-  news={newsRandom}   // ← nur die zur Rolle passenden Zufalls-News
-  day={state.day}
-/>
-        </div>
+        <NewsSection
+          news={news}
+          newsRandom={newsRandom}
+          day={state.day}
+          onOpenNarrative={(id) => setOpenNewsId(id)}
+        />
       </div>
 
       <WhatIfPreview
