@@ -79,7 +79,7 @@ import { exportSimulationReport } from '@/services/pdfReport';
 import { makeRng } from '@/core/utils/prng';
 import { generateRandomNewsForDay } from '@/core/engine/randomNews';
 import { errorHandler } from '@/utils/errorHandler';
-import { resolveGameTheme } from './helpers/themeHelpers';
+import { resolveGameTheme, getAdminGameTheme, allowUserOverride, readUserOverride } from './helpers/themeHelpers';
 import { computeRoundSecondsForDay, readGraceSeconds } from './helpers/roundTimeHelpers';
 import { getBlocksForDay, getNewsForDay } from './helpers/scenarioDataLoader';
 import { getScoringWeightsSafe } from './helpers/scoringHelpers';
