@@ -292,7 +292,7 @@ export class ReconnectionHandler {
         .from('games')
         .select('id')
         .limit(1)
-        .maybeSingle();
+        .single();
       
       const isConnected = !error;
       
