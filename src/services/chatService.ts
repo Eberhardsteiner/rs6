@@ -67,7 +67,7 @@ export class ChatService {
       .from('players')
       .select('name, role')
       .eq('id', this.playerId)
-      .maybeSingle();
+      .single();
 
     const message = {
       game_id: this.gameId,
@@ -92,10 +92,7 @@ export class ChatService {
           role
         )
       `)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) throw new Error('Failed to create message');
+      .single();
 
     if (error) throw error;
     
@@ -190,7 +187,7 @@ export class ChatService {
               )
             `)
             .eq('id', payload.new.id)
-            .maybeSingle();
+            .single();
           
           if (data) {
             this.messageCache.set(data.id, data);
@@ -271,8 +268,7 @@ export class ChatService {
       CEO: '#0ea5e9',
       CFO: '#10b981',
       OPS: '#f59e0b',
-      HRLEGAL: '#8b5cf6',
-      TRAINER: '#1e40af'
+      HRLEGAL: '#8b5cf6'
     };
 
     let displayName = 'System';
@@ -290,11 +286,10 @@ export class ChatService {
     } else if (message.player) {
       displayName = message.player.name;
       if (message.player.role) {
-        const roleUpper = message.player.role.toUpperCase() as RoleId;
-        displayName += ` (${roleUpper})`;
-        color = roleColors[roleUpper] || color;
+        displayName += ` (${message.player.role})`;
+        color = roleColors[message.player.role];
       }
-
+      
       if (message.metadata?.is_private) {
         icon = '🔒';
       }

@@ -1,7 +1,6 @@
 // src/components/TutorialCoach.tsx
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { errorHandler, safeJSONParse, safeLocalStorageGet, safeLocalStorageSet } from '@/utils/errorHandler';
 
 type Props = {
   enabled: boolean;
@@ -34,12 +33,9 @@ type Persisted = {
 const defaultKey = 'coach:v1';
 
 function lsGet<T=any>(k: string): T | null {
-  const raw = safeLocalStorageGet(k, { component: 'TutorialCoach', action: 'get' });
-  return raw ? safeJSONParse(raw, null, { component: 'TutorialCoach', action: 'parse' }) : null;
+  try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) as T : null; } catch { return null; }
 }
-function lsSet(k: string, v: any) {
-  safeLocalStorageSet(k, JSON.stringify(v), { component: 'TutorialCoach', action: 'set' });
-}
+function lsSet(k: string, v: any) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 
 function readKpi(s: any) {
   const src = s || {};
@@ -128,15 +124,7 @@ export default function TutorialCoach({
 
   const goNext = React.useCallback((source: 'button'|'event'='button') => {
     const step = steps[idx];
-    try {
-      if (source==='button' && step?.when && !step.when(getState())) return;
-    } catch (e) {
-      errorHandler.debug('Tutorial step condition check failed', e, {
-        category: 'UNEXPECTED',
-        component: 'TutorialCoach',
-        action: 'check-step-condition',
-      });
-    }
+    try { if (source==='button' && step?.when && !step.when(getState())) return; } catch {}
     if (idx < steps.length - 1) { const n = idx + 1; setIdx(n); persist(n); setTimeout(computeRect, 0); }
     else { setVisible(false); persist('complete'); onComplete && onComplete(); }
   }, [idx, steps, getState, computeRect, onComplete]);

@@ -32,7 +32,6 @@ DROP INDEX IF EXISTS idx_players_game_role_unique;
 
 -- Add partial unique index: one role per game, EXCEPT for TRAINER
 -- This allows multiple trainers but enforces uniqueness for all other roles
--- NOTE: roles are stored in lowercase in the database, so we check for 'trainer' not 'TRAINER'
-CREATE UNIQUE INDEX idx_players_game_role_unique
+CREATE UNIQUE INDEX idx_players_game_role_unique 
   ON players (game_id, role)
-  WHERE role IS NOT NULL AND role != 'trainer';
+  WHERE role IS NOT NULL AND role != 'TRAINER';

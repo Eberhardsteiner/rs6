@@ -2,7 +2,6 @@
 import { supabase, type Game, type Player, type GameAdminSettings } from './supabaseClient';
 import { makeRng } from '@/core/utils/prng';
 import type { GameState, KPI, RoleId, DayNewsItem } from '@/core/models/domain';
-import { errorHandler } from '@/utils/errorHandler';
 
 
 export class MultiplayerService {
@@ -133,9 +132,9 @@ export class MultiplayerService {
       localStorage.setItem('mp_temp_email', tempEmail);
       localStorage.setItem('mp_temp_password', tempPassword);
 
-      errorHandler.debug('Anonymous sign in successful', undefined, { category: 'AUTH', component: 'MultiplayerService', action: 'sign-in', metadata: { userId: this.userId } });
+      console.log('Anonymous sign in successful:', this.userId);
     } catch (error) {
-      errorHandler.error('Sign in error', error, { category: 'AUTH', component: 'MultiplayerService', action: 'sign-in' });
+      console.error('Sign in error:', error);
       throw error;
     }
   }
@@ -169,9 +168,9 @@ export class MultiplayerService {
       localStorage.setItem('mp_user_role', role);
       localStorage.setItem('mp_temp_email', tempEmail);
 
-      errorHandler.debug('Preset sign in successful', undefined, { category: 'AUTH', component: 'MultiplayerService', action: 'preset-sign-in', metadata: { userId: this.userId, role } });
+      console.log('Preset sign in successful:', this.userId, role);
     } catch (error) {
-      errorHandler.error('Preset sign in error', error, { category: 'AUTH', component: 'MultiplayerService', action: 'preset-sign-in' });
+      console.error('Preset sign in error:', error);
       throw error;
     }
   }
@@ -192,9 +191,9 @@ export class MultiplayerService {
       localStorage.setItem('mp_user_id', data.user.id);
       localStorage.setItem('mp_user_name', this.currentPlayerName);
       
-      errorHandler.debug('Email sign in successful', undefined, { category: 'AUTH', component: 'MultiplayerService', action: 'email-sign-in', metadata: { userId: this.userId } });
+      console.log('Email sign in successful:', this.userId);
     } catch (error) {
-      errorHandler.error('Email sign in error', error, { category: 'AUTH', component: 'MultiplayerService', action: 'email-sign-in' });
+      console.error('Email sign in error:', error);
       throw error;
     }
   }
@@ -218,8 +217,6 @@ export class MultiplayerService {
       const { data: game, error: gameError } = await supabase
         .from('games')
         .insert({
-          name: params.name,
-          created_by: user.id,
           session_code: sessionCode,
           host_id: user.id,
           status: 'waiting',
@@ -238,11 +235,11 @@ export class MultiplayerService {
           }
         })
         .select()
-        .maybeSingle();
+        .single();
 
-      if (gameError || !game) {
-        errorHandler.error('Game creation error', gameError, { category: 'NETWORK', component: 'MultiplayerService', action: 'create-game' });
-        throw new Error('Spiel konnte nicht erstellt werden: ' + (gameError?.message || 'Unknown error'));
+      if (gameError) {
+        console.error('Game creation error:', gameError);
+        throw new Error('Spiel konnte nicht erstellt werden: ' + gameError.message);
       }
 
       // Als Host beitreten - NUR mit existierenden Spalten
@@ -251,19 +248,18 @@ export class MultiplayerService {
         .insert({
           game_id: game.id,
           user_id: user.id,
-          name: this.currentPlayerName || 'Host',
           role: (this.currentRole || 'CEO').toLowerCase(),
           display_name: this.currentPlayerName || 'Host',
           is_ready: false,
           game_state: {}
         })
         .select()
-        .maybeSingle();
+        .single();
 
-      if (playerError || !player) {
+      if (playerError) {
         // Cleanup: Game löschen wenn Player nicht erstellt werden kann
         await supabase.from('games').delete().eq('id', game.id);
-        throw new Error('Spieler konnte nicht erstellt werden: ' + (playerError?.message || 'Unknown error'));
+        throw new Error('Spieler konnte nicht erstellt werden: ' + playerError.message);
       }
 
       this.gameId = game.id;
@@ -273,11 +269,11 @@ export class MultiplayerService {
       localStorage.setItem('mp_current_game', game.id);
       localStorage.setItem('mp_player_id', player.id);
       
-      errorHandler.debug('Game created successfully', undefined, { category: 'NETWORK', component: 'MultiplayerService', action: 'create-game', metadata: { gameId: game.id } });
+      console.log('Game created successfully:', game.id);
       return { gameId: game.id };
       
     } catch (error) {
-      errorHandler.error('Create game failed', error, { category: 'NETWORK', component: 'MultiplayerService', action: 'create-game' });
+      console.error('Create game failed:', error);
       throw error;
     }
   }
@@ -297,7 +293,7 @@ export class MultiplayerService {
         .maybeSingle();
 
       if (existing) {
-        errorHandler.debug('Already in game, updating...', undefined, { category: 'NETWORK', component: 'MultiplayerService', action: 'join-game' });
+        console.log('Already in game, updating...');
         // Update existing player - NUR mit existierenden Spalten
         const { error: updateError } = await supabase
           .from('players')
@@ -320,18 +316,17 @@ export class MultiplayerService {
           .insert({
             game_id: gameId,
             user_id: user.id,
-            name: playerName,
             role: (role || 'CEO').toLowerCase(),
             display_name: playerName,
             is_ready: false,
             game_state: {}
           })
           .select()
-          .maybeSingle();
+          .single();
 
-        if (error || !player) {
-          errorHandler.error('Join game error', error, { category: 'NETWORK', component: 'MultiplayerService', action: 'join-game' });
-          throw new Error('Beitritt fehlgeschlagen: ' + (error?.message || 'Unknown error'));
+        if (error) {
+          console.error('Join game error:', error);
+          throw new Error('Beitritt fehlgeschlagen: ' + error.message);
         }
 
         this.gameId = gameId;
@@ -346,9 +341,9 @@ export class MultiplayerService {
       localStorage.setItem('mp_player_id', this.playerId);
       if (role) localStorage.setItem('mp_current_role', role);
       
-      errorHandler.debug('Joined game successfully', undefined, { category: 'NETWORK', component: 'MultiplayerService', action: 'join-game', metadata: { gameId } });
+      console.log('Joined game successfully:', gameId);
     } catch (error) {
-      errorHandler.error('Join game failed', error, { category: 'NETWORK', component: 'MultiplayerService', action: 'join-game' });
+      console.error('Join game failed:', error);
       throw error;
     }
   }
@@ -403,9 +398,7 @@ export class MultiplayerService {
         .from('games')
         .select()
         .eq('id', this.gameId)
-        .maybeSingle();
-
-      if (gameError || !game) throw new Error('Game not found: ' + (gameError?.message || 'Unknown'));
+        .single();
 
       if (gameError) throw gameError;
 
@@ -441,7 +434,7 @@ export class MultiplayerService {
         })() as any
       };
     } catch (error) {
-      errorHandler.error('Get game info failed', error, { category: 'NETWORK', component: 'MultiplayerService', action: 'get-game-info' });
+      console.error('Get game info failed:', error);
       throw error;
     }
   }
@@ -460,7 +453,7 @@ export class MultiplayerService {
 
     if (error) throw error;
     
-    errorHandler.debug('Game started', undefined, { category: 'NETWORK', component: 'MultiplayerService', action: 'start-game' });
+    console.log('Game started');
   }
 
   // ============ REAL-TIME SUBSCRIPTIONS ============
@@ -470,7 +463,7 @@ export class MultiplayerService {
     onPlayerUpdate: (players: Player[]) => void
   ) {
     if (!this.gameId) {
-      errorHandler.warn('Cannot subscribe: No game ID', undefined, { category: 'VALIDATION', component: 'MultiplayerService', action: 'subscribe-game' });
+      console.error('Cannot subscribe: No game ID');
       return;
     }
 
@@ -486,7 +479,7 @@ export class MultiplayerService {
           filter: `id=eq.${this.gameId}`
         },
         (payload) => {
-          errorHandler.debug('Game update', undefined, { category: 'NETWORK', component: 'MultiplayerService', action: 'subscribe-game', metadata: { payload } });
+          console.log('Game update:', payload);
           if (payload.new) {
             onGameUpdate(payload.new as Game);
           }
@@ -514,7 +507,7 @@ export class MultiplayerService {
             .order('joined_at', { ascending: true });
           
           if (data) {
-            errorHandler.debug('Players update', undefined, { category: 'NETWORK', component: 'MultiplayerService', action: 'subscribe-players', metadata: { data } });
+            console.log('Players update:', data);
             onPlayerUpdate(data);
           }
         }
@@ -562,9 +555,7 @@ export class MultiplayerService {
   }
 
   getCurrentRole(): RoleId | null {
-    const stored = this.currentRole || localStorage.getItem('mp_current_role');
-    if (!stored) return null;
-    return stored.toUpperCase() as RoleId;
+    return this.currentRole || (localStorage.getItem('mp_current_role') as RoleId);
   }
 
   static getRoleKpiVisibility(role: RoleId): (keyof KPI)[] {
@@ -585,7 +576,7 @@ export class MultiplayerService {
       .from('players')
       .select('is_gm')
       .eq('id', this.playerId)
-      .maybeSingle();
+      .single();
     
     return data?.is_gm || false;
   }
@@ -619,8 +610,7 @@ export class MultiplayerService {
       .from('games')
       .select('kpi_values, current_day')
       .eq('id', gameId)
-      .maybeSingle();
-    if (selErr || !game) throw new Error('Game not found');
+      .single();
     if (selErr) throw selErr;
 
     const prev: KPI = {
@@ -700,8 +690,7 @@ export class MultiplayerService {
       .from('games')
       .select('id, current_day, kpi_values')
       .eq('id', gameId)
-      .maybeSingle();
-    if (selErr || !game) throw new Error('Game not found');
+      .single();
     if (selErr) throw selErr;
 
     const prevDay = Number((game as any)?.current_day) || 1;
@@ -767,8 +756,8 @@ export class MultiplayerService {
       .from('games')
       .select('id, current_day, kpi_values')
       .eq('id', gameId)
-      .maybeSingle();
-    if (selErr || !game) throw new Error('Game not found');
+      .single();
+    if (selErr) throw selErr;
 
     const prevDay = Number((game as any)?.current_day) || 1;
     const kpi: KPI = {
@@ -879,11 +868,11 @@ export class MultiplayerService {
     if (!gameId) throw new Error('gameId required');
 
     const { data, error } = await supabase
-      .from('game_injected_news')
-      .select('id, day, title, content, source, severity, roles, created_at')
-      .eq('game_id', gameId)
-      .eq('day', day)
-      .order('created_at', { ascending: true });
+  .from('game_scenario_overrides')
+  .select('action,overrides,updated_at') // <-- Geändert zu 'updated_at'
+  .eq('game_id', gameId)
+  .order('updated_at', { ascending: true }); // <-- Geändert zu 'updated_at'
+
 
     if (error) throw error;
     return (data || []).map(r => Object.assign(this.mapInjectedRow(r), { roles: r.roles as RoleId[] | null }));
@@ -912,7 +901,7 @@ export class MultiplayerService {
             const list = await this.fetchInjectedNewsForDay(gameId, day);
             onUpdate(list);
           } catch (e) {
-            errorHandler.error('[MultiplayerService] subscribeInjectedNews fetch failed', e, { category: 'NETWORK', component: 'MultiplayerService', action: 'subscribe-news' });
+            console.error('[MultiplayerService] subscribeInjectedNews fetch failed', e);
           }
         }
       )
@@ -921,7 +910,7 @@ export class MultiplayerService {
     // Initiale Ladung
     this.fetchInjectedNewsForDay(gameId, day)
       .then(onUpdate)
-      .catch(e => errorHandler.error('[MultiplayerService] initial fetchInjectedNewsForDay failed', e, { category: 'NETWORK', component: 'MultiplayerService', action: 'fetch-news' }));
+      .catch(e => console.error('[MultiplayerService] initial fetchInjectedNewsForDay failed', e));
 
     this.subscriptions.push(channel);
     return channel;
@@ -985,11 +974,11 @@ export class MultiplayerService {
   async fetchMergedScenarioOverrides(gameId: string): Promise<Record<string, any>> {
     if (!gameId) throw new Error('gameId required');
 
-    const { data, error } = await supabase
-      .from('game_scenario_overrides')
-      .select('action, overrides, created_at')
-      .eq('game_id', gameId)
-      .order('created_at', { ascending: true });
+  const { data, error } = await supabase
+  .from('game_scenario_overrides')
+  .select('action,overrides,updated_at') // <-- Geändert zu 'updated_at'
+  .eq('game_id', gameId)
+  .order('updated_at', { ascending: true }); // <-- Geändert zu 'updated_at'
 
     if (error) throw error;
 
@@ -1017,7 +1006,7 @@ export class MultiplayerService {
             const merged = await this.fetchMergedScenarioOverrides(gameId);
             onMerged(merged);
           } catch (e) {
-            errorHandler.error('[MultiplayerService] subscribeScenarioOverrides fetch failed', e, { category: 'NETWORK', component: 'MultiplayerService', action: 'subscribe-overrides' });
+            console.error('[MultiplayerService] subscribeScenarioOverrides fetch failed', e);
           }
         }
       )
@@ -1026,7 +1015,7 @@ export class MultiplayerService {
     // initial laden
     this.fetchMergedScenarioOverrides(gameId)
       .then(onMerged)
-      .catch(e => errorHandler.error('[MultiplayerService] initial fetchMergedScenarioOverrides failed', e, { category: 'NETWORK', component: 'MultiplayerService', action: 'fetch-overrides' }));
+      .catch(e => console.error('[MultiplayerService] initial fetchMergedScenarioOverrides failed', e));
 
     this.subscriptions.push(channel);
     return channel;
