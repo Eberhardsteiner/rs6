@@ -61,45 +61,13 @@ export interface DecisionBlock {
 }
 
 /**
- * EngineMeta für ExpandedTextFnCtx (minimale Struktur).
- */
-export interface ExpandedTextFnMeta {
-  difficultyFactor?: number;
-  scheduledDeltas?: Record<number, Array<Partial<KPI>>>;
-  randomNews?: Record<number, unknown[]>;
-  suppressedInsolvencyCount?: number;
-  intensityByDay?: number[];
-  dailyRandomValues?: Record<number, unknown>;
-  currentDayRandoms?: unknown;
-  scoringWeights?: Record<string, number>;
-  startedAt?: string;
-  roles?: RoleId[];
-  discountRatePA?: number;
-  dayLengthInDays?: number;
-  scenarioMeta?: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
-/**
- * DecisionLogEntry für ExpandedTextFnCtx (minimale Struktur).
- */
-export interface ExpandedTextFnLogEntry {
-  day: number;
-  role: RoleId;
-  decisionId: string;
-  optionId: string;
-  kpiDelta?: Partial<KPI>;
-  [key: string]: unknown;
-}
-
-/**
  * Kontextobjekt für expandedText-Funktionen.
  */
 export type ExpandedTextFnCtx = {
   day: number;
   kpi: KPI;
-  meta?: ExpandedTextFnMeta;
-  log?: ExpandedTextFnLogEntry[];
+  meta?: any;
+  log?: any;
   roles?: RoleId[];
 };
 
