@@ -865,47 +865,24 @@ export default function GameLobby({
             {settings.allowEarlyEntry && (
               <div style={{ textAlign: 'center', marginTop: 12 }}>
                 <button
-                  onClick={() => {
-                    if (!currentPlayer) {
-                      alert('Fehler: Spieler nicht gefunden');
-                      return;
-                    }
-
-                    setReadyStatus(prev => new Map(prev).set(currentPlayer.id, true));
-
-                    setTimeout(() => {
-                      try {
-                        onGameStart();
-                      } catch (error) {
-                        console.error('Fehler beim Spielstart:', error);
-                        alert('Fehler beim Starten des Spiels. Bitte versuchen Sie es erneut.');
-                        setReadyStatus(prev => new Map(prev).set(currentPlayer.id, false));
-                      }
-                    }, 100);
-                  }}
-                  disabled={isStarting}
+                  onClick={onGameStart}
                   style={{
                     padding: '12px 40px',
                     fontSize: 16,
                     fontWeight: 700,
-                    background: isStarting
-                      ? 'linear-gradient(135deg, #9ca3af, #6b7280)'
-                      : 'linear-gradient(135deg, #22c55e, #16a34a)',
+                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
                     color: 'white',
                     border: 'none',
                     borderRadius: 40,
-                    cursor: isStarting ? 'not-allowed' : 'pointer',
+                    cursor: 'pointer',
                     transform: 'scale(1)',
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     boxShadow: '0 8px 24px rgba(34, 197, 94, 0.35)',
-                    letterSpacing: '0.5px',
-                    opacity: isStarting ? 0.6 : 1
+                    letterSpacing: '0.5px'
                   }}
                   onMouseEnter={(e) => {
-                    if (!isStarting) {
-                      e.currentTarget.style.transform = 'scale(1.03)';
-                      e.currentTarget.style.boxShadow = '0 12px 36px rgba(34, 197, 94, 0.45)';
-                    }
+                    e.currentTarget.style.transform = 'scale(1.03)';
+                    e.currentTarget.style.boxShadow = '0 12px 36px rgba(34, 197, 94, 0.45)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'scale(1)';
@@ -913,7 +890,7 @@ export default function GameLobby({
                   }}
                   title="Einzelstart: Du kannst schon ins Spiel, auch wenn andere noch nicht da sind."
                 >
-                  {isStarting ? '⏳ Starte...' : 'Jetzt alleine starten'}
+                  Jetzt alleine starten
                 </button>
               </div>
             )}
