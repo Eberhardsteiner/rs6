@@ -2,21 +2,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/services/supabaseClient';
 import type { KPI, RoleId, DecisionBlock, DayNewsItem } from '@/core/models/domain';
-import { errorHandler } from '@/utils/errorHandler';
 
 // --- PDF-Export (pdfmake inkl. Fonts) ---
 import pdfMake from 'pdfmake/build/pdfmake.js';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts.js';
-
 // vfs initialisieren (verschiedene Bundler-Varianten absichern)
-type PdfMakeWithVfs = typeof pdfMake & { vfs?: Record<string, string> };
-type PdfFontsModule = { default?: { pdfMake?: { vfs: Record<string, string> } }; pdfMake?: { vfs: Record<string, string> }; vfs?: Record<string, string> };
-
-(pdfMake as PdfMakeWithVfs).vfs =
-  (pdfFonts as PdfFontsModule).default?.pdfMake?.vfs ||
-  (pdfFonts as PdfFontsModule).pdfMake?.vfs ||
-  (pdfFonts as PdfFontsModule).vfs ||
-  {};
+(pdfMake as any).vfs =
+  (pdfFonts as any).default?.pdfMake?.vfs ||
+  (pdfFonts as any).pdfMake?.vfs ||
+  (pdfFonts as any).vfs;
 
 /** NEU: Modal + Inhalte für Attachments (aus Data/ZIP) */
 import AttachmentModal from '@/components/dialogs/AttachmentModal';
@@ -52,33 +46,32 @@ interface Decision {
   block_id: string;
   option_id: string | null;
   custom_text: string | null;
-  kpi_delta: Partial<KPI> | null;
+  kpi_delta: any;
   created_at: string;
   player?: { name: string; role: RoleId };
-  decision_metadata?: { type?: string; [key: string]: unknown };
-  metadata?: { type?: string; [key: string]: unknown };
 }
 
 const ROLES: RoleId[] = ['CEO', 'CFO', 'OPS', 'HRLEGAL'];
 
-// Tag->Daten Mappings (DecisionBlock[] wird zur Laufzeit validiert)
+// Tag->Daten Mappings
 const blocksByDay: Record<number, DecisionBlock[]> = {
-   1: day1Blocks as DecisionBlock[],  2: day2Blocks as DecisionBlock[],  3: day3Blocks as DecisionBlock[],  4: day4Blocks as DecisionBlock[],
-   5: day5Blocks as DecisionBlock[],  6: day6Blocks as DecisionBlock[],  7: day7Blocks as DecisionBlock[],  8: day8Blocks as DecisionBlock[],
-   9: day9Blocks as DecisionBlock[], 10: day10Blocks as DecisionBlock[], 11: day11Blocks as DecisionBlock[], 12: day12Blocks as DecisionBlock[],
-  13: day13Blocks as DecisionBlock[],14: day14Blocks as DecisionBlock[]
+   1: day1Blocks as any,  2: day2Blocks as any,  3: day3Blocks as any,  4: day4Blocks as any,
+   5: day5Blocks as any,  6: day6Blocks as any,  7: day7Blocks as any,  8: day8Blocks as any,
+   9: day9Blocks as any, 10: day10Blocks as any, 11: day11Blocks as any, 12: day12Blocks as any,
+  13: day13Blocks as any,14: day14Blocks as any
 };
 const newsByDay: Record<number, DayNewsItem[]> = {
-   1: day1News as DayNewsItem[],  2: day2News as DayNewsItem[],  3: day3News as DayNewsItem[],  4: day4News as DayNewsItem[],
-   5: day5News as DayNewsItem[],  6: day6News as DayNewsItem[],  7: day7News as DayNewsItem[],  8: day8News as DayNewsItem[],
-   9: day9News as DayNewsItem[], 10: day10News as DayNewsItem[], 11: day11News as DayNewsItem[], 12: day12News as DayNewsItem[],
-  13: day13News as DayNewsItem[],14: day14News as DayNewsItem[]
+   1: day1News as any,  2: day2News as any,  3: day3News as any,  4: day4News as any,
+   5: day5News as any,  6: day6News as any,  7: day7News as any,  8: day8News as any,
+   9: day9News as any, 10: day10News as any, 11: day11News as any, 12: day12News as any,
+  13: day13News as any,14: day14News as any
 };
 
 // Optional: Szenario-Overrides (wie im MP-View)
-function readScenarioOverride(kind: 'blocks' | 'news' | 'attachments', day: number): unknown[] | null {
+function readScenarioOverride(kind: 'blocks' | 'news' | 'attachments', day: number): any[] | null {
   try {
-    const byDay = globalThis.__scenarioOverrides?.[kind];
+    const g: any = globalThis as any;
+    const byDay = g?.__scenarioOverrides?.[kind];
     if (byDay && Array.isArray(byDay[day])) return byDay[day];
     const raw = localStorage.getItem('scenario:overrides');
     if (!raw) return null;
@@ -106,17 +99,17 @@ function aggregateImpactByRole(list: Decision[]) {
   for (const d of list) {
     const r = d.player?.role as RoleId | undefined;
     if (!r || !acc[r] || !d.kpi_delta) continue;
-    const k = d.kpi_delta;
-    acc[r].cashEUR             += Number(k?.cashEUR || 0);
-    acc[r].profitLossEUR       += Number(k?.profitLossEUR || 0);
-    acc[r].customerLoyalty     += Number(k?.customerLoyalty || 0);
-    acc[r].bankTrust           += Number(k?.bankTrust || 0);
-    acc[r].workforceEngagement += Number(k?.workforceEngagement || 0);
-    acc[r].publicPerception    += Number(k?.publicPerception || 0);
+    const k = d.kpi_delta as any;
+    acc[r].cashEUR             += Number(k.cashEUR || 0);
+    acc[r].profitLossEUR       += Number(k.profitLossEUR || 0);
+    acc[r].customerLoyalty     += Number(k.customerLoyalty || 0);
+    acc[r].bankTrust           += Number(k.bankTrust || 0);
+    acc[r].workforceEngagement += Number(k.workforceEngagement || 0);
+    acc[r].publicPerception    += Number(k.publicPerception || 0);
   }
 
   // Gewichte aus AdminPanel (Standard 25/25/25/25)
-  const W = globalThis.__scoringWeights || {
+  const W = (globalThis as any).__scoringWeights || {
     bankTrust: 25, publicPerception: 25, customerLoyalty: 25, workforceEngagement: 25
   };
 
@@ -131,7 +124,7 @@ function aggregateImpactByRole(list: Decision[]) {
       );
       return [r, { ...x, points }];
     })
-  ) as Record<RoleId, { cashEUR: number; profitLossEUR: number; customerLoyalty: number; bankTrust: number; workforceEngagement: number; publicPerception: number; points: number }>;
+  ) as Record<RoleId, any>;
 
   return withPoints;
 }
@@ -142,13 +135,11 @@ function aggregateImpactByRole(list: Decision[]) {
    ────────────────────────────────────────────────────────────────────────── */
 const OPTION_KEYS = ['options','choices','alternatives','answers','actions','variants','opts'];
 
-function getBlockId(b: unknown): string {
-  const block = b as Record<string, unknown> | null | undefined;
-  return String(block?.id ?? block?.key ?? block?.slug ?? block?.code ?? block?.title ?? '—');
+function getBlockId(b: any): string {
+  return (b?.id ?? b?.key ?? b?.slug ?? b?.code ?? b?.title ?? '—') as string;
 }
-function getBlockRole(b: unknown): string {
-  const block = b as Record<string, unknown> | null | undefined;
-  return String(block?.role ?? block?.assignee ?? block?.owner ?? '—');
+function getBlockRole(b: any): string {
+  return (b?.role ?? b?.assignee ?? b?.owner ?? '—') as string;
 }
 // ── EINMALIG: Map-Utilities (nicht doppelt definieren) ─────────────────────
 function mapIntensity(factor: number): 'low'|'normal'|'high' {
@@ -170,7 +161,7 @@ const DECISION_CONFIRM_KEYS = [
   'DECISION_DONE','CONFIRM_DECISIONS','DECISIONS_SUBMIT','DAY_DONE','END_TURN','DECISION_MADE'
 ];
 
-function DecisionStatusBar({ decisionsToday }: { decisionsToday: Decision[] }) {
+function DecisionStatusBar({ decisionsToday }: { decisionsToday: Array<any> }) {
   type R = 'CFO'|'HRLEGAL'|'OPS';
   const ok = (role: R) => {
     return (decisionsToday || []).some(d => {
@@ -233,17 +224,16 @@ type Attachment = {
 };
 const ATTACHMENT_KEYS = ['attachments','files','documents','links','assets','annex','appendix'];
 
-function normalizeAttachment(a: unknown, idx: number): Attachment | null {
+function normalizeAttachment(a: any, idx: number): Attachment | null {
   // NEU: String-Schlüssel (z. B. "D01_INVESTOR_MAIL") -> aus attachmentContents lesen
   if (typeof a === 'string') {
     const key = a.trim();
-    const contents = attachmentContents as Record<string, { title?: string; type?: string; size?: number }>;
-    const meta = contents[key] || {};
+    const meta: any = (attachmentContents as any)?.[key] || {};
     return {
       id: key,
-      title: String(meta.title || key),
-      url: `inline:${key}`,
-      type: meta.type || null,
+      title: (meta.title || key) as string,
+      url: `inline:${key}`,                  // Kennzeichnung: Inhalt kommt aus attachmentContents
+      type: (meta.type || null) as any,
       size: (typeof meta.size === 'number' ? meta.size : null),
       from: 'dataset'
     };
@@ -264,14 +254,13 @@ function normalizeAttachment(a: unknown, idx: number): Attachment | null {
   };
 }
 
-function extractAttachmentsFromAny(obj: unknown): Attachment[] {
+function extractAttachmentsFromAny(obj: any): Attachment[] {
   if (!obj || typeof obj !== 'object') return [];
-  const record = obj as Record<string, unknown>;
   for (const k of ATTACHMENT_KEYS) {
-    const arr = record[k];
-    if (Array.isArray(arr)) return arr.map((v: unknown, i: number) => normalizeAttachment(v, i)).filter(Boolean) as Attachment[];
+    const arr = obj?.[k];
+    if (Array.isArray(arr)) return arr.map((v: any, i: number) => normalizeAttachment(v, i)).filter(Boolean) as Attachment[];
   }
-  const single = record.attachment || record.file || record.document || record.link;
+  const single = obj?.attachment || obj?.file || obj?.document || obj?.link;
   if (single) { const out = normalizeAttachment(single, 0); return out ? [out] : []; }
   return [];
 }
@@ -299,10 +288,11 @@ function stripInline(u?: string | null) {
 // ── Timer/Deadline lesen (tolerant ggü. Quellen) ─────────────
 function readDayStartTs(day: number): number | null {
   try {
-    const keysIso = ['__dayStart', '__currentDayStart', '__mpDayStart', '__gameDayStart', '__roundStartIso'] as const;
-    for (const k of keysIso) { const v = globalThis[k]; if (typeof v === 'string') { const t = +new Date(v); if (!isNaN(t)) return t; } }
-    const keysNum = ['__dayStartTs', '__startTs'] as const;
-    for (const k of keysNum) { const v = globalThis[k]; if (typeof v === 'number' && isFinite(v)) return v; }
+    const g: any = globalThis as any;
+    const keysIso = ['__dayStart', '__currentDayStart', '__mpDayStart', '__gameDayStart', '__roundStartIso'];
+    for (const k of keysIso) { const v = g?.[k]; if (typeof v === 'string') { const t = +new Date(v); if (!isNaN(t)) return t; } }
+    const keysNum = ['__dayStartTs', '__startTs'];
+    for (const k of keysNum) { const v = g?.[k]; if (typeof v === 'number' && isFinite(v)) return v; }
     const raw = localStorage.getItem('mp:dayStartIso') || localStorage.getItem('mp:day_start');
     if (raw) { const t = +new Date(raw); if (!isNaN(t)) return t; }
   } catch {}
@@ -311,13 +301,14 @@ function readDayStartTs(day: number): number | null {
 
 function readDayDeadlineTs(day: number): number | null {
   try {
-    const keysIso = ['__dayDeadline', '__currentDayDeadline', '__mpDayEndsAt', '__dayEndsAt', '__roundDeadlineIso'] as const;
-    for (const k of keysIso) { const v = globalThis[k]; if (typeof v === 'string') { const t = +new Date(v); if (!isNaN(t)) return t; } }
-    const keysNum = ['__deadlineTs', '__dayDeadlineTs', '__roundDeadlineTs'] as const;
-    for (const k of keysNum) { const v = globalThis[k]; if (typeof v === 'number' && isFinite(v)) return v; }
+    const g: any = globalThis as any;
+    const keysIso = ['__dayDeadline', '__currentDayDeadline', '__mpDayEndsAt', '__dayEndsAt', '__roundDeadlineIso'];
+    for (const k of keysIso) { const v = g?.[k]; if (typeof v === 'string') { const t = +new Date(v); if (!isNaN(t)) return t; } }
+    const keysNum = ['__deadlineTs', '__dayDeadlineTs', '__roundDeadlineTs'];
+    for (const k of keysNum) { const v = g?.[k]; if (typeof v === 'number' && isFinite(v)) return v; }
     // aus Start + Dauer rekonstruieren
     const start = readDayStartTs(day);
-    const durMin = globalThis.__dayDurationMin ?? globalThis.__multiplayerSettings?.dayDurationMin ?? globalThis.__multiplayerSettings?.roundMinutes ?? null;
+    const durMin = g?.__dayDurationMin ?? g?.__multiplayerSettings?.dayDurationMin ?? g?.__multiplayerSettings?.roundMinutes ?? null;
     if (start && typeof durMin === 'number' && isFinite(durMin)) return start + durMin * 60 * 1000;
     const raw = localStorage.getItem('mp:deadlineIso') || localStorage.getItem('mp:dayDeadline') || localStorage.getItem('mp_day_deadline');
       if (raw) { const t = +new Date(raw); if (!isNaN(t)) return t; }
@@ -327,41 +318,34 @@ function readDayDeadlineTs(day: number): number | null {
 
 
 
-function getBlockOptions(b: unknown): unknown[] {
-  const block = b as Record<string, unknown> | null | undefined;
+function getBlockOptions(b: any): any[] {
   for (const k of OPTION_KEYS) {
-    if (Array.isArray(block?.[k])) return block[k] as unknown[];
+    if (Array.isArray(b?.[k])) return b[k] as any[];
   }
   return [];
 }
-function getOptionId(o: unknown, idx: number): string {
-  const opt = o as Record<string, unknown> | null | undefined;
-  return String(opt?.id ?? opt?.option_id ?? opt?.key ?? opt?.value ?? opt?.code ?? String(idx + 1));
+function getOptionId(o: any, idx: number): string {
+  return (o?.id ?? o?.option_id ?? o?.key ?? o?.value ?? o?.code ?? String(idx + 1)) + '';
 }
-function getOptionTitle(o: unknown, fallbackId: string): string {
-  const opt = o as Record<string, unknown> | null | undefined;
-  return String(opt?.title ?? opt?.label ?? opt?.text ?? opt?.name ?? `Option ${fallbackId}`);
+function getOptionTitle(o: any, fallbackId: string): string {
+  return (o?.title ?? o?.label ?? o?.text ?? o?.name ?? `Option ${fallbackId}`) + '';
 }
-function getOptionDescription(o: unknown): string {
-  const opt = o as Record<string, unknown> | null | undefined;
-  return String(opt?.description ?? opt?.desc ?? opt?.subtitle ?? '');
+function getOptionDescription(o: any): string {
+  return (o?.description ?? o?.desc ?? o?.subtitle ?? '') + '';
 }
-function getOptionKpi(o: unknown): Partial<KPI> | null {
-  const opt = o as Record<string, unknown> | null | undefined;
-  const kpi = opt?.kpi ?? opt?.kpi_delta ?? opt?.kpiDelta ?? opt?.impact ?? null;
-  return kpi as Partial<KPI> | null;
+function getOptionKpi(o: any): any {
+  return (o?.kpi ?? o?.kpi_delta ?? o?.kpiDelta ?? o?.impact ?? null);
 }
-function formatKpiShort(k: unknown): string {
+function formatKpiShort(k: any): string {
   if (!k || typeof k !== 'object') return '—';
-  const kpi = k as Partial<KPI>;
-  const n = (x: unknown) => (x == null ? 0 : Number(x));
+  const n = (x: any) => (x == null ? 0 : Number(x));
   const parts = [
-    `Cash ${Math.round(n(kpi.cashEUR))}€`,
-    `P&L ${Math.round(n(kpi.profitLossEUR))}€`,
-    `Kunden ${Math.round(n(kpi.customerLoyalty))}`,
-    `Bank ${Math.round(n(kpi.bankTrust))}`,
-    `Workforce ${Math.round(n(kpi.workforceEngagement))}`,
-    `Öffentl. ${Math.round(n(kpi.publicPerception))}`
+    `Cash ${Math.round(n(k.cashEUR))}€`,
+    `P&L ${Math.round(n(k.profitLossEUR))}€`,
+    `Kunden ${Math.round(n(k.customerLoyalty))}`,
+    `Bank ${Math.round(n(k.bankTrust))}`,
+    `Workforce ${Math.round(n(k.workforceEngagement))}`,
+    `Öffentl. ${Math.round(n(k.publicPerception))}`
   ];
 
  
@@ -371,7 +355,7 @@ function formatKpiShort(k: unknown): string {
   
   // Prüfen, ob alles 0 ist -> dann auf JSON zurückfallen
   const allZero = parts.every(p => / 0(€)?$/.test(p));
-  return allZero ? JSON.stringify(kpi) : parts.join(' · ');
+  return allZero ? JSON.stringify(k) : parts.join(' · ');
 }
 
 
@@ -385,7 +369,7 @@ export default function TrainerDashboard({
   onLeave: () => void;
 }) {
   const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [players, setPlayers] = useState<Array<{ id: string; name: string; role: RoleId }>>([]);
+  const [players, setPlayers] = useState<any[]>([]);
   const [currentDay, setCurrentDay] = useState(1);
   const [gameKpis, setGameKpis] = useState<KPI | null>(null);
   const [error, setError] = useState<string>('');
@@ -454,7 +438,7 @@ const copyGameId = useCallback(async () => {
   const isDayComplete = useMemo(() => {
     if (!blocksForDay || blocksForDay.length === 0) return false;
     // Ein Tag gilt hier als „abgeschlossen“, wenn für jeden Block mind. eine Entscheidung vorliegt
-    return blocksForDay.every(b => decisionsByBlockToday.has(getBlockId(b)));
+    return blocksForDay.every(b => decisionsByBlockToday.has(getBlockId(b as any)));
   }, [blocksForDay, decisionsByBlockToday]);
 
   // „Verlassen/Abmelden“: Supabase-Session beenden + Bypass/Flags löschen
@@ -481,7 +465,7 @@ const copyGameId = useCallback(async () => {
       setPlayers((playersData || []).filter((p) => p.role !== 'TRAINER'));
 
       // Entscheidungen mit eingebetteter Spielerinfo
-      let decisionsData: Decision[] = [];
+      let decisionsData: any[] = [];
       try {
         const res = await supabase
           .from('decisions')
@@ -489,7 +473,7 @@ const copyGameId = useCallback(async () => {
           .eq('game_id', gameId)
           .order('created_at', { ascending: false });
         if (res.error) throw res.error;
-        decisionsData = (res.data || []).map((d: Record<string, unknown>) => ({
+        decisionsData = (res.data || []).map((d: any) => ({
           ...d,
           player: d.players || d.player || null
         }));
@@ -501,11 +485,11 @@ const copyGameId = useCallback(async () => {
           .eq('game_id', gameId)
           .order('created_at', { ascending: false });
         if (e2) throw e2;
-        const map = new Map<string, { name: string; role: RoleId }>();
-        (playersData || []).forEach((p) => map.set(p.id, { name: p.name, role: p.role }));
-        decisionsData = (d2 || []).map((d) => ({ ...d, player: map.get(d.player_id) || null })) as Decision[];
+        const map = new Map<string, any>();
+        (playersData || []).forEach((p) => map.set(p.id, p));
+        decisionsData = (d2 || []).map((d) => ({ ...d, player: map.get(d.player_id) || null }));
       }
-      setDecisions(decisionsData);
+      setDecisions(decisionsData as any);
 
       // Spielstand
       const { data: gameData, error: gErr } = await supabase
@@ -515,16 +499,16 @@ const copyGameId = useCallback(async () => {
         .single();
       if (gErr) throw gErr;
 
-      errorHandler.debug('[TrainerDashboard] Geladene Spielstanddaten', undefined, { category: 'NETWORK', component: 'TrainerDashboard', action: 'load-game-data', metadata: { gameData } });
+      console.log('[TrainerDashboard] Geladene Spielstanddaten:', gameData);
 
-      const kpiValues = gameData?.kpi_values as KPI | null | undefined;
-      errorHandler.debug('[TrainerDashboard] KPI-Werte aus DB', undefined, { category: 'NETWORK', component: 'TrainerDashboard', action: 'load-game-data', metadata: { kpiValues } });
+      const kpiValues = (gameData as any)?.kpi_values;
+      console.log('[TrainerDashboard] KPI-Werte aus DB:', kpiValues);
 
-      setCurrentDay((gameData?.current_day as number | undefined) || 1);
+      setCurrentDay((gameData as any)?.current_day || 1);
 
       // Validierung und Initialisierung der KPI-Werte
       if (!kpiValues || typeof kpiValues !== 'object' || Object.keys(kpiValues).length === 0) {
-        errorHandler.warn('[TrainerDashboard] Keine oder ungültige KPI-Werte gefunden. Initialisiere mit Standardwerten...', undefined, { category: 'VALIDATION', component: 'TrainerDashboard', action: 'load-game-data' });
+        console.warn('[TrainerDashboard] Keine oder ungültige KPI-Werte gefunden. Initialisiere mit Standardwerten...');
 
         // Versuche, die KPI-Werte in der Datenbank zu initialisieren
         const initialKpis = {
@@ -543,15 +527,15 @@ const copyGameId = useCallback(async () => {
             .eq('id', gameId);
 
           if (updateErr) {
-            errorHandler.error('[TrainerDashboard] KPI-Update fehlgeschlagen', updateErr, { category: 'NETWORK', component: 'TrainerDashboard', action: 'initialize-kpi' });
+            console.error('[TrainerDashboard] KPI-Update fehlgeschlagen:', updateErr);
           } else {
-            errorHandler.debug('[TrainerDashboard] KPI-Werte erfolgreich initialisiert', undefined, { category: 'NETWORK', component: 'TrainerDashboard', action: 'initialize-kpi' });
+            console.log('[TrainerDashboard] KPI-Werte erfolgreich initialisiert');
             setGameKpis(initialKpis as KPI);
             setIsLoadingKpis(false);
             return;
           }
         } catch (updateError) {
-          errorHandler.error('[TrainerDashboard] Fehler beim KPI-Update', updateError, { category: 'NETWORK', component: 'TrainerDashboard', action: 'initialize-kpi' });
+          console.error('[TrainerDashboard] Fehler beim KPI-Update:', updateError);
         }
 
         setGameKpis(null);
@@ -560,10 +544,9 @@ const copyGameId = useCallback(async () => {
       }
 
       setIsLoadingKpis(false);
-    } catch (e: unknown) {
-      errorHandler.error('[TrainerDashboard] Fehler beim Laden der Daten', e, { category: 'NETWORK', component: 'TrainerDashboard', action: 'load-game-data' });
-      const error = e as { message?: string };
-      setError(error?.message || 'Zugriff verweigert (RLS?)');
+    } catch (e: any) {
+      console.error('[TrainerDashboard] Fehler beim Laden der Daten:', e);
+      setError(e?.message || 'Zugriff verweigert (RLS?)');
       setIsLoadingKpis(false);
     }
   }, [gameId]);
@@ -629,10 +612,9 @@ try {
   // Data/ZIP: anhand der Schlüssel/Metadaten in attachmentContents dem Tag d zuordnen
   let fromDataset: Attachment[] = [];
   try {
-    const contents = attachmentContents as Record<string, { day?: number; title?: string; [key: string]: unknown }>;
-    const allKeys = Object.keys(contents || {});
+    const allKeys = Object.keys((attachmentContents as any) || {});
     const keysForDay = allKeys.filter((key) => {
-      const meta = contents[key] || {};
+      const meta: any = (attachmentContents as any)[key] || {};
       if (typeof meta.day === 'number') return meta.day === d; // 1. harte day-Meta
       // 2. Heuristik: "day01", "d01", "D1", "Tag 1" im Key oder im Titel
       const inKey   = key.match(/(?:^|[_-])(?:d|day)\s*0?(\d{1,2})(?:[_-]|$)/i);
@@ -656,7 +638,8 @@ try {
   try {
     let seed: number | null = null;
     try {
-      if (typeof globalThis.__gameSeed === 'number') seed = globalThis.__gameSeed;
+      const g: any = globalThis as any;
+      if (typeof g.__gameSeed === 'number') seed = g.__gameSeed;
       else {
         const raw = localStorage.getItem('admin:seed');
         if (raw != null) seed = Number(raw);
@@ -666,37 +649,38 @@ try {
     const baseCash = gameKpis?.cashEUR ?? 100000;
     if (typeof seed === 'number' && Number.isFinite(seed)) {
       const rng = makeRng(seed + d * 1000);
-      globalThis.__rng = rng;
+      (globalThis as any).__rng = rng;
     }
     const rv = generateDailyRandomValues(baseCash);
-    setDailyRandoms(rv);
+    setDailyRandoms(rv as any);
 
     // Zufalls‑News optional – aus newsPool via SP‑Generator, inkl. KPI‑Impact
-    const useRandomNews = !!globalThis.__randomNews;
+    const g2: any = globalThis as any;
+    const useRandomNews = !!g2.__randomNews;
     let dayRandomNews: DayNewsItem[] = [];
 
     if (useRandomNews) {
       // Seed (deterministisch), separate RNG nur für News:
       const s = (typeof seed === 'number' && Number.isFinite(seed)) ? seed : Math.floor(Math.random() * 1e9);
-      const prevRng = globalThis.__rng;
+      const prevRng = (globalThis as any).__rng;
 
       // Admin‑Intensität → Generator‑Intensität
-      const useIntensity = !!globalThis.__featureEventIntensity;
-      const arr = Array.isArray(globalThis.__eventIntensityByDay) ? globalThis.__eventIntensityByDay : [];
+      const useIntensity = !!g2.__featureEventIntensity;
+      const arr = Array.isArray(g2.__eventIntensityByDay) ? g2.__eventIntensityByDay : [];
       const intensityStr = mapIntensity(useIntensity ? (Number(arr[d - 1]) || 1) : 1);
-      const diff = (globalThis.__mpDifficulty || globalThis.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
+      const diff = (g2.__mpDifficulty || g2.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
       const [minN, maxN] = diff === 'hard' ? [5,6] : (diff === 'easy' ? [1,2] : [3,4]);
       const target = minN + Math.floor(Math.random() * (maxN - minN + 1));
 
-      const itemsAll: Array<{ id: string; title: string; text: string; category: string; severity: 'low'|'mid'|'high'; impact: Partial<KPI>; roles?: string[] }> = [];
+      const itemsAll: any[] = [];
      const seen = new Set(playedTitlesRef.current);
       let attempts = 0;
       while (itemsAll.length < target && attempts < 12) {
-        globalThis.__rng = makeRng(s + d * 1000 + 500 + attempts * 97);
+        (globalThis as any).__rng = makeRng(s + d * 1000 + 500 + attempts * 97);
         const batch = generateRandomNewsForDay(undefined, {
           enabled: true, intensity: intensityStr, difficulty: diff, day: d,
           alreadyPlayed: Array.from(seen), respectRoles: false, roleFilter: ['CEO','CFO','OPS','HRLEGAL']
-        });
+        }) as any[];
         for (const n of (batch || [])) {
           if (!seen.has(n.title) && itemsAll.length < target) {
             itemsAll.push(n); seen.add(n.title);
@@ -704,19 +688,19 @@ try {
         }
         attempts++;
       }
-      globalThis.__rng = prevRng;
+      (globalThis as any).__rng = prevRng;
 
-      dayRandomNews = itemsAll.map((n) => ({
-        id: n.id, title: n.title, content: n.text, source: n.category as DayNewsItem['source'],
-        severity: mapSeverityForUi(n.severity), impact: n.impact, day: d
+      dayRandomNews = (itemsAll as any[]).map((n: any) => ({
+        id: n.id, title: n.title, text: n.text, source: n.category,
+        severity: mapSeverityForUi(n.severity), impact: n.impact, roles: n.roles ?? null
       }));
-      playedTitlesRef.current.push(...itemsAll.map(n => n.title));
+      playedTitlesRef.current.push(...(itemsAll as any[]).map(n => n.title));
     }
 
     // Einmalig am Ende setzen (leer, falls useRandomNews=false)
-    setRandomNewsForDay(dayRandomNews);
+    setRandomNewsForDay(dayRandomNews as any);
   } catch (e) {
-    errorHandler.warn('[Trainer] Randoms/RandomNews konnten nicht berechnet werden', e, { category: 'UNEXPECTED', component: 'TrainerDashboard', action: 'compute-day-randoms' });
+    console.warn('[Trainer] Randoms/RandomNews konnten nicht berechnet werden:', e);
     setDailyRandoms(null);
     setRandomNewsForDay([]);
   }
@@ -746,10 +730,9 @@ try {
         if (insErr) throw insErr;
 
         setHintDrafts((prev) => ({ ...prev, [playerId]: '' }));
-      } catch (e: unknown) {
-        errorHandler.error('[TrainerHint] insert failed', e, { category: 'NETWORK', component: 'TrainerDashboard', action: 'send-hint' });
-        const error = e as { message?: string };
-        setError(error?.message || 'Hinweis konnte nicht gesendet werden.');
+      } catch (e: any) {
+        console.error('[TrainerHint] insert failed', e);
+        setError(e?.message || 'Hinweis konnte nicht gesendet werden.');
       }
     },
     [gameId, hintDrafts]
@@ -776,10 +759,9 @@ try {
       if (insErr) throw insErr;
 
       setBroadcastAll('');
-    } catch (e: unknown) {
-      errorHandler.error('[TrainerHint] broadcast failed', e, { category: 'NETWORK', component: 'TrainerDashboard', action: 'send-hint' });
-      const error = e as { message?: string };
-      setError(error?.message || 'Broadcast konnte nicht gesendet werden.');
+    } catch (e: any) {
+      console.error('[TrainerHint] broadcast failed', e);
+      setError(e?.message || 'Broadcast konnte nicht gesendet werden.');
     }
   }, [broadcastAll, gameId, players]);
 
@@ -835,7 +817,7 @@ try {
           )}
 
           {/* Status-Lampen */}
-          <DecisionStatusBar decisionsToday={decisionsToday} />
+          <DecisionStatusBar decisionsToday={decisionsToday as any} />
 
           {error && <div style={{ marginTop: 6, color: '#fee2e2' }}>⚠ {error}</div>}
         </div>
@@ -853,7 +835,7 @@ try {
       {/* Zugangsdaten (optional, aus AdminPanelMPM) */}
       {(() => {
         try {
-          const admin = globalThis.__multiplayerSettings
+          const admin = (globalThis as any).__multiplayerSettings
             || JSON.parse(localStorage.getItem('admin:multiplayer') || '{}');
           if (admin?.authMode === 'preset-credentials' && admin?.presetCredentials) {
             const creds = admin.presetCredentials as Record<string, { username: string; password: string }>;
@@ -1132,12 +1114,12 @@ try {
                 const rows = ROLES.map(r => ({ r, ...agg[r] })).sort((a, b) => b.points - a.points);
 
                 // Daten für PDF: Blöcke & Optionen (kompakt formatiert)
-                const blockRowsForPdf = blocksForDay.map((b) => {
+                const blockRowsForPdf = (blocksForDay as any[]).map((b: any) => {
                   const bid = getBlockId(b);
                   const brole = getBlockRole(b);
                   const opts = getBlockOptions(b);
                   const optLines = opts.length
-                    ? opts.map((o: unknown, i: number) => {
+                    ? opts.map((o: any, i: number) => {
                         const oid = getOptionId(o, i);
                         const title = getOptionTitle(o, oid);
                         const k = getOptionKpi(o);
@@ -1157,7 +1139,7 @@ try {
                   return [bid, `${p?.name || '—'} (${p?.role || '—'})`, optId, time, kpi];
                 });
 
-                const doc: Record<string, unknown> = {
+                const doc: any = {
                   pageMargins: [40, 40, 40, 40],
                   content: [
                     { text: 'Trainer*in-Protokoll', style: 'h1' },
@@ -1216,11 +1198,11 @@ try {
                    },
                     
                 // Zufalls‑News (gesamt) inkl. Rollen & KPI-Δ
-{ text: `Zufalls-News (rollenbasiert${ globalThis.__roleBasedRandomNews ? ' – Rollensicht AKTIV' : ' – Rollensicht INAKTIV' })`,
+{ text: `Zufalls-News (rollenbasiert${ (globalThis as any).__roleBasedRandomNews ? ' – Rollensicht AKTIV' : ' – Rollensicht INAKTIV' })`,
   style: 'h3', margin: [0, 12, 0, 4] },
 { ul: (randomNewsForDay || []).map(n => {
-    const k = (n as DayNewsItem & { impact?: Partial<KPI> }).impact ? formatKpiShort((n as DayNewsItem & { impact?: Partial<KPI> }).impact) : '—';
-    const rl = rolesLabel((n as DayNewsItem & { roles?: string[] }).roles);
+    const k = (n as any).impact ? formatKpiShort((n as any).impact) : '—';
+    const rl = rolesLabel((n as any).roles);
     return `${n.title} (${n.severity}) • Rollen: ${rl} • KPI Δ: ${k}`;
   })
 },
@@ -1233,10 +1215,10 @@ try {
     body: [
       ['Rolle', 'Zufalls-News'],
       ...(['CEO','CFO','OPS','HRLEGAL'] as RoleId[]).map(r => {
-        const roleOn = !!(globalThis.__roleBasedRandomNews);
+        const roleOn = !!((globalThis as any).__roleBasedRandomNews);
         const list = (randomNewsForDay || [])
           .filter(n => {
-            const rs = (n as DayNewsItem & { roles?: string[] }).roles as string[] | undefined;
+            const rs = (n as any).roles as string[] | undefined;
             return roleOn ? (!rs || (Array.isArray(rs) && rs.includes(r))) : true;
           })
           .map(n => `${n.title} (${n.severity})`)
@@ -1316,7 +1298,7 @@ try {
                 };
 
                 pdfMake.createPdf(doc).download(`Trainer_${gameId.substring(0, 8)}_Tag${currentDay}.pdf`);
-              } catch (e: unknown) {
+              } catch (e: any) {
                 alert('Export fehlgeschlagen: ' + (e?.message || 'Unbekannter Fehler'));
               }
             }}
@@ -1353,7 +1335,7 @@ try {
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
                     Quelle: {n.source || '—'} • Intensität: {n.severity ?? '—'}
                   </div>
-                  {n.content && <div style={{ fontSize: 13, marginTop: 4 }}>{n.content}</div>}
+                  {(n as any).content && <div style={{ fontSize: 13, marginTop: 4 }}>{(n as any).content}</div>}
                 </li>
               ))}
             </ul>
@@ -1371,16 +1353,16 @@ try {
                 <li key={n.id || n.title} style={{ marginBottom: 8 }}>
                   <div style={{ fontWeight: 600 }}>{n.title}</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    Quelle: {n.source || '—'} • Intensität: {n.severity ?? '—'} {(n as DayNewsItem & { roles?: string[] }).roles ? `• Rollen: ${rolesLabel((n as DayNewsItem & { roles?: string[] }).roles)}` : '• Rollen: alle'}
+                    Quelle: {n.source || '—'} • Intensität: {n.severity ?? '—'} {(n as any).roles ? `• Rollen: ${rolesLabel((n as any).roles)}` : '• Rollen: alle'}
                   </div>
-                  {(n as DayNewsItem & { impact?: Partial<KPI> }).impact && (
+                  {(n as any).impact && (
                     <div style={{ fontSize: 12, marginTop: 4 }}>
                       KPI Δ: <code style={{ fontSize: 12, background: '#f3f4f6', padding: '2px 6px', borderRadius: 4 }}>
-                        {formatKpiShort((n as DayNewsItem & { impact?: Partial<KPI> }).impact)}
+                        {formatKpiShort((n as any).impact)}
                       </code>
                     </div>
                   )}
-                  {n.content && <div style={{ fontSize: 13, marginTop: 4 }}>{n.content}</div>}
+                  {(n as any).content && <div style={{ fontSize: 13, marginTop: 4 }}>{(n as any).content}</div>}
                 </li>
               ))}
             </ul>
@@ -1414,7 +1396,7 @@ try {
             <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
               {attachmentsForDay.map((a, idx) => {
                 const key = stripInline(a.url);
-                const inDataset = a?.url?.startsWith('inline:') && attachmentContents as Record<string, { title: string; content: string; type?: string }>[key];
+                const inDataset = a?.url?.startsWith('inline:') && (attachmentContents as any)[key];
 
                 return (
                   <li key={a.id || a.url || idx} style={{ marginBottom: 8 }}>
@@ -1437,7 +1419,7 @@ try {
                           {(
                             a.type ||
                             guessExt(a.url) ||
-                            (inDataset ? ((attachmentContents as Record<string, { title: string; content: string; type?: string }>)[key]?.type || '') : '')
+                            (inDataset ? ((attachmentContents as any)[key]?.type || '') : '')
                           )
                             ?.toString()
                             ?.toUpperCase() || '—'}
@@ -1564,7 +1546,7 @@ try {
             <div style={{ color: '#6b7280' }}>Keine Blöcke für diesen Tag.</div>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
-              {blocksForDay.map((b) => {
+              {(blocksForDay as any[]).map((b) => {
                 const bid = getBlockId(b);
                 const brole = getBlockRole(b);
                 const opts = getBlockOptions(b);
@@ -1576,7 +1558,7 @@ try {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <div>
                           <strong style={{ marginRight: 8 }}>{brole || '—'}</strong>
-                          <span style={{ color: '#374151' }}>{b.title || bid}</span>
+                          <span style={{ color: '#374151' }}>{(b as any).title || bid}</span>
                         </div>
                         <div style={{ fontSize: 12, color: '#6b7280' }}>ID: {bid}</div>
                       </div>
@@ -1596,7 +1578,7 @@ try {
                                 </tr>
                               </thead>
                               <tbody>
-                                {opts.map((o: unknown, i: number) => {
+                                {opts.map((o: any, i: number) => {
                                   const oid = getOptionId(o, i);
                                   const title = getOptionTitle(o, oid);
                                   const desc = getOptionDescription(o);
@@ -1762,7 +1744,7 @@ try {
             publicPerception: 'Öffentliche Wahrnehmung'
           };
 
-          const formatValue = (key: string, val: unknown) => {
+          const formatValue = (key: string, val: any) => {
             if (key === 'cashEUR' || key === 'profitLossEUR') {
               return `${Number(val || 0).toLocaleString('de-DE')} €`;
             }
@@ -1874,10 +1856,10 @@ try {
         </div>
       )}
                     {/* Attachment-Modal (Inhalte aus attachmentContents) */}
-      {showAttachment && (attachmentContents as Record<string, { title: string; content: string; type?: string }>)[showAttachment] && (
+      {showAttachment && (attachmentContents as any)[showAttachment] && (
         <AttachmentModal
-          title={(attachmentContents as Record<string, { title: string; content: string; type?: string }>)[showAttachment].title}
-          content={(attachmentContents as Record<string, { title: string; content: string; type?: string }>)[showAttachment].content}
+          title={(attachmentContents as any)[showAttachment].title}
+          content={(attachmentContents as any)[showAttachment].content}
           onClose={() => setShowAttachment(null)}
         />
       )}
