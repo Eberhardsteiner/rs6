@@ -452,6 +452,11 @@ useEffect(() => {
    const [kpiEstimates, setKpiEstimates] = useState<KpiEstimate[]>([]);
   const [currentKpiInputs, setCurrentKpiInputs] = useState<Partial<KPI>>({});
   const [creditSettings, setCreditSettings] = useState<unknown>(null);
+  const [randomValuesByDay, setRandomValuesByDay] = useState<Record<number, Partial<KPI>>>({});
+  const [randomNewsByDay, setRandomNewsByDay] = useState<Record<number, Partial<KPI>>>({});
+  const [scenarioOverrides, setScenarioOverrides] = useState<any>(null);
+  const [scoringWeights, setScoringWeights] = useState<any>(null);
+  const [roundSeconds, setRoundSeconds] = useState<number>(300);
   const [mpDifficulty, setMpDifficulty] = useState<'easy'|'normal'|'hard'>(
     globalThis.__mpDifficulty || 'normal'
   );
