@@ -1,7 +1,5 @@
 // src/components/multiplayer/MultiplayerGameView.tsx
 import React, { useReducer, useEffect, useState, useMemo, useCallback } from 'react';
-import { useGameInitialization } from './hooks/useGameInitialization';
-import { useGameSubscriptions } from './hooks/useGameSubscriptions';
 import { MultiplayerService } from '@/services/multiplayerService';
 import { DecisionQueueService } from '@/services/decisionQueueService';
 import { supabase } from '@/services/supabaseClient';
@@ -82,13 +80,19 @@ import { errorHandler } from '@/utils/errorHandler';
 import { resolveGameTheme, getAdminGameTheme, allowUserOverride, readUserOverride } from './helpers/themeHelpers';
 import { computeRoundSecondsForDay, readGraceSeconds } from './helpers/roundTimeHelpers';
 import { getBlocksForDay, getNewsForDay } from './helpers/scenarioDataLoader';
-import { getScoringWeightsSafe } from './helpers/scoringHelpers';
+import { readScenarioOverride, getScoringWeightsSafe, scoreOptionByKpiDelta, readBaseErrorByDifficulty, computeAdaptiveFactorFromSnapshots, getRng, chooseNpcOptionWithDifficulty, inferRelatedDecisionIds } from './helpers/scoringHelpers';
 import { setupPdfMake } from './helpers/pdfSetup';
-import { GameHeader } from './game/GameHeader';
-import { ControlsPanel } from './game/ControlsPanel';
-import { WhatIfPreview } from './game/WhatIfPreview';
-import { GameOverScreenFull } from './game/GameOverScreenFull';
-import { KpiSection, DecisionsSection, NewsSection, OtherPlayersSection } from './sections';
+
+
+
+
+
+
+
+
+
+
+
 
 // Local ThemeMode type and top-level lazy for TrainerDashboard
 type ThemeMode = 'classic' | 'business' | 'dynamic';
@@ -109,6 +113,8 @@ const TrainerDashboard = React.lazy(async () => {
 });
 
 const GAME_THEME: GameTheme = 'dynamic'; // 'dynamic' | 'minimal' | 'corporate'
+
+
 
 /** ── Admin/Trainer-übersteuerbare Rundenzeiten (global/matrix) ───────────── */
 const RT_ROLES = ['CEO','CFO','OPS','HRLEGAL'] as const;
@@ -162,6 +168,46 @@ function TrainerPresenceLamp({ gameId }: { gameId: string }) {
  * (×0.9–1.2) basierend auf den letzten zwei Tagen (weiche KPIs).
  * Wirkt ausschließlich auf die What‑If‑Vorschau im MP (NPC‑Autopilot).
  */
+  const soft =
+    (Number(d.bankTrust || 0) * w.bankTrust) +
+    (Number(d.publicPerception || 0) * w.publicPerception) +
+    (Number(d.customerLoyalty || 0) * w.customerLoyalty) +
+    (Number(d.workforceEngagement || 0) * w.workforceEngagement);
+  // Cash/P&L skalieren, damit Größenordnung vergleichbar bleibt
+  const hard = (Number(d.cashEUR || 0) / 1000) + (Number(d.profitLossEUR || 0) / 1000);
+  return soft + hard;
+}
+
+function readBaseErrorByDifficulty(): number {
+  const g = globalThis;
+  const diff = (g.__npcDifficulty || g.__mode || 'normal') as ('easy'|'normal'|'hard');
+  switch (diff) {
+    case 'easy': return 0.08;
+    case 'hard': return 0.25;
+    default: return 0.15;
+  }
+}
+
+/** Ermittelt adaptiven Skalierungsfaktor (0.9..1.2) aus den letzten zwei Tagen (weiche KPIs). */
+function computeAdaptiveFactorFromSnapshots(snapshots: unknown[]): number {
+  const g = globalThis;
+  if (!g.__adaptiveDifficultyLightEnabled) return 1.0;
+
+  try {
+    if (!Array.isArray(snapshots) || snapshots.length < 2) return 1.0;
+    const k0 = snapshots[0]?.state?.kpi || {};
+    const k1 = snapshots[1]?.state?.kpi || {};
+    const s0 = Number(k0.customerLoyalty || 50) + Number(k0.bankTrust || 50) +
+               Number(k0.workforceEngagement || 50) + Number(k0.publicPerception || 50);
+    const s1 = Number(k1.customerLoyalty || 50) + Number(k1.bankTrust || 50) +
+               Number(k1.workforceEngagement || 50) + Number(k1.publicPerception || 50);
+    const diffAvg = ((s0 - s1) / 4); // [-100..100]
+    const scale = Math.max(-0.1, Math.min(0.2, diffAvg / 250)); // -0.1..0.2
+    return 1.0 + scale;
+  } catch {
+    return 1.0;
+  }
+}
 
 async function computeAdaptiveFactor(gameId: string): Promise<number> {
   const g = globalThis;
@@ -179,6 +225,49 @@ async function computeAdaptiveFactor(gameId: string): Promise<number> {
   }
 }
 
+function getRng(): () => number {
+  const g = globalThis;
+  const r = g.__rng;
+  return typeof r === 'function' ? r : Math.random;
+}
+
+/** Wählt eine NPC‑Option, die je nach Schwierigkeit + adaptivem Faktor bewusst nicht immer optimal ist. */
+function chooseNpcOptionWithDifficulty(
+  b: DecisionBlock,
+  role: RoleId,
+  kpi: KPI,
+  adaptiveFactor = 1.0,
+  rng: () => number = Math.random
+): string {
+  const options = b.options || [];
+  if (!options?.length) return pickOptionForBlock(b, role, kpi);
+
+  // Optionen nach Heuristik bewerten
+  const scored = options
+    .map((o: unknown) => ({ id: o.id, opt: o, score: scoreOptionByKpiDelta(o) }))
+    .sort((a: { score: number }, b: { score: number }) => b.score - a.score);
+
+  const bestId = scored[0]?.id ?? pickOptionForBlock(b, role, kpi);
+
+  // Fehlerwahrscheinlichkeit aus Schwierigkeit × adaptiver Faktor
+  const base = readBaseErrorByDifficulty();
+  const errorProb = Math.max(0.02, Math.min(0.45, base * adaptiveFactor));
+
+  if (rng() < errorProb && scored.length > 1) {
+    // Leicht suboptimale Wahl (zweite Wahl); selten deutlich schlechter (untere Hälfte).
+    if (rng() < 0.75) {
+      return scored[Math.min(1, scored.length - 1)].id;
+    } else {
+      const lowerStart = Math.floor(scored.length / 2);
+      const idx = lowerStart + Math.floor(rng() * Math.max(1, scored.length - lowerStart));
+      return scored[Math.min(idx, scored.length - 1)].id;
+    }
+  }
+
+  return bestId;
+}
+
+
 // Types
 interface MultiplayerGameViewProps {
   gameId: string;
@@ -192,6 +281,73 @@ interface KpiEstimate {
   kpi: keyof KPI;
   value: number;
   actualValue?: number;
+}
+
+// Helper functions
+function getBlocksForDay(day: number): DecisionBlock[] {
+  // 1) Admin/Editor-Override
+  const override = readScenarioOverride('blocks', day) as DecisionBlock[] | null;
+  if (override) return override;
+
+  // 2) Standard
+  switch (day) {
+    case 1:  return day1Blocks;
+    case 2:  return day2Blocks;
+    case 3:  return day3Blocks;
+    case 4:  return day4Blocks;
+    case 5:  return day5Blocks;
+    case 6:  return day6Blocks;
+    case 7:  return day7Blocks;
+    case 8:  return day8Blocks;
+    case 9:  return day9Blocks;
+    case 10: return day10Blocks;
+    case 11: return day11Blocks;
+    case 12: return day12Blocks;
+    case 13: return day13Blocks;
+    case 14: return day14Blocks;
+    default: return [];
+  }
+}
+
+
+function getNewsForDay(day: number): DayNewsItem[] {
+  // 1) Admin/Editor-Override
+  const override = readScenarioOverride('news', day) as DayNewsItem[] | null;
+  if (override) return override;
+
+  // 2) Standard
+  switch (day) {
+    case 1:  return day1News;
+    case 2:  return day2News;
+    case 3:  return day3News;
+    case 4:  return day4News;
+    case 5:  return day5News;
+    case 6:  return day6News;
+    case 7:  return day7News;
+    case 8:  return day8News;
+    case 9:  return day9News;
+    case 10: return day10News;
+    case 11: return day11News;
+    case 12: return day12News;
+    case 13: return day13News;
+    case 14: return day14News;
+    default: return [];
+  }
+}
+
+
+
+function inferRelatedDecisionIds(category: string, blocks: DecisionBlock[]): string[] {
+  const pick = (roles: RoleId[]) => blocks.filter(b => roles.includes(b.role)).map(b => b.id);
+  switch (category) {
+    case 'bank':     return pick(['CEO','CFO']);
+    case 'supplier': return pick(['OPS','CFO']);
+    case 'customer': return pick(['OPS','CEO']);
+    case 'press':    return pick(['CEO','HRLEGAL']);
+    case 'internal': return pick(['HRLEGAL']);
+    case 'authority':return pick(['CFO','HRLEGAL']);
+    default:         return [];
+  }
 }
 
 // Export Report Button Component
@@ -292,6 +448,9 @@ function MultiplayerGameViewInner({
   onLeave 
 }: MultiplayerGameViewProps) {
 
+
+
+  
 // ---- Theme Binding (Classic / Business / Dynamic) via AdminPanel ----
 const [themeMode, setThemeMode] = useState<ThemeMode>('classic');
 useEffect(() => {
@@ -308,6 +467,8 @@ useEffect(() => {
   window.addEventListener('admin:settings', handler);
   return () => window.removeEventListener('admin:settings', handler);
 }, []);
+
+
 
   // FIX: Initialize with a valid currentDate
   const initialDate = new Date();
@@ -443,6 +604,7 @@ useEffect(() => {
   };
 }, [gameId, state.day]);
 
+  
   const [showInsolvencyView, setShowInsolvencyView] = useState(false);
   const [attachmentModalContent, setAttachmentModalContent] = useState<{ title: string; content: string } | null>(null);
   const [whatIfEnabled, setWhatIfEnabled] = useState<boolean>(false);
@@ -452,11 +614,6 @@ useEffect(() => {
    const [kpiEstimates, setKpiEstimates] = useState<KpiEstimate[]>([]);
   const [currentKpiInputs, setCurrentKpiInputs] = useState<Partial<KPI>>({});
   const [creditSettings, setCreditSettings] = useState<unknown>(null);
-  const [randomValuesByDay, setRandomValuesByDay] = useState<Record<number, Partial<KPI>>>({});
-  const [randomNewsByDay, setRandomNewsByDay] = useState<Record<number, Partial<KPI>>>({});
-  const [scenarioOverrides, setScenarioOverrides] = useState<any>(null);
-  const [scoringWeights, setScoringWeights] = useState<any>(null);
-  const [roundSeconds, setRoundSeconds] = useState<number>(300);
   const [mpDifficulty, setMpDifficulty] = useState<'easy'|'normal'|'hard'>(
     globalThis.__mpDifficulty || 'normal'
   );
@@ -568,6 +725,12 @@ useEffect(() => {
   // Slots-Metadaten initial einlesen
   useEffect(() => { refreshSlotsMeta(); }, [refreshSlotsMeta]);
 
+  
+
+  
+
+
+  
   // States for optional components
   const [CoachController, setCoachController] = useState<unknown>(null);
   const [InfoButtons, setInfoButtons] = useState<unknown>(() => () => null);
@@ -631,6 +794,7 @@ useEffect(() => {
       scoringWeights: { cashEUR: 0.5, profitLossEUR: 0.5 }
     });
   }, [role, playerName]);
+
 
     // MP: Kreditaufnahme-Flag live verfolgen (Adminpanel → adminSettings)
   useEffect(() => {
@@ -715,6 +879,7 @@ useEffect(() => {
     localStorage.setItem(`mp_kpi_estimates_${gameId}_${role}`, JSON.stringify(kpiEstimates));
   }, [kpiEstimates, gameId, role]);
 
+
    // Auto-Save: bei Tageswechsel in __autosave__ sichern (wenn aktiviert)
   useEffect(() => {
     try {
@@ -726,23 +891,146 @@ useEffect(() => {
   }, [state.day, saveSlot]);
   
     // Initialize game with synchronized random values
-  useGameInitialization({
-    gameId,
-    playerName,
-    role,
-    dispatch,
-    company,
-    setIsGM,
-    setOtherPlayers,
-    setRandomValuesByDay,
-    setRandomNewsByDay,
-    setScenarioOverrides,
-    setScoringWeights,
-    setRoundSeconds,
-    setCreditSettings,
-    setWhatIfEnabled,
-    setSaveLoadEnabled
+
+  useEffect(() => {
+    const initGame = async () => {
+      try {
+        const gameInfo = await mpService.getGameInfo();
+        
+        const currentPlayerId = mpService.getCurrentPlayerId();
+        const currentPlayer = gameInfo.players.find((p: { id: string; name: string; role: RoleId }) => p.id === currentPlayerId);
+        setIsGM(currentPlayer?.is_gm || false);
+        
+        setOtherPlayers(gameInfo.players.filter((p: { id: string; name: string; role: RoleId }) => p.id !== currentPlayerId));
+        
+        // FIX: Ensure currentDate is properly set
+        const gameDate = new Date();
+        gameDate.setHours(9 + (gameInfo.game.current_day - 1) * 24, 0, 0, 0);
+        
+        dispatch({
+          type: 'INIT',
+          payload: {
+            day: gameInfo.game.current_day,
+            currentDate: gameDate, // FIX: Add currentDate to init
+            kpi: gameInfo.game.kpi_values || company.initialKPI,
+            isOver: gameInfo.game.state === 'finished',
+            playerName: playerName,
+            playerRole: role,
+            playerRoles: [role]
+          }
+        });
+
+
+
+        
+        // SYNCHRONIZED RANDOM VALUES using Seed
+        let allRandomValues: Record<number, Partial<KPI>> = {};
+        let randomNews: Record<number, Partial<KPI>> = {};
+        
+        if (gameInfo.settings?.seed) {
+          const seed = gameInfo.settings.seed;
+          errorHandler.debug('[MP] Using game seed', undefined, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game', metadata: { seed } });
+          
+          globalThis.__gameSeed = seed;
+          
+          for (let day = 1; day <= 14; day++) {
+            const daySpecificSeed = seed + day * 1000;
+            const dayRng = makeRng(daySpecificSeed);
+            globalThis.__rng = dayRng;
+            
+            const baseKpi = day === 1 
+              ? (gameInfo.game.kpi_values?.cashEUR || company.initialKPI.cashEUR)
+              : 100000;
+            
+            const dayRandoms = generateDailyRandomValues(baseKpi);
+            allRandomValues[day] = dayRandoms;
+            
+ // Zufalls‑News (MP) aus newsPool via SP‑Generator – inkl. KPI‑Impact
+          
+if (globalThis.__randomNews) {
+  const g = globalThis;
+
+  // Admin-Eventintensität (Skalar) → Generator-Intensität (low/normal/high)
+  const useIntensity = !!g.__featureEventIntensity;
+  const arr = Array.isArray(g.__eventIntensityByDay) ? g.__eventIntensityByDay : [];
+  const intensityStr = mapIntensity(useIntensity ? (Number(arr[day - 1]) || 1) : 1);
+
+  // Schwierigkeit aus AdminPanelMPM (easy/normal/hard)
+  const mpDiff = (g.__mpDifficulty || g.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
+
+  // Duplikat-Vermeidung über Tage (nach Titel)
+  globalThis.__playedNewsTitles = globalThis.__playedNewsTitles || [];
+  const played: string[] = globalThis.__playedNewsTitles;
+
+  // RNG für News deterministisch (Seed + Tages-Offset + 500)
+  const prevRng = globalThis.__rng;
+  globalThis.__rng = makeRng(daySpecificSeed + 500);
+
+  // Pool-basierte News erzeugen (inkl. KPI + optional roles)
+  const items = generateRandomNewsForDay(undefined, {
+    enabled: true,
+    intensity: intensityStr,
+    difficulty: mpDiff,
+    day,
+    alreadyPlayed: played
   });
+
+  // RNG wiederherstellen
+  globalThis.__rng = prevRng;
+
+  // In DayNewsItem-Form bringen (UI-Severity + Quelle + optional roles)
+  const dayNews = (items as Array<{ id: string; title: string; text: string; category: string; severity: string; impact: Partial<KPI>; roles?: string[] }>).map((n) => ({
+    id: n.id,
+    title: n.title,
+    text: n.text,
+    source: n.category,                 // Kategorie als Quelle
+    severity: mapSeverityForUi(n.severity),
+    impact: n.impact,                   // KPI-Wirkung bleibt erhalten
+    roles: n.roles ?? null     // ← rollenspezifische Sichtbarkeit
+  }));
+
+  randomNews[day] = dayNews;
+  played.push(...items.map((n: { title: string }) => n.title));
+}
+
+
+         
+          }
+
+          const currentDayRng = makeRng(ensuredSeed + gameInfo.game.current_day * 1000);
+          globalThis.__rng = currentDayRng;
+        }
+
+        // Einheitlich den effektiven Seed ermitteln (DB-Seed oder ensuredSeed)
+        const effectiveSeed = gameInfo.settings?.seed ?? globalThis.__gameSeed;
+
+        dispatch({
+          type: 'INIT',
+          payload: {
+
+            engineMeta: {
+              currentDayRandoms: allRandomValues[gameInfo.game.current_day],
+              dailyRandomValues: allRandomValues,
+              randomNews: randomNews,
+               seed: effectiveSeed
+            }
+          }
+        });
+      } catch (error) {
+        errorHandler.error('Error initializing game', error, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game' });
+        // FIX: Set fallback currentDate on error
+        dispatch({
+          type: 'INIT', 
+          payload: {
+            currentDate: new Date()
+          }
+        });
+      }
+    };
+
+    initGame();
+  }, [gameId, role, playerName]);
+
 // Re-Render bei Änderungen aus dem Szenario‑Editor (optional)
 const [, forceScenarioRefresh] = useState(0);
 useEffect(() => {
@@ -754,13 +1042,84 @@ useEffect(() => {
     window.removeEventListener('storage', onScenario);
   };
 }, []);
-  useGameSubscriptions({
-    mpService,
-    dispatch,
-    state,
-    setOtherPlayers,
-    setRandomValuesByDay
-  });
+  
+  // Subscribe to game updates
+  useEffect(() => {
+    mpService.subscribeToGameUpdates(
+      (game: { kpi_values?: KPI; current_day?: number; [key: string]: unknown }) => {
+        // FIX: Calculate proper currentDate based on day
+        const updatedDate = new Date();
+        updatedDate.setHours(9 + (game.current_day - 1) * 24, 0, 0, 0);
+        
+        dispatch({
+          type: 'INIT',
+          payload: {
+            day: game.current_day,
+            currentDate: updatedDate, // FIX: Include currentDate in updates
+            kpi: game.kpi_values,
+            isOver: game.state === 'finished'
+          }
+        });
+        
+        if (game.current_day !== state.day && state.engineMeta) {
+          const meta = state.engineMeta as Record<string, unknown> | undefined;
+          
+          if (meta.dailyRandomValues && meta.dailyRandomValues[game.current_day]) {
+            errorHandler.debug('[MP] Using pre-generated random values for day', undefined, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game', metadata: { day: game.current_day } });
+            
+            if (meta.seed) {
+              const dayRng = makeRng(meta.seed + game.current_day * 1000);
+              globalThis.__rng = dayRng;
+            }
+            
+            dispatch({
+              type: 'INIT',
+              payload: {
+                engineMeta: {
+                  ...meta,
+                  currentDayRandoms: meta.dailyRandomValues[game.current_day]
+                }
+              }
+            });
+          } else {
+            errorHandler.warn('[MP] No pre-generated values for day', undefined, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game', metadata: { day: game.current_day } });
+
+            // Setze tages-spezifische RNG auch im Fallback deterministisch:
+            const seed = (meta?.seed ?? globalThis.__gameSeed) as number | undefined;
+            if (seed != null) {
+              const dayRng = makeRng(seed + game.current_day * 1000);
+              globalThis.__rng = dayRng;
+            }
+
+            
+            const randomValues = generateDailyRandomValues(game.kpi_values?.cashEUR || 100000);
+            dispatch({
+              type: 'INIT',
+              payload: {
+                engineMeta: {
+                  currentDayRandoms: randomValues,
+                  dailyRandomValues: { 
+                    ...(meta?.dailyRandomValues || {}), 
+                    [game.current_day]: randomValues 
+                  },
+                  randomNews: meta?.randomNews || {},
+                  seed: meta?.seed
+                }
+              }
+            });
+          }
+        }
+      },
+      (players: Array<{ id: string; name: string; role: RoleId }>) => {
+        const currentPlayerId = mpService.getCurrentPlayerId();
+        setOtherPlayers(players.filter((p: { id: string; name: string; role: RoleId }) => p.id !== currentPlayerId));
+      }
+    );
+
+    return () => {
+      mpService.unsubscribeAll();
+    };
+  }, [state.day, state.engineMeta]);
 
  // Check for game ending or insolvency
 useEffect(() => {
@@ -822,6 +1181,8 @@ function mapSeverityForUi(s: 'low'|'mid'|'high'): 'low'|'medium'|'high' {
   return s === 'mid' ? 'medium' : s;
 }
 
+
+  
 function mergeDelta(a: Partial<KPI>, b: Partial<KPI>): Partial<KPI> {
    const out: Record<string, unknown> = { ...(a || {}) };
    (Object.keys(b || {}) as (keyof KPI)[]).forEach((k) => {
@@ -912,6 +1273,7 @@ function computeInvariantDelta(nextKpi: KPI, history: KPI[]): Partial<KPI> {
   return delta;
 }
 
+  
   // Handler functions
  const handleDayAdvance = async (newDay: number, kpiDelta: Partial<KPI>) => {
   // Datum des neuen Tages (09:00) vorbereiten
@@ -942,6 +1304,7 @@ function computeInvariantDelta(nextKpi: KPI, history: KPI[]): Partial<KPI> {
   const combinedDelta = mergeDelta(mergedDelta, invDelta);
    const resultKpi = applyDeltaToKpi(state.kpi, combinedDelta);
 
+
   // 5) UI aktualisieren (einmaliges AddDelta – vermeidet Doppelanwendung)
   dispatch({ type: 'ADMIN_ADD_KPI', delta: combinedDelta });
 
@@ -966,6 +1329,8 @@ function computeInvariantDelta(nextKpi: KPI, history: KPI[]): Partial<KPI> {
   }
 };
 
+      
+
  const declareInsolvency = () => {
   if (role === 'CEO') {
     dispatch({ type: 'DECLARE_INSOLVENCY' });
@@ -986,6 +1351,7 @@ const handleExportReport = useCallback(() => {
 const handleRestart = useCallback(() => {
   onLeave();
 }, [onLeave]);
+
 
 const handleCreditTaken = async (amount: number) => {
    const nextKpi = { ...state.kpi, cashEUR: (state.kpi.cashEUR || 0) + amount };
@@ -1064,6 +1430,9 @@ const handleCopyGameId = async () => {
   }
 };
 
+
+
+
   const handleOpenAttachment = (filename: string) => {
     let content = `Inhalt der Datei: ${filename}\n\n`;
     if (filename.includes('bilanz')) {
@@ -1091,6 +1460,7 @@ const [creditError, setCreditError] = useState<string | null>(null);
     try {
       setCreditBusy(true);
  
+
       // 1) Entscheidung protokollieren (Upsert)
       await upsertDecision(supabase, {
         game_id: gameId,
@@ -1123,6 +1493,8 @@ await supabase.from('games').update({ kpi_values: nextKpi }).eq('id', gameId);
     }
   };
 
+
+  
 // --- PATCH: Persistiere Entscheidungen robust via Upsert (DB hat UNIQUE auf game_id,player_id,day,block_id) ---
 const handleDecisionMade = useCallback(async (...args: unknown[]) => {
   try {
@@ -1165,6 +1537,8 @@ const handleDecisionMade = useCallback(async (...args: unknown[]) => {
   }
 }, [gameId, state.day]);
 
+
+  
 const runPreview = useCallback(async () => {
     try {
       if (!whatIfEnabled) {
@@ -1191,6 +1565,7 @@ const runPreview = useCallback(async () => {
         }
       }
 
+
       const result = simulateNext(state as GameState, npcDeltas);
       
       const visibleKpis = MultiplayerService.getRoleKpiVisibility(role);
@@ -1215,6 +1590,7 @@ const runPreview = useCallback(async () => {
       setPreview(null);
     }
   }, [state, whatIfEnabled, role, gameId]);
+
 
   const handleKpiInput = (kpiKey: keyof KPI, value: string) => {
     const numValue = parseFloat(value) || 0;
@@ -1265,6 +1641,9 @@ const newsRandom = useMemo(() => {
   });
 }, [newsRandomAll, role]);
 
+
+
+
   // Injizierte MP‑News (global + rollenbasiert)
   const [injectedNews, setInjectedNews] = useState<Array<DayNewsItem & { roles?: string[] | null }>>([]);
 
@@ -1293,9 +1672,11 @@ const newsRandom = useMemo(() => {
 
 const news = useMemo(() => [...newsBase, ...newsInjected, ...newsRandom], [newsBase, newsInjected, newsRandom]);
 
+  
   // Narrative handling
   const dayNarr = narrativesByDay[state.day];
     
+
   const selectedNews = openNewsId ? news.find(n => n.id === openNewsId) : null;
   const beatRaw: NarrativeBeat | null = openNewsId && dayNarr
     ? dayNarr.beats.find(b => b.newsId === openNewsId) || null
@@ -1315,6 +1696,165 @@ const news = useMemo(() => [...newsBase, ...newsInjected, ...newsRandom], [newsB
     }
     return Array.from(acc);
   }, [beat, roleBlocks]);
+// Kommunikationsqualität als Zusatzkarte (Mehrspielermodus)
+const CommQualitySection = ({ state, role, kpiEstimates }: { state: GameState; role: RoleId; kpiEstimates: KpiEstimate[] }) => {
+  const visibleKpis = MultiplayerService.getRoleKpiVisibility(role);
+  const nonVisible = (kpiEstimates || []).filter(est => !visibleKpis.includes(est.kpi));
+  if (!nonVisible.length) return null;
+
+  const rows = nonVisible.map(est => {
+    const actual = state.kpi[est.kpi] as number;
+    const diff = (actual ?? 0) - (est.value ?? 0);
+    const accuracy = (typeof actual === 'number' && actual !== 0)
+      ? Math.max(0, Math.min(100, 100 - Math.abs((est.value - actual) / actual * 100)))
+      : 0;
+    return { ...est, actual, diff, accuracy };
+  });
+  const avgAccuracy = rows.reduce((s, r) => s + r.accuracy, 0) / rows.length;
+
+  const kpiLabels: Record<keyof KPI, string> = {
+    cashEUR: 'Liquidität',
+    profitLossEUR: 'Gewinn/Verlust',
+    customerLoyalty: 'Kundentreue',
+    bankTrust: 'Bankvertrauen',
+    workforceEngagement: 'Belegschaft',
+    publicPerception: 'Öff. Wahrnehmung'
+  };
+  const fmtVal = (k:string, v:number) => k.includes('EUR')
+    ? new Intl.NumberFormat('de-DE', { style:'currency', currency:'EUR', maximumFractionDigits:0 }).format(v||0)
+    : `${Math.round(v||0)}`;
+
+  return (
+    <div>
+      <h2>📊 Kommunikationsqualität (Mehrspielermodus)</h2>
+      <p style={{ marginTop: 4, color: '#374151' }}>
+        Vergleich der gemeldeten KPI‑Werte (Teamkommunikation) mit den tatsächlichen Endwerten.
+        Berücksichtigt werden nur KPIs, die für die Rolle <strong>{role}</strong> nicht direkt sichtbar waren.
+      </p>
+      <div style={{
+        margin: '12px 0 16px',
+        padding: 12,
+        background: avgAccuracy > 80 ? '#d1fae5' : avgAccuracy > 60 ? '#fef3c7' : '#fee2e2',
+        border: '1px solid ' + (avgAccuracy > 80 ? '#86efac' : avgAccuracy > 60 ? '#fde68a' : '#fecaca'),
+        borderRadius: 8,
+        textAlign: 'center'
+      }}>
+        <div style={{ fontSize: 12, color: '#6b7280' }}>Durchschnittliche Genauigkeit</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: avgAccuracy > 80 ? '#059669' : avgAccuracy > 60 ? '#b45309' : '#b91c1c' }}>
+          {avgAccuracy.toFixed(1)}%
+        </div>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+          <thead>
+            <tr style={{ borderBottom:'2px solid #e5e7eb', background:'#f9fafb' }}>
+              <th style={{ padding:8, textAlign:'left' }}>Tag</th>
+              <th style={{ padding:8, textAlign:'left' }}>KPI</th>
+              <th style={{ padding:8, textAlign:'right' }}>Gemeldet</th>
+              <th style={{ padding:8, textAlign:'right' }}>Tatsächlich</th>
+              <th style={{ padding:8, textAlign:'right' }}>Abweichung</th>
+              <th style={{ padding:8, textAlign:'right' }}>Genauigkeit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, idx) => (
+              <tr key={idx} style={{ borderBottom:'1px solid #f3f4f6' }}>
+                <td style={{ padding:8, color:'#374151' }}>{r.day}</td>
+                <td style={{ padding:8, color:'#374151' }}>{kpiLabels[r.kpi]}</td>
+                <td style={{ padding:8, textAlign:'right', color:'#374151' }}>{fmtVal(r.kpi, r.value)}</td>
+                <td style={{ padding:8, textAlign:'right', color:'#374151' }}>{fmtVal(r.kpi, r.actual as number)}</td>
+                <td style={{ padding:8, textAlign:'right', color: Math.abs(r.diff) > (Number(r.actual)||1) * 0.2 ? '#ef4444' : '#f59e0b' }}>
+                  {fmtVal(r.kpi, r.diff)}
+                </td>
+                <td style={{ padding:8, textAlign:'right', fontWeight:600, color: r.accuracy > 80 ? '#10b981' : r.accuracy > 60 ? '#f59e0b' : '#ef4444' }}>
+                  {r.accuracy.toFixed(0)}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+  // Team-Kommunikation für EndingView
+const TeamCommunicationSection = ({
+  loadingComms,
+  commsByRole
+}: {
+  loadingComms: boolean;
+  commsByRole: Record<RoleId, Array<{ day: number; text: string }>>;
+}) => {
+  return (
+    <div
+      style={{
+        marginTop: 24,
+        padding: 20,
+        background: 'linear-gradient(135deg, #fff7ed, #fffbeb)',
+        borderRadius: 12,
+        border: '1px solid #fcd34d'
+      }}
+    >
+      <h3
+        className="mp-heading"
+        style={{ margin: '0 0 12px 0', color: '#92400e' }}
+      >
+        🗣️ Kommunikationsnotizen (Team)
+      </h3>
+      {loadingComms ? (
+        <div style={{ color: '#6b7280' }}>Lade Kommunikationsnotizen…</div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 12
+          }}
+        >
+          {(['CEO', 'CFO', 'OPS', 'HRLEGAL'] as RoleId[]).map((r) => (
+            <div
+              key={r}
+              style={{
+                background: 'white',
+                borderRadius: 8,
+                padding: 12,
+                border: '1px solid #f3f4f6'
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                {r === 'CEO'
+                  ? 'CEO – Stakeholderkommunikation'
+                  : r === 'CFO'
+                  ? 'CFO – Bankkommunikation'
+                  : r === 'OPS'
+                  ? 'OPS – Kunden-/Lieferantenkommunikation'
+                  : 'HR/Legal – Kommunikation (intern/extern)'}
+              </div>
+              {commsByRole[r] && commsByRole[r].length ? (
+                <ul style={{ margin: 0, paddingLeft: 16 }}>
+                  {commsByRole[r].map((it, idx) => (
+                    <li key={idx} style={{ marginBottom: 6 }}>
+                      <strong>Tag {it.day}:</strong> {it.text}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div style={{ color: '#6b7280', fontStyle: 'italic' }}>
+                  Keine Einträge.
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+
+
 
 const [gameTheme, setGameTheme] = React.useState<GameTheme>(() => {
   const admin = getAdminGameTheme();
@@ -1378,6 +1918,7 @@ React.useEffect(() => {
 
   return () => { alive = false; supabase.removeChannel(ch); };
 }, [gameId]);
+
 
 // Realtime: Auf Spieleintrag reagieren (Admin-Tag-Set/Jump)
 React.useEffect(() => {
@@ -1520,6 +2061,12 @@ if (showInsolvencyView && state.insolvency) {
   );
 }
 
+
+
+
+
+
+  
 // HAUPT-RETURN - nur HIER die Änderungen machen
 return (
   <div className={`mp-theme theme-${gameTheme}`}>
@@ -1576,15 +2123,60 @@ return (
         )}
 
         <div data-coach-controls-anchor style={{ display: 'none' }} />
+      {/* Multiplayer Header */}
+      <div style={{
+        background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+        color: 'white',
+        padding: '12px 16px',
+        marginBottom: 24,
+        borderRadius: 8,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+          <span style={{ fontWeight: 700, fontSize: 18 }}>🎮 Mehrspielermodus</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span title={`Vollständige ID: ${gameId}`}>Spiel: <strong>{gameId.substring(0, 8)}...</strong></span>
+            <button
+              onClick={handleCopyGameId}
+              aria-live="polite"
+              style={{
+                padding: '4px 10px',
+                borderRadius: 6,
+                border: '1px solid rgba(255,255,255,0.35)',
+                background: 'rgba(255,255,255,0.08)',
+                color: 'white',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: 12
+              }}
+              title="Spiel-ID in die Zwischenablage kopieren"
+            >
+              {copiedGameId ? 'Kopiert ✓' : 'Spiel-ID kopieren'}
+            </button>
+          </div>
+          <span>Rolle: <strong>{role}</strong></span>
 
-      <GameHeader
-        gameId={gameId}
-        role={role}
-        isGM={isGM}
-        copiedGameId={copiedGameId}
-        onCopyGameId={handleCopyGameId}
-        onLeave={onLeave}
-      />
+          {isGM && <span style={{ background: '#f59e0b', padding: '2px 8px', borderRadius: 4 }}>👑 GM</span>}
+
+        
+        </div>
+        <button
+          onClick={onLeave}
+          style={{
+            padding: '8px 16px',
+            background: 'white',
+            color: '#6366f1',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontWeight: 600
+          }}
+        >
+          Spiel verlassen
+        </button>
+      </div>
 
       {/* Day Sync Controller */}
       <DaySyncController
@@ -1619,14 +2211,118 @@ return (
             Spieler: <strong>{playerName}</strong> • Rolle: <strong>{role}</strong>
           </div>
 
-          <KpiSection
-            state={state}
-            role={role}
-            currentKpiInputs={currentKpiInputs}
-            onKpiInput={handleKpiInput}
-            onOpenHistory={(key) => setShowHistoryKey(key as string)}
-            getVisibleKpi={getVisibleKpi}
-          />
+          {/* KPI Display with communication inputs */}
+          <div style={{ marginBottom: 16 }}>
+            <h3>KPIs</h3>
+            <KpiCockpit
+              kpi={getVisibleKpi()}
+              kpiHistory={state.kpiHistory}
+              onOpenHistory={setShowHistoryKey}
+              visibleKpis={MultiplayerService.getRoleKpiVisibility(role)}
+            />
+            
+            {/* Input fields for non-visible KPIs */}
+            <div style={{ marginTop: 12, padding: 12, background: '#f3f4f6', borderRadius: 8 }}>
+              <h4 style={{ fontSize: 14, marginBottom: 8, color: '#374151' }}>
+                📊 Von anderen gemeldete KPIs (Tag {state.day})
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                {Object.keys(state.kpi).map(key => {
+                  const kpiKey = key as keyof KPI;
+                  const visibleKpis = MultiplayerService.getRoleKpiVisibility(role);
+                  if (visibleKpis.includes(kpiKey)) return null;
+                  
+                  const labels: Record<keyof KPI, string> = {
+                    cashEUR: 'Liquidität (€)',
+                    profitLossEUR: 'G/V (€)',
+                    customerLoyalty: 'Kundentreue',
+                    bankTrust: 'Bankvertrauen',
+                    workforceEngagement: 'Belegschaft',
+                    publicPerception: 'Öff. Wahrnehmung'
+                  };
+                  
+                  return (
+                    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <label style={{ fontSize: 11, color: '#6b7280' }}>
+                        {labels[kpiKey]}
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="?"
+                        value={currentKpiInputs[kpiKey] || ''}
+                        onChange={(e) => handleKpiInput(kpiKey, e.target.value)}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: 4,
+                          border: '1px solid #d1d5db',
+                          fontSize: 12,
+                          color: '#374151',
+                          background: '#ffffff'
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+           {/* --- MP: Kreditaufnahme (nur CFO, nur wenn Admin erlaubt) --- */}
+           {role === 'CFO' && allowCreditMP && !creditSettings?.enabled && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  background: '#eef2ff',
+                  border: '1px solid #c7d2fe',
+                  borderRadius: 8
+                }}
+              >
+                <h4 style={{ fontSize: 14, margin: 0, color: '#3730a3' }}>🏦 Kreditaufnahme (MP)</h4>
+                <p style={{ fontSize: 12, color: '#4b5563', margin: '8px 0 12px' }}>
+                  Sichtbar nur für CFO • vom Admin freigeschaltet
+                </p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    placeholder="Betrag in €"
+                    value={creditAmount}
+                    onChange={(e) => setCreditAmount(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      border: '1px solid #c7d2fe',
+                      fontSize: 13,
+                      color: '#111827',
+                      background: '#ffffff'
+                    }}
+                  />
+                  <button
+                    onClick={handleCreditDraw}
+                    disabled={creditBusy}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      border: 'none',
+                      background: '#6366f1',
+                      color: 'white',
+                      fontWeight: 600,
+                      cursor: creditBusy ? 'not-allowed' : 'pointer'
+                    }}
+                    title="Erhöht die Liquidität (sofort) und protokolliert die Maßnahme"
+                  >
+                    {creditBusy ? '…' : 'Kredit ziehen'}
+                  </button>
+                </div>
+                {creditError && (
+                  <div style={{ color: '#b91c1c', fontSize: 12, marginTop: 6 }}>
+                    {creditError}
+                  </div>
+                )}
+              </div>
+            )}
           {/* CFO Credit Panel - Only visible to CFO role when enabled */}
           {role === 'CFO' && creditSettings?.enabled && (
             <CFOCreditPanel
@@ -1642,18 +2338,85 @@ return (
             day={state.day}
           />
 
-          <ControlsPanel
-            role={role}
-            state={state}
-            gameId={gameId}
-            showDeclarationButton={role === 'CEO'}
-            onDeclareInsolvency={declareInsolvency}
-            onShowDecisionHistory={() => setShowDecisionHistory(true)}
-            InfoButtons={InfoButtons}
-            ExportReportButtonMP={ExportReportButtonMP}
-          />
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {role === 'CEO' && (
+              <button
+                onClick={declareInsolvency}
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  background: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                ⚠️ Insolvenz erklären
+              </button>
+            )}
+            
+            <button
+              onClick={() => setShowDecisionHistory(true)}
+              style={{
+                flex: 1,
+                padding: '8px',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer'
+              }}
+            >
+              📊 Entscheidungs-Historie
+            </button>
+          </div>
 
-            {saveLoadEnabled && (
+          {/* Export and Info Controls */}
+          <div style={{ 
+            padding: 12,
+            background: '#f9fafb',
+            borderRadius: 8,
+            border: '1px solid #e5e7eb',
+            marginBottom: 16 
+          }}>
+            <h4 style={{ margin: '0 0 12px 0', fontSize: 14, color: '#374151' }}>
+              📋 Protokolle & Informationen
+            </h4>
+            
+            {InfoButtons && <InfoButtons />}
+            
+            <div style={{ 
+              display: 'flex', 
+              gap: 8, 
+              flexWrap: 'wrap',
+              marginBottom: 8 
+            }}>
+              <ExportReportButtonMP 
+                fileName={`Gesamtprotokoll_${role}_Tag${state.day}.pdf`}
+                state={state}
+                role={role}
+              />
+              <DebriefButton 
+                label="🧭 Debriefing"
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                }}
+              />
+            </div>
+
+                        {saveLoadEnabled && (
               <div
                 style={{
                   width: '100%',
@@ -1726,6 +2489,7 @@ return (
               </div>
             )}
 
+            
             <details style={{ marginTop: 12 }}>
               <summary style={{ 
                 cursor: 'pointer', 
@@ -1743,36 +2507,880 @@ return (
           
           <IntranetButton day={state.day} />
 
-          <OtherPlayersSection otherPlayers={otherPlayers} />
+          {/* Other Players */}
+          <div style={{ marginBottom: 16 }}>
+            <h3>Andere Spieler</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {otherPlayers.map(player => (
+                <div key={player.id} style={{
+                  padding: 8,
+                  background: '#f3f4f6',
+                  borderRadius: 6,
+                  display: 'flex',
+                  justifyContent: 'space-between'
+                }}>
+                  <span style={{ color: '#374151' }}>{player.name}</span>
+                  <span style={{
+                    padding: '2px 6px',
+                    background: '#6366f1',
+                    color: 'white',
+                    borderRadius: 4,
+                    fontSize: 12
+                  }}>
+                    {player.role || 'Keine Rolle'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
-        <NewsSection
-          news={news}
-          newsRandom={newsRandom}
+        {/* News Column */}
+        <div className="card" style={{ 
+  flex: '2 1 480px',
+  margin: '12px',
+  backgroundColor: 'rgba(255, 255, 255, 0.98)',
+  boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
+}}>
+          <h3>News</h3>
+          <NewsFeed
+            items={news}
+            onOpenNarrative={(id) => setOpenNewsId(id)}
+          />
+          <RandomNewsPanel
+  news={newsRandom}   // ← nur die zur Rolle passenden Zufalls-News
+  day={state.day}
+/>
+        </div>
+      </div>
+
+      {/* News Detail Panel with Narratives */}
+     {openNewsId && selectedNews && beat && (
+  <div className="card" style={{
+    margin: '24px 12px',
+    backgroundColor: 'rgba(255, 255, 255, 0)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
+ }}>
+   
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 className="mp-heading" style={{ margin: 0 }}>{selectedNews.title}</h3>
+            <button className="btn" onClick={() => setOpenNewsId(null)}>Schließen</button>
+          </div>
+
+          {(() => {
+            const expandedText = selectedNews.expandedText;
+            if (!expandedText) {
+              return (
+                <>
+                  <p style={{ color: '#334155', marginBottom: 12 }}><em>{beat.summary}</em></p>
+                  <p style={{ marginBottom: 12 }}>{beat.context}</p>
+                </>
+              );
+            }
+            
+            let displayText = '';
+            if (typeof expandedText === 'function') {
+              try {
+                displayText = expandedText({ 
+                  day: state.day, 
+                  kpi: state.kpi, 
+                  log: state.log,
+                  meta: state.engineMeta 
+                });
+              } catch (error) {
+                errorHandler.warn('Error calling expandedText function', error, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'render-news' });
+                displayText = beat.summary;
+              }
+            } else if (typeof expandedText === 'string') {
+              displayText = expandedText;
+            } else {
+              displayText = beat.summary;
+            }
+            
+            return (
+              <p style={{ marginBottom: 12, lineHeight: '1.6', color: '#374151' }}>
+                {displayText}
+              </p>
+            );
+          })()}
+          
+          {beat.pressure && <p style={{ marginBottom: 12 }}><strong>Druck:</strong> {beat.pressure}</p>}
+          {beat.twist && <p style={{ marginBottom: 12 }}><strong>Wendung:</strong> {beat.twist}</p>}
+
+          {beat.kpiNotes?.length ? (
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ marginBottom: 8 }}>KPI-Hinweise</h4>
+              <ul style={{ marginBottom: 0 }}>
+                {beat.kpiNotes.map((note, i) => <li key={i}>{note}</li>)}
+              </ul>
+            </div>
+          ) : null}
+
+          {beat.roleNotes && Object.keys(beat.roleNotes).length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ marginBottom: 8 }}>Rollenhinweise</h4>
+              <ul style={{ marginBottom: 0 }}>
+                {(['CEO', 'CFO', 'OPS', 'HRLEGAL'] as const)
+                  .filter(r => beat.roleNotes?.[r]?.length)
+                  .map(r => (
+                    <li key={r}>
+                      <strong>{r}:</strong> {beat.roleNotes![r]!.join(' • ')}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+
+          {beat.relatedDecisionIds?.length ? (
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ marginBottom: 8 }}>Verwandte Entscheidungen</h4>
+              <div style={{ fontSize: 12, color: '#6b7280' }}>
+                {beat.relatedDecisionIds.map(id => {
+                  const block = roleBlocks.find(b => b.id === id);
+                  return block ? (
+                    <div
+                      key={id}
+                      style={{
+                        padding: '8px 12px',
+                        background: rolesWithNotes.includes(block.role) ? '#fef3c7' : '#f3f4f6',
+                        borderRadius: '6px',
+                        marginBottom: '6px',
+                        border: rolesWithNotes.includes(block.role)
+                          ? '1px solid #f59e0b'
+                          : '1px solid #d1d5db',
+                      }}
+                    >
+                      <strong>{block.role}:</strong> {block.title}
+                      {rolesWithNotes.includes(block.role) && (
+                        <span style={{ color: '#d97706', marginLeft: 8 }}>⚠️ Beachten</span>
+                      )}
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {selectedNews.attachments?.length ? (
+            <div style={{ marginTop: 12, fontSize: 12, color: '#6b7280' }}>
+              📎 Anlagen: {selectedNews.attachments.join(', ')}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Decisions Section */}
+      <div className="card" style={{
+  margin: '24px 12px',
+  backgroundColor: 'rgba(255, 255, 255, 0.98)',
+  boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
+}}>
+  <h3>Entscheidungen - {role}</h3>
+        <MultiplayerDecisionList
+          blocks={roleBlocks}
           day={state.day}
-          onOpenNarrative={(id) => setOpenNewsId(id)}
+          role={role}
+          currentGameDay={state.day}
+          onDecisionMade={handleDecisionMade}
+          onOpenAttachment={handleOpenAttachment}
         />
       </div>
 
-      <WhatIfPreview
-        enabled={whatIfEnabled}
-        preview={preview}
-        role={role}
-        currentDay={state.day}
-        onRunPreview={runPreview}
-        onClose={() => setPreview(null)}
+      {/* User Notes */}
+      <UserNotesField
+        notes={state.userNotes || ''}
+        onNotesChange={(notes) => dispatch({ type: 'SET_USER_NOTES', notes })}
       />
 
-      <GameOverScreenFull
-        state={state}
-        finalEnding={finalEnding}
-        role={role}
-        kpiEstimates={kpiEstimates}
-        loadingComms={loadingComms}
-        commsByRole={commsByRole}
-      />
+      {/* Role Communication (per day / per role) */}
+     <div className="card" style={{ 
+  marginTop: 24,
+  margin: '24px 12px',
+  backgroundColor: 'rgba(255, 255, 255, 0.98)',
+  boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
+}}>
+  <h3>Kommunikation – {role === 'CEO' ? 'Stakeholderkommunikation' :
+                             role === 'CFO' ? 'Bankkommunikation' :
+                             role === 'OPS' ? 'Kunden-/Lieferantenkommunikation' :
+                             'Kommunikation (intern/extern)'}</h3>
+        <textarea
+          value={roleCommsDraft}
+          onChange={(e) => setRoleCommsDraft(e.target.value)}
+          onBlur={() => saveRoleComms(roleCommsDraft)}
+          placeholder={role === 'CEO' ? 'Notizen zur Stakeholderkommunikation...' :
+                      role === 'CFO' ? 'Notizen zur Bankkommunikation...' :
+                      role === 'OPS' ? 'Notizen zur Kunden-/Lieferantenkommunikation...' :
+                      'Notizen zur internen/externen Kommunikation...'}
+          rows={4}
+          style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
+        />
+        <div style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>
+          Wird automatisch mit dem Team geteilt und im PDF aufgeführt.
+        </div>
+      </div>
 
+       
+      {/* Modals */}
+      {showHistoryKey && MultiplayerService.getRoleKpiVisibility(role).includes(showHistoryKey) && (
+        <KpiHistoryModal
+          kpiKey={showHistoryKey}
+          kpiHistory={state.kpiHistory}
+          currentKpi={state.kpi}
+          onClose={() => setShowHistoryKey(null)}
+        />
+      )}
+
+      {showDecisionHistory && (
+        <DecisionHistoryViewer
+          gameId={gameId}
+          role={role}
+          currentDay={state.day}
+          onClose={() => setShowDecisionHistory(false)}
+        />
+      )}
+
+      
+      {attachmentModalContent && (
+        <AttachmentModal
+          title={attachmentModalContent.title}
+          content={attachmentModalContent.content}
+          onClose={() => setAttachmentModalContent(null)}
+        />
+      )}
+
+      {/* What-If Preview */}
+      {whatIfEnabled && (
+        <>
+          <button 
+            className="btn" 
+            onClick={runPreview}
+            title="Erwartete KPI-Deltas für den nächsten Tag (nur sichtbare KPIs)"
+            style={{ 
+              position: 'fixed', 
+              left: 12, 
+              bottom: 12, 
+              opacity: 0.95, 
+              zIndex: 9998,
+              padding: '8px 16px',
+              background: '#8b5cf6',
+              color: 'white',
+              border: 'none',
+              borderRadius: 6,
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            🔮 Vorschau
+          </button>
+
+          {preview && (
+            <div
+              style={{
+                position: 'fixed',
+                left: 12,
+                bottom: 58,
+                maxWidth: 320,
+                background: 'linear-gradient(135deg, #f3f4f6, #ffffff)',
+                color: '#4b5563',
+                border: '2px solid #8b5cf6',
+                borderRadius: 8,
+                padding: 12,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                fontSize: 13,
+                zIndex: 9997
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: 8, color: '#6366f1' }}>
+                📊 Erwartete Δ bis Tag {state.day + 1}
+              </div>
+              <div style={{ fontSize: 11, marginBottom: 6, color: '#9ca3af' }}>
+                Nur sichtbare KPIs • Rolle: {role}
+              </div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, lineHeight: 1.6 }}>
+                {Object.entries(preview.delta).map(([key, value]) => {
+                  const labels: Record<string, string> = {
+                    cashEUR: '💶 Cash',
+                    profitLossEUR: '📈 Gewinn/Verlust',
+                    customerLoyalty: '🤝 Kundentreue',
+                    bankTrust: '🏦 Bankvertrauen',
+                    workforceEngagement: '👥 Engagement',
+                    publicPerception: '🌍 Öff. Wahrnehmung'
+                  };
+                  
+                  if (value === undefined || value === null) return null;
+                  
+                  const formatted = key.includes('EUR') 
+                    ? new Intl.NumberFormat('de-DE', { 
+                        style: 'currency', 
+                        currency: 'EUR', 
+                        maximumFractionDigits: 0 
+                      }).format(value as number)
+                    : `${value >= 0 ? '+' : ''}${Math.round(value as number)}`;
+                    
+                  return (
+                    <li key={key} style={{
+                      padding: '4px 0',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: (value as number) >= 0 ? '#10b981' : '#ef4444',
+                      fontWeight: 500
+                    }}>
+                      {labels[key] || key}: {formatted}
+                    </li>
+                  );
+                })}
+              </ul>
+              <div style={{ 
+                marginTop: 10, 
+                padding: 8, 
+                background: '#fef3c7',
+                borderRadius: 4,
+                fontSize: 11,
+                color: '#92400e'
+              }}>
+                ⚠️ Zufallseinflüsse können Abweichungen verursachen
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
+                <button 
+                  className="btn" 
+                  style={{ 
+                    fontSize: 12,
+                    padding: '4px 12px',
+                    background: 'white',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    color: '#374151'
+                  }} 
+                  onClick={() => setPreview(null)}
+                >
+                  Schließen
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* VOLLSTÄNDIGES Game Over Screen - Enhanced Ending View */}
+      {state.isOver && finalEnding && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.9)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          overflowY: 'auto',
+          padding: 20
+        }}>
+          <div className="card" style={{
+            maxWidth: 900,
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: 32,
+            background: 'linear-gradient(135deg, #ffffff, #f8fafc)'
+          }}>
+            {/* Header with Ending Title */}
+            <div style={{
+              textAlign: 'center',
+              marginBottom: 32,
+              padding: 24,
+              background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+              borderRadius: 12,
+              color: 'white'
+            }}>
+              <h1 style={{ margin: '0 0 12px 0', fontSize: 32 }}>🎮 Spiel beendet!</h1>
+              <h2 style={{ margin: 0, fontSize: 24 }}>{finalEnding.title}</h2>
+              <p style={{ margin: '12px 0 0 0', fontSize: 14, opacity: 0.9 }}>
+                {finalEnding.summary}
+              </p>
+            </div>
+
+            {/* Score Overview */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 16,
+              marginBottom: 32
+            }}>
+              <div style={{
+                padding: 16,
+                background: finalEnding.score >= 70 ? '#d1fae5' : finalEnding.score >= 40 ? '#fed7aa' : '#fee2e2',
+                borderRadius: 8,
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: 12, color: '#374151', marginBottom: 4 }}>Gesamtscore</div>
+                <div style={{ fontSize: 36, fontWeight: 800, color: finalEnding.score >= 70 ? '#10b981' : finalEnding.score >= 40 ? '#f59e0b' : '#ef4444' }}>
+                  {finalEnding.score}/100
+                </div>
+              </div>
+              
+              <div style={{
+                padding: 16,
+                background: '#e0e7ff',
+                borderRadius: 8,
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: 12, color: '#374151', marginBottom: 4 }}>Deine Rolle</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: '#6366f1' }}>
+                  {role}
+                </div>
+              </div>
+
+              <div style={{
+                padding: 16,
+                background: '#fef3c7',
+                borderRadius: 8,
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: 12, color: '#374151', marginBottom: 4 }}>Spieltage</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: '#f59e0b' }}>
+                  {state.day} / 14
+                </div>
+              </div>
+            </div>
+
+            {/* Communication Quality Analysis */}
+            {kpiEstimates.length > 0 && (
+              <div style={{
+                marginBottom: 32,
+                padding: 20,
+                background: 'linear-gradient(135deg, #f0f9ff, #e0f2fe)',
+                borderRadius: 12,
+                border: '1px solid #bae6fd'
+              }}>
+                <h3 className="mp-heading" style={{ margin: '0 0 16px 0', color: '#0c4a6e' }}>
+                  📊 Kommunikationsqualität - Wie genau waren deine KPI-Schätzungen?
+                </h3>
+                
+                {(() => {
+                  const avgAccuracy = kpiEstimates.reduce((sum, est) => {
+                    const actual = state.kpi[est.kpi];
+                    const accuracy = actual ? Math.abs((1 - Math.abs((actual - est.value)) / actual) * 100) : 0;
+                    return sum + accuracy;
+                  }, 0) / kpiEstimates.length;
+                  
+                  return (
+                    <div style={{
+                      padding: 12,
+                      background: avgAccuracy > 80 ? '#d1fae5' : avgAccuracy > 60 ? '#fed7aa' : '#fee2e2',
+                      borderRadius: 8,
+                      marginBottom: 16,
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: 14, color: '#374151' }}>Durchschnittliche Genauigkeit</div>
+                      <div style={{ 
+                        fontSize: 28, 
+                        fontWeight: 700,
+                        color: avgAccuracy > 80 ? '#10b981' : avgAccuracy > 60 ? '#f59e0b' : '#ef4444'
+                      }}>
+                        {avgAccuracy.toFixed(1)}%
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div style={{ 
+                  maxHeight: 250, 
+                  overflowY: 'auto',
+                  background: 'white',
+                  borderRadius: 8,
+                  padding: 12
+                }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                        <th style={{ padding: '8px', textAlign: 'left', fontSize: 12, color: '#111827' }}>Tag</th>
+                        <th style={{ padding: '8px', textAlign: 'left', fontSize: 12, color: '#111827' }}>KPI</th>
+                        <th style={{ padding: '8px', textAlign: 'right', fontSize: 12, color: '#111827' }}>Geschätzt</th>
+                        <th style={{ padding: '8px', textAlign: 'right', fontSize: 12, color: '#111827' }}>Tatsächlich</th>
+                        <th style={{ padding: '8px', textAlign: 'right', fontSize: 12, color: '#111827' }}>Genauigkeit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {kpiEstimates.map((est, idx) => {
+                        const actual = state.kpi[est.kpi];
+                        const diff = actual - est.value;
+                        const accuracy = actual ? Math.abs((1 - Math.abs(diff) / actual) * 100) : 0;
+                        
+                        return (
+                          <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                            <td style={{ padding: '8px', fontSize: 11, color: '#374151' }}>{est.day}</td>
+                            <td style={{ padding: '8px', fontSize: 11, color: '#374151' }}>{est.kpi}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontSize: 11, color: '#374151' }}>{est.value}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontSize: 11, color: '#374151' }}>{actual}</td>
+                            <td style={{ 
+                              padding: '8px', 
+                              textAlign: 'right',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: accuracy > 80 ? '#10b981' : accuracy > 60 ? '#f59e0b' : '#ef4444'
+                            }}>
+                              {accuracy.toFixed(0)}%
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Complete KPIs - All Visible */}
+            <div style={{
+              marginBottom: 32,
+              padding: 20,
+              background: 'linear-gradient(135deg, #f3f4f6, #ffffff)',
+              borderRadius: 12,
+              border: '1px solid #d1d5db'
+            }}>
+              <h3 className="mp-heading" style={{ margin: '0 0 16px 0', color: '#374151' }}>
+                🎯 Finale KPIs - Jetzt vollständig sichtbar!
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                {Object.entries(state.kpi).map(([key, value]) => {
+                  const visibleKpis = MultiplayerService.getRoleKpiVisibility(role);
+                  const wasVisible = visibleKpis.includes(key as keyof KPI);
+                  
+                  const labels: Record<string, string> = {
+                    cashEUR: 'Liquidität',
+                    profitLossEUR: 'Gewinn/Verlust',
+                    customerLoyalty: 'Kundentreue',
+                    bankTrust: 'Bankvertrauen',
+                    workforceEngagement: 'Belegschaft',
+                    publicPerception: 'Öff. Wahrnehmung'
+                  };
+                  
+                  return (
+                    <div key={key} style={{
+                      padding: 12,
+                      background: wasVisible ? 'white' : 'linear-gradient(135deg, #fef3c7, #fed7aa)',
+                      borderRadius: 8,
+                      border: wasVisible ? '1px solid #e5e7eb' : '2px solid #f59e0b',
+                      position: 'relative'
+                    }}>
+                      {!wasVisible && (
+                        <div style={{
+                          position: 'absolute',
+                          top: 4,
+                          right: 4,
+                          background: '#f59e0b',
+                          color: 'white',
+                          fontSize: 9,
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          fontWeight: 700
+                        }}>
+                          NEU
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>
+                        {labels[key] || key}
+                      </div>
+                      <div style={{ 
+                        fontSize: 20, 
+                        fontWeight: 700,
+                        color: '#111827'
+                      }}>
+                        {key.includes('EUR') 
+                          ? new Intl.NumberFormat('de-DE', { 
+                              style: 'currency', 
+                              currency: 'EUR',
+                              maximumFractionDigits: 0 
+                            }).format(value as number)
+                          : value
+                        }
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* KPI Development Chart */}
+            <div style={{
+              marginBottom: 32,
+              padding: 20,
+              background: 'white',
+              borderRadius: 12,
+              border: '1px solid #e5e7eb'
+            }}>
+              <h3 className="mp-heading" style={{ margin: '0 0 16px 0', color: '#374151' }}>
+                📈 KPI-Entwicklung über 14 Tage
+              </h3>
+              
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                      <th style={{ padding: 8, textAlign: 'left', position: 'sticky', left: 0, background: '#f9fafb', color: '#111827' }}>Tag</th>
+                      <th style={{ padding: 8, textAlign: 'right', color: '#111827' }}>Cash €</th>
+                      <th style={{ padding: 8, textAlign: 'right', color: '#111827' }}>G/V €</th>
+                      <th style={{ padding: 8, textAlign: 'center', color: '#111827' }}>Kunden</th>
+                      <th style={{ padding: 8, textAlign: 'center', color: '#111827' }}>Bank</th>
+                      <th style={{ padding: 8, textAlign: 'center', color: '#111827' }}>Team</th>
+                      <th style={{ padding: 8, textAlign: 'center', color: '#111827' }}>Öffentl.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...state.kpiHistory, state.kpi].map((kpi, idx) => (
+                      <tr key={idx} style={{ 
+                        borderBottom: '1px solid #f3f4f6',
+                        background: idx === state.kpiHistory.length ? '#f0f9ff' : 'white'
+                      }}>
+                        <td style={{ 
+                          padding: 8, 
+                          fontWeight: idx === state.kpiHistory.length ? 700 : 400,
+                          position: 'sticky',
+                          left: 0,
+                          background: idx === state.kpiHistory.length ? '#f0f9ff' : 'white',
+                          color: '#374151'
+                        }}>
+                          {idx + 1} {idx === state.kpiHistory.length && '(Final)'}
+                        </td>
+                        <td style={{ padding: 8, textAlign: 'right', color: '#374151' }}>
+                          {kpi.cashEUR.toLocaleString('de-DE')}
+                        </td>
+                        <td style={{ padding: 8, textAlign: 'right', color: '#374151' }}>
+                          {kpi.profitLossEUR.toLocaleString('de-DE')}
+                        </td>
+                        <td style={{ padding: 8, textAlign: 'center', color: '#374151' }}>{Math.round(kpi.customerLoyalty)}</td>
+                        <td style={{ padding: 8, textAlign: 'center', color: '#374151' }}>{Math.round(kpi.bankTrust)}</td>
+                        <td style={{ padding: 8, textAlign: 'center', color: '#374151' }}>{Math.round(kpi.workforceEngagement)}</td>
+                        <td style={{ padding: 8, textAlign: 'center', color: '#374151' }}>{Math.round(kpi.publicPerception)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Detailed Score Breakdown */}
+            <div style={{
+              marginBottom: 32,
+              padding: 20,
+              background: 'linear-gradient(135deg, #fef2f2, #fee2e2)',
+              borderRadius: 12,
+              border: '1px solid #fecaca'
+            }}>
+              <h3 className="mp-heading" style={{ margin: '0 0 16px 0', color: '#991b1b' }}>
+                🏆 Detaillierte Bewertung
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                <div>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: 14, color: '#7f1d1d' }}>KPI-Punkte</h4>
+                  <div className="mp-elevated" style={{ background: 'white', borderRadius: 8, padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#374151' }}>
+                      <span>Liquidität:</span>
+                      <strong>{finalEnding.breakdown.cash} Punkte</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#374151' }}>
+                      <span>Gewinn/Verlust:</span>
+                      <strong>{finalEnding.breakdown.pl} Punkte</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#374151' }}>
+                      <span>Kundentreue:</span>
+                      <strong>{finalEnding.breakdown.customers} Punkte</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#374151' }}>
+                      <span>Bankvertrauen:</span>
+                      <strong>{finalEnding.breakdown.bank} Punkte</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#374151' }}>
+                      <span>Belegschaft:</span>
+                      <strong>{finalEnding.breakdown.workforce} Punkte</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#374151' }}>
+                      <span>Öffentlichkeit:</span>
+                      <strong>{finalEnding.breakdown.publicPerception} Punkte</strong>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: 14, color: '#7f1d1d' }}>Modifikatoren</h4>
+                  <div className="mp-elevated" style={{ background: 'white', borderRadius: 8, padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: '#374151' }}>
+                      <span>Bonus:</span>
+                      <strong style={{ color: '#10b981' }}>+{finalEnding.bonus}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: '#374151' }}>
+                      <span>Malus:</span>
+                      <strong style={{ color: '#ef4444' }}>-{finalEnding.malus}</strong>
+                    </div>
+                    <div style={{ 
+                      borderTop: '2px solid #e5e7eb', 
+                      paddingTop: 8,
+                      marginTop: 8
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#374151' }}>
+                        <span><strong>Gesamt:</strong></span>
+                        <strong style={{ fontSize: 18, color: '#111827' }}>{finalEnding.score}/100</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Role-specific Performance */}
+            <div style={{
+              marginBottom: 32,
+              padding: 20,
+              background: 'linear-gradient(135deg, #e0f2fe, #dbeafe)',
+              borderRadius: 12,
+              border: '1px solid #bae6fd'
+            }}>
+              <h3 className="mp-heading" style={{ margin: '0 0 16px 0', color: '#075985' }}>
+                👤 Deine Rollenleistung als {role}
+              </h3>
+              
+              <div className="mp-elevated" style={{ background: 'white', borderRadius: 8, padding: 16 }}>
+                <p style={{ margin: '0 0 12px 0', color: '#374151' }}>
+                  Als <strong>{role}</strong> warst du verantwortlich für:
+                </p>
+                <ul style={{ margin: 0, paddingLeft: 20, color: '#6b7280' }}>
+                  {role === 'CEO' && (
+                    <>
+                      <li>Strategische Führung und Gesamtverantwortung</li>
+                      <li>Stakeholder-Kommunikation</li>
+                      <li>Krisenmanagement und Insolvenzentscheidungen</li>
+                    </>
+                  )}
+                  {role === 'CFO' && (
+                    <>
+                      <li>Finanzmanagement und Liquiditätssteuerung</li>
+                      <li>Bankbeziehungen und Kreditverhandlungen</li>
+                      <li>Kostenoptimierung</li>
+                    </>
+                  )}
+                  {role === 'OPS' && (
+                    <>
+                      <li>Operative Exzellenz und Prozessoptimierung</li>
+                      <li>Kundenbeziehungen und Lieferantenmanagement</li>
+                      <li>Qualitätssicherung</li>
+                    </>
+                  )}
+                  {role === 'HRLEGAL' && (
+                    <>
+                      <li>Personalmanagement und Mitarbeitermotivation</li>
+                      <li>Rechtliche Compliance</li>
+                      <li>Interne Kommunikation</li>
+                    </>
+                  )}
+                </ul>
+                
+                <div style={{ 
+                  marginTop: 16,
+                  padding: 12,
+                  background: '#f0f9ff',
+                  borderRadius: 6,
+                  border: '1px solid #bae6fd'
+                }}>
+                  <div style={{ fontSize: 12, color: '#0c4a6e', marginBottom: 4 }}>
+                    Entscheidungen getroffen:
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0284c7' }}>
+                    {state.log.filter(e => e.role === role && e.chosenOptionId).length}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
+            {/* Communications (MP) */}
+            <div style={{
+              marginBottom: 32,
+              padding: 20,
+              background: 'linear-gradient(135deg, #fff7ed, #fffbeb)',
+              borderRadius: 12,
+              border: '1px solid #fcd34d'
+            }}>
+              <h3 className="mp-heading" style={{ margin: '0 0 12px 0', color: '#92400e' }}>🗣️ Kommunikationsnotizen (Team)</h3>
+              {loadingComms ? (
+                <div style={{ color: '#6b7280' }}>Lade Kommunikationsnotizen…</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                  {(['CEO','CFO','OPS','HRLEGAL'] as RoleId[]).map(r => (
+                    <div key={r} style={{ background: 'white', borderRadius: 8, padding: 12, border: '1px solid #f3f4f6' }}>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                        {r === 'CEO' ? 'CEO – Stakeholderkommunikation' :
+                         r === 'CFO' ? 'CFO – Bankkommunikation' :
+                         r === 'OPS' ? 'OPS – Kunden-/Lieferantenkommunikation' :
+                         'HR/Legal – Kommunikation (intern/extern)'}
+                      </div>
+                      {(commsByRole[r] && commsByRole[r].length) ? (
+                        <ul style={{ margin: 0, paddingLeft: 16 }}>
+                          {commsByRole[r].map((it, idx) => (
+                            <li key={idx} style={{ marginBottom: 6 }}>
+                              <strong>Tag {it.day}:</strong> {it.text}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div style={{ color: '#6b7280', fontStyle: 'italic' }}>Keine Einträge.</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            
+            {/* Action Buttons */}
+            <div style={{ 
+              display: 'flex', 
+              gap: 16, 
+              justifyContent: 'center',
+              paddingTop: 20,
+              borderTop: '2px solid #e5e7eb'
+            }}>
+              <button
+                onClick={() => {
+                  // Export final report
+                  const exportBtn = document.querySelector('[title*="Gesamtprotokoll"]') as HTMLButtonElement;
+                  if (exportBtn) exportBtn.click();
+                }}
+                style={{
+                  padding: '12px 24px',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                📄 Abschlussbericht exportieren
+              </button>
+              
+              <button
+                onClick={onLeave}
+                style={{
+                  padding: '12px 24px',
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontSize: 16,
+                  fontWeight: 600
+                }}
+              >
+                Zurück zur Lobby
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+       {/* Game Chat System */}
       <GameChat
         gameId={gameId}
         playerName={playerName}

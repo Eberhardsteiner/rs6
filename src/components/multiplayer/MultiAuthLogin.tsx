@@ -3,7 +3,6 @@ import { MultiplayerService } from '@/services/multiplayerService';
 import { supabase } from '@/services/supabaseClient';
 import type { RoleId } from '@/core/models/domain';
 import '@/styles/onboarding.css';
-import { errorHandler, safeJSONParse, safeLocalStorageSet } from '@/utils/errorHandler';
 
 interface MultiAuthLoginProps {
   onSuccess: (gameId: string, role: RoleId) => void;
@@ -16,14 +15,10 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   if (!adminSettings) {
     const stored = localStorage.getItem('admin:multiplayer');
     if (stored) {
-      adminSettings = safeJSONParse(stored, null, {
-        category: 'STORAGE',
-        component: 'MultiAuthLogin',
-        action: 'load-admin-settings',
-      });
-      if (adminSettings) {
+      try {
+        adminSettings = JSON.parse(stored);
         (globalThis as any).__multiplayerSettings = adminSettings;
-      }
+      } catch (e) {}
     }
   }
 
@@ -32,7 +27,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   const [authMode, setAuthMode] = useState<'email' | 'name-only' | 'preset-credentials'>(
     adminSettings?.authMode || 'name-only'
   );
-  const [step, setStep] = useState<'game-mode' | 'role-auth' | 'joining'>('game-mode');
+  const [step, setStep] = useState<'choose-mode' | 'login' | 'register' | 'game-mode' | 'role-selection' | 'joining'>('login');
 
   
   // Trainer-Feature: über AdminPanelMPM schaltbar
@@ -81,7 +76,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             name: 'Trainer',
             is_gm: false,
             is_active: true,
-            last_seen: new Date().toISOString()
+            last_seen_at: new Date().toISOString()
           }, { onConflict: 'game_id,user_id' })
           .select()
           .single();
@@ -92,38 +87,18 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             game_id: trainerGameId, user_id: user.id
           });
         } catch (e) {
-          errorHandler.warn('Trainer membership upsert failed (non-critical)', e, {
-            category: 'NETWORK',
-            component: 'MultiAuthLogin',
-            action: 'trainer-membership-upsert',
-          });
+          console.warn('[TrainerMemberships] bypass upsert failed:', e);
         }
 
         // 4) LocalStorage vervollständigen
-        safeLocalStorageSet('mp_current_game', trainerGameId, {
-          component: 'MultiAuthLogin',
-          action: 'persist-trainer-session',
-        });
-        safeLocalStorageSet('mp_current_role', 'TRAINER', {
-          component: 'MultiAuthLogin',
-          action: 'persist-trainer-session',
-        });
-        if (playerRow?.id) {
-          safeLocalStorageSet('mp_player_id', playerRow.id, {
-            component: 'MultiAuthLogin',
-            action: 'persist-trainer-session',
-          });
-        }
+        localStorage.setItem('mp_current_game', trainerGameId);
+        localStorage.setItem('mp_current_role', 'TRAINER');
+        if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
 
         // 5) Weiter in die App
         onSuccess(trainerGameId, 'TRAINER');
       } catch (e) {
-        errorHandler.error('Trainer bypass failed', e, {
-          category: 'AUTH',
-          component: 'MultiAuthLogin',
-          action: 'trainer-bypass',
-          metadata: { gameId: trainerGameId },
-        });
+        console.error('[Trainer-Bypass] Fehler:', e);
       }
     })();
   }, []);
@@ -186,10 +161,10 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             gameId = rpcId;
           }
         } else {
-          errorHandler.warn('[join_game] RPC warn', error, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'join-game' });
+          console.warn('[join_game] RPC warn:', error.message ?? error);
         }
       } catch (e) {
-        errorHandler.warn('[join_game] RPC exception', e, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'join-game' });
+        console.warn('[join_game] RPC exception:', e);
       }
       if (!gameId) {
         setOccupiedRoles(new Set());
@@ -204,7 +179,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         .not('role', 'is', null);
 
       if (pErr) {
-        errorHandler.error('Error fetching players', pErr, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'fetch-players' });
+        console.error('Error fetching players:', pErr);
         setOccupiedRoles(new Set());
         return;
       }
@@ -224,7 +199,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       setOccupiedRoles(occ);
       setCurrentGameId(gameId);
     } catch (e) {
-      errorHandler.error('Error in fetchOccupiedRoles', e, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'fetch-roles' });
+      console.error('Error in fetchOccupiedRoles:', e);
       setOccupiedRoles(new Set());
     }
   };
@@ -251,7 +226,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       const { data: game } = await supabase
         .from('games')
         .select('id')
-        .eq('session_code', code)
+        .eq('join_code', code)
         .single();
 
       if (game && isMounted) {
@@ -267,7 +242,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
               filter: `game_id=eq.${game.id}`
             },
             async (payload) => {
-              errorHandler.debug('Player change detected', undefined, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'players-subscription', metadata: { payload } });
+              console.log('Player change detected:', payload);
               if (isMounted) {
                 // Bei jeder Änderung die Rollen neu laden
                 await fetchOccupiedRoles(code);
@@ -304,7 +279,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         .eq('role', role);
 
       if (existingErr) {
-        errorHandler.error('Error checking role before reserving', existingErr, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'reserve-role' });
+        console.error('Error checking role before reserving:', existingErr);
         return false;
       }
       if ((existingPlayers || []).length > 0) {
@@ -320,13 +295,13 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         .eq('user_id', user.id);
 
       if (error) {
-        errorHandler.error('Error reserving role', error, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'reserve-role' });
+        console.error('Error reserving role:', error);
         return false;
       }
 
       return true;
     } catch (err) {
-      errorHandler.error('Error in reserveRole', err, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'reserve-role' });
+      console.error('Error in reserveRole:', err);
       return false;
     }
   };
@@ -410,7 +385,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
         // Game-ID bestimmen
         const gid = currentGameId || (await (async () => {
-          const { data: g } = await supabase.from('games').select('id').eq('session_code', joinCode).single();
+          const { data: g } = await supabase.from('games').select('id').eq('join_code', joinCode).single();
           return g?.id || joinCode; // Fallback
         })());
 
@@ -610,17 +585,6 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       position: 'relative' as const,
       overflow: 'hidden'
     },
-    panel: {
-      width: '100%',
-      background: 'linear-gradient(145deg, rgba(15,31,55,0.95) 0%, rgba(11,18,32,0.98) 50%, rgba(8,15,28,0.95) 100%)',
-      border: '2px solid rgba(37,99,235,0.3)',
-      borderRadius: '24px',
-      padding: '40px',
-      boxShadow: '0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
-      backdropFilter: 'blur(12px)',
-      position: 'relative' as const,
-      zIndex: 1
-    },
     title: {
       fontSize: '32px',
       fontWeight: '800',
@@ -743,135 +707,6 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   // Render Auth Mode Selector (disabled)
   const renderAuthModeSelector = () => null;
 
-  // ========== SCREEN 1: GAME MODE SELECTION (Create vs Join) ==========
-  const renderGameModeSelection = () => (
-    <div style={styles.root}>
-      {/* Animated background */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        background: 'radial-gradient(circle at 50% 50%, rgba(20,184,166,0.15), transparent 70%)',
-        animation: 'pulse 3s ease-in-out infinite',
-        pointerEvents: 'none'
-      }} />
-
-      <div style={{
-        ...styles.panel,
-        maxWidth: '500px',
-        margin: '0 auto'
-      }}>
-        <h2 style={{
-          fontSize: '32px',
-          fontWeight: '700',
-          color: '#14b8a6',
-          marginBottom: '12px',
-          textAlign: 'center'
-        }}>
-          Multiplayer-Modus
-        </h2>
-        <p style={{
-          color: '#94a3b8',
-          textAlign: 'center',
-          marginBottom: '40px',
-          fontSize: '14px'
-        }}>
-          Wähle eine Option um zu starten
-        </p>
-
-        {/* CREATE GAME Button */}
-        <button
-          onClick={() => {
-            setGameMode('create');
-            setStep('role-auth');
-          }}
-          style={{
-            width: '100%',
-            padding: '20px',
-            marginBottom: '16px',
-            background: 'linear-gradient(135deg, #14b8a6 0%, #0891b2 100%)',
-            border: 'none',
-            borderRadius: '12px',
-            color: '#fff',
-            fontSize: '18px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease',
-            boxShadow: '0 8px 24px rgba(20,184,166,0.4)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)';
-            e.currentTarget.style.boxShadow = '0 12px 32px rgba(20,184,166,0.6)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.boxShadow = '0 8px 24px rgba(20,184,166,0.4)';
-          }}
-        >
-          🎮 Neues Spiel starten
-        </button>
-
-        {/* JOIN GAME Section */}
-        <div style={{
-          padding: '24px',
-          background: 'rgba(15,23,42,0.8)',
-          border: '1px solid rgba(20,184,166,0.2)',
-          borderRadius: '12px'
-        }}>
-          <label style={{
-            display: 'block',
-            color: '#e6eefc',
-            fontSize: '14px',
-            fontWeight: '600',
-            marginBottom: '12px'
-          }}>
-            Einem Spiel beitreten
-          </label>
-          <input
-            type="text"
-            placeholder="Game-ID eingeben"
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            style={{
-              ...styles.input,
-              marginBottom: '12px'
-            }}
-          />
-          <button
-            onClick={async () => {
-              if (!joinCode.trim()) {
-                setError('Bitte Game-ID eingeben');
-                return;
-              }
-              setError('');
-              setGameMode('join');
-              // Fetch occupied roles
-              await fetchOccupiedRoles(joinCode);
-              setStep('role-auth');
-            }}
-            disabled={!joinCode.trim()}
-            style={{
-              ...styles.button,
-              width: '100%',
-              opacity: !joinCode.trim() ? 0.5 : 1,
-              cursor: !joinCode.trim() ? 'not-allowed' : 'pointer'
-            }}
-          >
-            Beitreten →
-          </button>
-        </div>
-
-        {error && (
-          <div style={{
-            ...styles.errorBox,
-            marginTop: '16px'
-          }}>
-            ⚠️ {error}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   // Render Login Form
   const renderLoginForm = () => (
     <div style={styles.root}>
@@ -976,6 +811,318 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
           </div>
         )}
 
+        {/* Auth Mode Specific Forms */}
+        <label style={{
+            color: '#e6eefc',
+            fontSize: '14px',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}>
+            Wähle deine Rolle:
+            {gameMode === 'join' && occupiedRoles.size > 0 && (
+              <span style={{ 
+                fontSize: '12px', 
+                color: '#94a3b8',
+                marginLeft: '8px',
+                fontWeight: 'normal'
+              }}>
+                ({occupiedRoles.size} von 4 belegt)
+              </span>
+            )}
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+
+            {(
+              trainerFeatureEnabled
+                ? (['CEO','CFO','OPS','HRLEGAL','TRAINER'] as RoleId[])
+                : (['CEO','CFO','OPS','HRLEGAL'] as RoleId[])
+            ).map(role => {
+              const isOccupied = occupiedRoles.has(role);
+              const isSelected = selectedRole === role;
+              return (
+                <button
+                  key={role}
+                  onClick={() => handleRoleSelection(role)}
+                  disabled={isOccupied}
+                  aria-disabled={isOccupied}
+                  aria-label={isOccupied ? `${role} belegt` : `${role} frei`}
+                  title={isOccupied ? 'Rolle belegt – Auswahl gesperrt' : (role === 'TRAINER' ? 'Trainer (Passwort erforderlich)' : 'Rolle wählen')}
+                  style={{
+                    ...styles.roleButton,
+                    ...(isSelected ? styles.roleButtonActive : {}),
+                    ...(isOccupied ? styles.roleButtonDisabled : {}),
+                    color: '#ffffff',
+                    WebkitTextFillColor: '#ffffff'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isOccupied && selectedRole !== role) {
+                      (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(37,99,235,0.2)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isOccupied && selectedRole !== role) {
+                      (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
+                    }
+                  }}
+                >
+                  {/* ⛔ Badge oben rechts wenn belegt */}
+                  {isOccupied && (
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        fontSize: 18,
+                        filter: 'drop-shadow(0 0 6px rgba(239,68,68,0.8))'
+                      }}
+                    >
+                      ⛔
+                    </div>
+                  )}
+
+                  <div style={{
+                    fontSize: '16px',
+                    color: isOccupied ? 'rgba(255,255,255,0.6)' : '#ffffff',
+                    WebkitTextFillColor: isOccupied ? 'rgba(255,255,255,0.6)' : '#ffffff',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+                  }}>
+                    {role}
+                  </div>
+
+                  {/* Persistentes Overlay + Text "BELEGT" wenn belegt */}
+                  {isOccupied && (
+                    <div
+                      className="occupied-overlay"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(127,29,29,0.92)',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ffffff',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        opacity: 1,
+                        pointerEvents: 'none',
+                        backdropFilter: 'blur(2px)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px'
+                      }}
+                    >
+                      ⛔&nbsp;BELEGT
+                    </div>
+                  )}
+
+                  {isSelected && !isOccupied && (
+                    <div style={{
+                      fontSize: '12px',
+                      marginTop: '4px',
+                      color: '#14b8a6',
+                      WebkitTextFillColor: '#14b8a6',
+                      textShadow: '0 0 10px rgba(20,184,166,0.5)'
+                    }}>✔ Ausgewählt</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+        </div>
+
+        {/* Trainer-Panel: nur sichtbar, wenn Rolle TRAINER gewählt */}
+        {selectedRole === 'TRAINER' && (
+          <div style={{ marginTop: 8, padding: 12, border: '1px solid #334155', borderRadius: 12, background: 'rgba(11,18,32,0.6)' }}>
+            <label style={{ display:'block', fontWeight:600, color:'#e6eefc', marginBottom: 8 }}>
+              Trainer-Passwort
+              <input
+                type="password"
+                value={trainerPassword}
+                onChange={e => setTrainerPassword((e.target as HTMLInputElement).value)}
+                placeholder="Passwort"
+                style={{ marginTop:6, width:'100%', padding:'10px 12px', borderRadius:8, border:'1px solid #334155', background:'#0b1220', color:'#e5e7eb' }}
+              />
+            </label>
+
+            {/* Wenn gerade ein Spiel erstellt wurde: Game-ID + Kopierfunktionen und ggf. Zugangsdaten */}
+            {trainerCreatedGameId ? (
+              <div>
+                <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom: 8 }}>
+                  <code style={{ background:'#111827', color:'#e5e7eb', padding:'4px 8px', borderRadius:6 }}>
+                    Game-ID: {trainerCreatedGameId}
+                  </code>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(trainerCreatedGameId)}
+                    style={{ padding:'6px 10px', borderRadius:6, border:'1px solid #334155', background:'#0b1220', color:'#e5e7eb', cursor:'pointer' }}
+                    title="Game-ID kopieren"
+                  >
+                    Kopieren
+                  </button>
+                </div>
+
+                {authMode === 'preset-credentials' && adminSettings?.presetCredentials && (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ color:'#94a3b8', marginBottom:6 }}>Vorgegebene Zugangsdaten (zum Versenden mit Game-ID):</div>
+                    <pre style={{ whiteSpace:'pre-wrap', background:'#0b1220', color:'#e5e7eb', padding:12, borderRadius:8, border:'1px solid #334155' }}>
+{['CEO','CFO','OPS','HRLEGAL'].map(r => {
+const c = (adminSettings.presetCredentials as any)[r];
+return `${r}: ${c?.username || '—'} / ${c?.password || '—'}`;
+}).join('\n')}
+                    </pre>
+                    <button
+                      onClick={() => {
+                        const lines = ['CEO','CFO','OPS','HRLEGAL'].map(r => {
+                          const c = (adminSettings.presetCredentials as any)[r];
+                          return `${r}: ${c?.username || '—'} / ${c?.password || '—'}`;
+                        });
+                        navigator.clipboard.writeText(`Game-ID: ${trainerCreatedGameId}\n` + lines.join('\n'));
+                      }}
+                      style={{ marginTop:8, padding:'8px 12px', borderRadius:8, border:'1px solid #334155', background:'#0b1220', color:'#e5e7eb', cursor:'pointer' }}
+                    >
+                      Game-ID + Zugangsdaten kopieren
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    onClick={async () => {
+                      // Beim Weiterklicken: Trainer in DB verankern (Upsert) und ins Cockpit
+                      try {
+                        let { data: { user } } = await supabase.auth.getUser();
+                        if (!user) {
+                          const { data, error } = await supabase.auth.signInAnonymously();
+                          if (error) throw error;
+                          user = data.user!;
+                        }
+                        // Trainer-Player upserten (Rolle TRAINER)
+                        const { data: playerRow, error: upErr } = await supabase
+                          .from('players')
+                          .upsert({
+                            game_id: trainerCreatedGameId,
+                            user_id: user.id,
+                            role: 'TRAINER',
+                            name: 'Trainer',
+                            is_gm: false,
+                            is_active: true,
+                            last_seen_at: new Date().toISOString()
+                          }, { onConflict: 'game_id,user_id' })
+                          .select().single();
+                        if (upErr) throw upErr;
+
+                        try { await supabase.from('trainer_memberships').upsert({ game_id: trainerCreatedGameId, user_id: user.id }); } catch {}
+
+                        localStorage.setItem('mp_current_game', trainerCreatedGameId);
+                        localStorage.setItem('mp_current_role', 'TRAINER');
+                        if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
+
+                        onSuccess(trainerCreatedGameId, 'TRAINER' as RoleId);
+                      } catch (e:any) {
+                        setError(e?.message || 'Trainer-Login fehlgeschlagen');
+                      }
+                    }}
+                    style={{ padding:'10px 14px', borderRadius:8, background:'#3b82f6', color:'#fff', border:'none', cursor:'pointer', fontWeight:700 }}
+                  >
+                    Weiter zum Trainer-Cockpit
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  <button
+                    onClick={async () => {
+                      if (trainerPassword !== 'observer101') { setError('Falsches Trainer-Passwort'); return; }
+                      setError(''); setLoading(true);
+                      try {
+                        // Anonyme Session sicherstellen und Spiel anlegen
+                        let { data: { user } } = await supabase.auth.getUser();
+                        if (!user) {
+                          const { data, error } = await supabase.auth.signInAnonymously();
+                          if (error) throw error;
+                        }
+                        if (!localStorage.getItem('mp_user_name')) localStorage.setItem('mp_user_name', 'Trainer');
+
+                        const { gameId } = await mpService.createGame({ name: 'Trainer-Session', max_players: 4 });
+                        setTrainerCreatedGameId(gameId);
+                      } catch (e:any) {
+                        setError(e?.message || 'Fehler beim Erstellen des Spiels');
+                      } finally { setLoading(false); }
+                    }}
+                    style={{ padding:'10px 14px', borderRadius:8, background:'#111827', color:'#fff', border:'1px solid #334155', cursor:'pointer', fontWeight:700 }}
+                  >
+                    Neues Spiel starten (Trainer*in)
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 12, paddingTop:12, borderTop: '1px solid #334155' }}>
+                  <label style={{ fontWeight:600, color:'#e6eefc' }}>
+                    Bestehendem Spiel beitreten (Game-ID)
+                    <div style={{ display:'flex', gap:8, marginTop:6 }}>
+                      <input
+                        type="text"
+                        value={trainerJoinId}
+                        onChange={e=>setTrainerJoinId((e.target as HTMLInputElement).value)}
+                        placeholder="UUID"
+                        style={{ flex:1, padding:'10px 12px', borderRadius:8, border:'1px solid #334155', background:'#0b1220', color:'#e5e7eb' }}
+                      />
+                      <button
+                        onClick={async () => {
+                          if (trainerPassword !== 'observer101') { setError('Falsches Trainer-Passwort'); return; }
+                          if (!trainerJoinId.trim()) { setError('Bitte Game-ID (UUID) angeben'); return; }
+                          setError(''); setLoading(true);
+                          try {
+                            let { data: { user } } = await supabase.auth.getUser();
+                            if (!user) {
+                              const { data, error } = await supabase.auth.signInAnonymously();
+                              if (error) throw error;
+                              user = data.user!;
+                            }
+                            const { data: game } = await supabase.from('games').select('id').eq('id', trainerJoinId.trim()).single();
+                            if (!game) { setError('Spiel nicht gefunden'); return; }
+                            const { data: playerRow, error: upErr } = await supabase
+                              .from('players')
+                              .upsert({
+                                game_id: game.id,
+                                user_id: user.id,
+                                role: 'TRAINER',
+                                name: 'Trainer',
+                                is_gm: false,
+                                is_active: true,
+                                last_seen_at: new Date().toISOString()
+                              }, { onConflict: 'game_id,user_id' })
+                              .select().single();
+                            if (upErr) throw upErr;
+
+                            try { await supabase.from('trainer_memberships').upsert({ game_id: game.id, user_id: user.id }); } catch {}
+
+                            localStorage.setItem('mp_current_game', game.id);
+                            localStorage.setItem('mp_current_role', 'TRAINER');
+                            if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
+
+                            onSuccess(game.id, 'TRAINER' as RoleId);
+                          } catch (e:any) {
+                            setError(e?.message || 'Fehler beim Trainer-Beitritt');
+                          } finally { setLoading(false); }
+                        }}
+                        style={{ padding:'10px 14px', borderRadius:8, background:'#0ea5e9', color:'#fff', border:'none', cursor:'pointer', fontWeight:700 }}
+                      >
+                        Beitreten
+                      </button>
+                    </div>
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        
+        {/* Auth Mode Specific Forms */}
         {authMode === 'email' && (
           <>
             {step === 'login' ? (
@@ -1640,375 +1787,6 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
     </div>
   );
 
-  // ========== SCREEN 2: ROLE + AUTH SELECTION ==========
-  const renderRoleAndAuth = () => {
-    const roles: RoleId[] = trainerFeatureEnabled
-      ? ['CEO', 'CFO', 'OPS', 'HRLEGAL', 'TRAINER']
-      : ['CEO', 'CFO', 'OPS', 'HRLEGAL'];
-
-    const handleRoleSelect = (role: RoleId) => {
-      setSelectedRole(role);
-      setError('');
-    };
-
-    const handleContinue = async () => {
-      if (!selectedRole) {
-        setError('Bitte wähle eine Rolle');
-        return;
-      }
-
-      // TRAINER needs no auth - directly join/create
-      if (selectedRole === 'TRAINER') {
-        setLoading(true);
-        try {
-          // Get anon session
-          let { data: { user } } = await supabase.auth.getUser();
-          if (!user) {
-            const { data, error: authErr } = await supabase.auth.signInAnonymously();
-            if (authErr) throw authErr;
-            user = data.user!;
-          }
-
-          let finalGameId: string;
-
-          if (gameMode === 'create') {
-            // Create new game
-            const { data: newGame, error: createErr } = await supabase
-              .from('games')
-              .insert({
-                name: 'Trainer Game',
-                created_by: user.id,
-                host_id: user.id,
-                session_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-                status: 'waiting',
-                current_day: 1,
-                difficulty: 'medium',
-                game_mode: 'standard'
-              })
-              .select()
-              .single();
-            if (createErr) throw createErr;
-            finalGameId = newGame.id;
-          } else {
-            // Join existing game
-            const { data: existingGame, error: fetchErr } = await supabase
-              .from('games')
-              .select('id')
-              .eq('id', joinCode)
-              .single();
-            if (fetchErr || !existingGame) throw new Error('Spiel nicht gefunden');
-            finalGameId = existingGame.id;
-          }
-
-          // Upsert trainer player
-          const { data: playerRow, error: upErr } = await supabase
-            .from('players')
-            .upsert({
-              game_id: finalGameId,
-              user_id: user.id,
-              role: 'TRAINER',
-              name: 'Trainer',
-              is_gm: false,
-              is_active: true,
-              last_seen: new Date().toISOString()
-            }, { onConflict: 'game_id,user_id' })
-            .select()
-            .single();
-
-          if (upErr) {
-            if (upErr.code === '23505') {
-              throw new Error('Fehler beim Beitreten als Trainer. Bitte versuche es erneut.');
-            }
-            throw upErr;
-          }
-
-          try {
-            await supabase.from('trainer_memberships').upsert({
-              game_id: finalGameId,
-              user_id: user.id
-            });
-          } catch (e) {
-            errorHandler.warn('Trainer membership upsert failed', e, { category: 'NETWORK', component: 'MultiAuthLogin', action: 'preset-join' });
-          }
-
-          localStorage.setItem('mp_current_game', finalGameId);
-          localStorage.setItem('mp_current_role', 'TRAINER');
-          if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
-
-          onSuccess(finalGameId, 'TRAINER');
-        } catch (e: any) {
-          setError(e?.message || 'Fehler beim Trainer-Zugang');
-        } finally {
-          setLoading(false);
-        }
-        return;
-      }
-
-      // For other roles: proceed with auth
-      setError('');
-    };
-
-    const handleAuth = async () => {
-      if (!selectedRole || selectedRole === 'TRAINER') return;
-      if (!playerName.trim()) {
-        setError('Bitte Namen eingeben');
-        return;
-      }
-
-      setLoading(true);
-      try {
-        // Auth based on authMode
-        let user: any;
-        if (authMode === 'email') {
-          // Email login (simplified - assume already logged in or handle login)
-          const { data: { user: emailUser } } = await supabase.auth.getUser();
-          if (!emailUser) {
-            setError('Bitte erst einloggen');
-            setLoading(false);
-            return;
-          }
-          user = emailUser;
-        } else {
-          // Anonymous/name-only
-          const { data: { user: anonUser } } = await supabase.auth.getUser();
-          if (!anonUser) {
-            const { data, error: authErr } = await supabase.auth.signInAnonymously();
-            if (authErr) throw authErr;
-            user = data.user!;
-          } else {
-            user = anonUser;
-          }
-        }
-
-        let finalGameId: string;
-
-        if (gameMode === 'create') {
-          // Create new game with initial KPI values
-          const { data: newGame, error: createErr } = await supabase
-            .from('games')
-            .insert({
-              name: `${playerName}'s Game`,
-              created_by: user.id,
-              host_id: user.id,
-              session_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-              status: 'waiting',
-              current_day: 1,
-              difficulty: 'medium',
-              game_mode: 'standard',
-              kpi_values: {
-                cashEUR: 100000,
-                profitLossEUR: 0,
-                customerLoyalty: 50,
-                bankTrust: 50,
-                workforceEngagement: 50,
-                publicPerception: 50
-              }
-            })
-            .select()
-            .single();
-          if (createErr) throw createErr;
-          finalGameId = newGame.id;
-        } else {
-          // Join existing game
-          const { data: existingGame, error: fetchErr } = await supabase
-            .from('games')
-            .select('id')
-            .eq('id', joinCode)
-            .single();
-          if (fetchErr || !existingGame) throw new Error('Spiel nicht gefunden');
-          finalGameId = existingGame.id;
-        }
-
-        // Upsert player
-        const { data: playerRow, error: upErr } = await supabase
-          .from('players')
-          .upsert({
-            game_id: finalGameId,
-            user_id: user.id,
-            role: selectedRole,
-            name: playerName,
-            is_gm: false,
-            is_active: true,
-            last_seen: new Date().toISOString()
-          }, { onConflict: 'game_id,user_id' })
-          .select()
-          .single();
-
-        if (upErr) {
-          if (upErr.code === '23505' && upErr.message?.includes('idx_players_game_role_unique')) {
-            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-          }
-          throw upErr;
-        }
-
-        localStorage.setItem('mp_current_game', finalGameId);
-        localStorage.setItem('mp_current_role', selectedRole);
-        if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
-
-        onSuccess(finalGameId, selectedRole);
-      } catch (e: any) {
-        setError(e?.message || 'Fehler beim Beitreten');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    return (
-      <div style={styles.root}>
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(circle at 50% 50%, rgba(20,184,166,0.15), transparent 70%)',
-          animation: 'pulse 3s ease-in-out infinite',
-          pointerEvents: 'none'
-        }} />
-
-        <div style={{
-          ...styles.panel,
-          maxWidth: '600px',
-          margin: '0 auto'
-        }}>
-          <h2 style={{
-            fontSize: '28px',
-            fontWeight: '700',
-            color: '#14b8a6',
-            marginBottom: '8px',
-            textAlign: 'center'
-          }}>
-            {gameMode === 'create' ? 'Neues Spiel' : 'Spiel beitreten'}
-          </h2>
-          <p style={{
-            color: '#94a3b8',
-            textAlign: 'center',
-            marginBottom: '32px',
-            fontSize: '14px'
-          }}>
-            {gameMode === 'join' && `Game-ID: ${joinCode}`}
-          </p>
-
-          {/* Role Selection */}
-          <label style={{
-            display: 'block',
-            color: '#e6eefc',
-            fontSize: '14px',
-            fontWeight: '600',
-            marginBottom: '12px'
-          }}>
-            Wähle deine Rolle:
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
-            {roles.map(role => {
-              const isOccupied = occupiedRoles.has(role);
-              const isSelected = selectedRole === role;
-              return (
-                <button
-                  key={role}
-                  onClick={() => !isOccupied && handleRoleSelect(role)}
-                  disabled={isOccupied}
-                  style={{
-                    padding: '16px',
-                    background: isSelected
-                      ? 'linear-gradient(135deg, #14b8a6 0%, #0891b2 100%)'
-                      : isOccupied
-                      ? 'rgba(30,41,59,0.5)'
-                      : 'rgba(15,23,42,0.8)',
-                    border: isSelected
-                      ? '2px solid #14b8a6'
-                      : '1px solid rgba(20,184,166,0.3)',
-                    borderRadius: '8px',
-                    color: isOccupied ? '#64748b' : '#fff',
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    cursor: isOccupied ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease',
-                    opacity: isOccupied ? 0.5 : 1
-                  }}
-                >
-                  {role} {isOccupied && '🔒'}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Auth Section - Only for non-TRAINER roles */}
-          {selectedRole && selectedRole !== 'TRAINER' && (
-            <>
-              <label style={{
-                display: 'block',
-                color: '#e6eefc',
-                fontSize: '14px',
-                fontWeight: '600',
-                marginBottom: '12px'
-              }}>
-                Dein Name:
-              </label>
-              <input
-                type="text"
-                placeholder="Namen eingeben"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                style={{
-                  ...styles.input,
-                  marginBottom: '20px'
-                }}
-              />
-              <button
-                onClick={handleAuth}
-                disabled={loading || !playerName.trim()}
-                style={{
-                  ...styles.button,
-                  width: '100%',
-                  opacity: (!playerName.trim() || loading) ? 0.5 : 1,
-                  cursor: (!playerName.trim() || loading) ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {loading ? 'Wird geladen...' : (gameMode === 'create' ? 'Spiel erstellen' : 'Beitreten')}
-              </button>
-            </>
-          )}
-
-          {/* Trainer: Direct continue button */}
-          {selectedRole === 'TRAINER' && (
-            <button
-              onClick={handleContinue}
-              disabled={loading}
-              style={{
-                ...styles.button,
-                width: '100%',
-                opacity: loading ? 0.5 : 1
-              }}
-            >
-              {loading ? 'Wird geladen...' : (gameMode === 'create' ? 'Spiel als Trainer erstellen' : 'Als Trainer beitreten')}
-            </button>
-          )}
-
-          {error && (
-            <div style={{
-              ...styles.errorBox,
-              marginTop: '16px'
-            }}>
-              ⚠️ {error}
-            </div>
-          )}
-
-          <button
-            onClick={() => setStep('game-mode')}
-            style={{
-              marginTop: '16px',
-              background: 'transparent',
-              border: 'none',
-              color: '#94a3b8',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            ← Zurück
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   // Render Joining Screen
   const renderJoining = () => (
     <div style={styles.root}>
@@ -2208,14 +1986,18 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
     </div>
   );
 
-  // Main render logic - New Flow: game-mode → role-auth → joining
-  if (step === 'game-mode') {
-    return renderGameModeSelection();
-  } else if (step === 'role-auth') {
-    return renderRoleAndAuth();
+  // Main render logic
+  if (false) { // Auth mode selector is disabled
+    return renderAuthModeSelector();
+  } else if (step === 'login' || step === 'register') {
+    return renderLoginForm();
+  } else if (step === 'game-mode') {
+    return renderGameMode();
+  } else if (step === 'role-selection') {
+    return renderRoleSelection();
   } else if (step === 'joining') {
     return renderJoining();
   }
 
-  return renderGameModeSelection();
+  return renderLoginForm();
 }
