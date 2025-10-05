@@ -1297,40 +1297,7 @@ export default function AdminPanelMPM({ onClose }: { onClose?: () => void }) {
 
   const showToast = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(''), 1600); };
 
-const importScenario = async (mode: 'import' | 'append') => {
-  const gid = (gameId || '').trim();
-  if (!gid) { alert('Bitte Game‑ID angeben.'); return; }
-
-  try {
-    // 1) Versuche, „Scenario JSON“ zu parsen und zu kompilieren (wie im SP-Editor)
-    let compiled: { scheduledDeltas?: Record<number, Array<Partial<KPI>>>; randomNews?: Record<number, unknown[]>; meta?: Record<string, unknown> } | null = null;
-    const parsed = parseScenarioFromText(scenarioText || '');
-    if (parsed.ok) {
-      compiled = compileScenario(parsed.json);
-    } else {
-      // 2) Fallback: direkter Versuch, bereits kompiliertes Objekt zu nutzen
-      const raw = JSON.parse(scenarioText || '{}');
-      if (raw && (raw.blocks || raw.news)) {
-        compiled = raw;
-      } else {
-        alert('Ungültiges Szenario-Format. Bitte gültiges Scenario JSON (days[…]) oder ein bereits kompiliertes Objekt (blocks/news) angeben.');
-        return;
-      }
-    }
-
-    if (mode === 'import') await svc.adminScenarioImport(gid, compiled);
-    else                  await svc.adminScenarioAppend(gid, compiled);
-
-    try { localStorage.setItem('admin:lastGameId', gid); } catch {}
-    alert(mode === 'import' ? 'Szenario (ersetzt) importiert.' : 'Szenario‑Patch angehängt.');
-  } catch (e) {
-    console.error('[AdminPanelMPM] Szenario-Import fehlgeschlagen:', e);
-    alert('Fehler beim Szenario-Import (Details siehe Konsole).');
-  }
-};
-
-  
-   const onApply = async () => {
+  const onApply = async () => {
     try {
       setBusy(true);
       // Persistieren
