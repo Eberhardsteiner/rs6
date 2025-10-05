@@ -77,6 +77,11 @@ import { exportSimulationReport } from '@/services/pdfReport';
 import { makeRng } from '@/core/utils/prng';
 import { generateRandomNewsForDay } from '@/core/engine/randomNews';
 import { errorHandler } from '@/utils/errorHandler';
+import { resolveGameTheme } from './helpers/themeHelpers';
+import { computeRoundSecondsForDay, readGraceSeconds } from './helpers/roundTimeHelpers';
+import { getBlocksForDay, getNewsForDay } from './helpers/scenarioDataLoader';
+import { readScenarioOverride, getScoringWeightsSafe, scoreOptionByKpiDelta, readBaseErrorByDifficulty, computeAdaptiveFactorFromSnapshots, getRng, chooseNpcOptionWithDifficulty, inferRelatedDecisionIds } from './helpers/scoringHelpers';
+import { setupPdfMake } from './helpers/pdfSetup';
 
 
 
@@ -84,34 +89,6 @@ import { errorHandler } from '@/utils/errorHandler';
 
 
 
-function getAdminGameTheme(): GameTheme {
-  try {
-    const g = globalThis.__multiplayerSettings
-      || JSON.parse(localStorage.getItem('admin:multiplayer') || '{}');
-    return (g?.gameSettings?.backgroundTheme ?? 'dynamic') as GameTheme;
-  } catch { return 'dynamic'; }
-}
-
-function allowUserOverride(): boolean {
-  try {
-    const g = globalThis.__multiplayerSettings
-      || JSON.parse(localStorage.getItem('admin:multiplayer') || '{}');
-    return !!g?.gameSettings?.allowUserOverride;
-  } catch { return false; }
-}
-
-function readUserOverride(): GameTheme | null {
-  try {
-    const qp = new URLSearchParams(location.search);
-    const p = qp.get('gameTheme');
-    if (p === 'dynamic' || p === 'minimal' || p === 'corporate') return p;
-  } catch {}
-  try {
-    const s = localStorage.getItem('user:gameTheme');
-    if (s === 'dynamic' || s === 'minimal' || s === 'corporate') return s as GameTheme;
-  } catch {}
-  return null;
-}
 
 
 
