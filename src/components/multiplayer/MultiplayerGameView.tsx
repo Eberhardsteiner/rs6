@@ -1,5 +1,7 @@
 // src/components/multiplayer/MultiplayerGameView.tsx
 import React, { useReducer, useEffect, useState, useMemo, useCallback } from 'react';
+import { useGameInitialization } from './hooks/useGameInitialization';
+import { useGameSubscriptions } from './hooks/useGameSubscriptions';
 import { MultiplayerService } from '@/services/multiplayerService';
 import { DecisionQueueService } from '@/services/decisionQueueService';
 import { supabase } from '@/services/supabaseClient';
@@ -719,141 +721,23 @@ useEffect(() => {
   }, [state.day, saveSlot]);
   
     // Initialize game with synchronized random values
-
-  useEffect(() => {
-    const initGame = async () => {
-      try {
-        const gameInfo = await mpService.getGameInfo();
-        
-        const currentPlayerId = mpService.getCurrentPlayerId();
-        const currentPlayer = gameInfo.players.find((p: { id: string; name: string; role: RoleId }) => p.id === currentPlayerId);
-        setIsGM(currentPlayer?.is_gm || false);
-        
-        setOtherPlayers(gameInfo.players.filter((p: { id: string; name: string; role: RoleId }) => p.id !== currentPlayerId));
-        
-        // FIX: Ensure currentDate is properly set
-        const gameDate = new Date();
-        gameDate.setHours(9 + (gameInfo.game.current_day - 1) * 24, 0, 0, 0);
-        
-        dispatch({
-          type: 'INIT',
-          payload: {
-            day: gameInfo.game.current_day,
-            currentDate: gameDate, // FIX: Add currentDate to init
-            kpi: gameInfo.game.kpi_values || company.initialKPI,
-            isOver: gameInfo.game.state === 'finished',
-            playerName: playerName,
-            playerRole: role,
-            playerRoles: [role]
-          }
-        });
-
-        // SYNCHRONIZED RANDOM VALUES using Seed
-        let allRandomValues: Record<number, Partial<KPI>> = {};
-        let randomNews: Record<number, Partial<KPI>> = {};
-        
-        if (gameInfo.settings?.seed) {
-          const seed = gameInfo.settings.seed;
-          errorHandler.debug('[MP] Using game seed', undefined, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game', metadata: { seed } });
-          
-          globalThis.__gameSeed = seed;
-          
-          for (let day = 1; day <= 14; day++) {
-            const daySpecificSeed = seed + day * 1000;
-            const dayRng = makeRng(daySpecificSeed);
-            globalThis.__rng = dayRng;
-            
-            const baseKpi = day === 1 
-              ? (gameInfo.game.kpi_values?.cashEUR || company.initialKPI.cashEUR)
-              : 100000;
-            
-            const dayRandoms = generateDailyRandomValues(baseKpi);
-            allRandomValues[day] = dayRandoms;
-            
- // Zufalls‑News (MP) aus newsPool via SP‑Generator – inkl. KPI‑Impact
-          
-if (globalThis.__randomNews) {
-  const g = globalThis;
-
-  // Admin-Eventintensität (Skalar) → Generator-Intensität (low/normal/high)
-  const useIntensity = !!g.__featureEventIntensity;
-  const arr = Array.isArray(g.__eventIntensityByDay) ? g.__eventIntensityByDay : [];
-  const intensityStr = mapIntensity(useIntensity ? (Number(arr[day - 1]) || 1) : 1);
-
-  // Schwierigkeit aus AdminPanelMPM (easy/normal/hard)
-  const mpDiff = (g.__mpDifficulty || g.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
-
-  // Duplikat-Vermeidung über Tage (nach Titel)
-  globalThis.__playedNewsTitles = globalThis.__playedNewsTitles || [];
-  const played: string[] = globalThis.__playedNewsTitles;
-
-  // RNG für News deterministisch (Seed + Tages-Offset + 500)
-  const prevRng = globalThis.__rng;
-  globalThis.__rng = makeRng(daySpecificSeed + 500);
-
-  // Pool-basierte News erzeugen (inkl. KPI + optional roles)
-  const items = generateRandomNewsForDay(undefined, {
-    enabled: true,
-    intensity: intensityStr,
-    difficulty: mpDiff,
-    day,
-    alreadyPlayed: played
+  useGameInitialization({
+    gameId,
+    playerName,
+    role,
+    dispatch,
+    company,
+    setIsGM,
+    setOtherPlayers,
+    setRandomValuesByDay,
+    setRandomNewsByDay,
+    setScenarioOverrides,
+    setScoringWeights,
+    setRoundSeconds,
+    setCreditSettings,
+    setWhatIfEnabled,
+    setSaveLoadEnabled
   });
-
-  // RNG wiederherstellen
-  globalThis.__rng = prevRng;
-
-  // In DayNewsItem-Form bringen (UI-Severity + Quelle + optional roles)
-  const dayNews = (items as Array<{ id: string; title: string; text: string; category: string; severity: string; impact: Partial<KPI>; roles?: string[] }>).map((n) => ({
-    id: n.id,
-    title: n.title,
-    text: n.text,
-    source: n.category,                 // Kategorie als Quelle
-    severity: mapSeverityForUi(n.severity),
-    impact: n.impact,                   // KPI-Wirkung bleibt erhalten
-    roles: n.roles ?? null     // ← rollenspezifische Sichtbarkeit
-  }));
-
-  randomNews[day] = dayNews;
-  played.push(...items.map((n: { title: string }) => n.title));
-}
-
-          }
-
-          const currentDayRng = makeRng(ensuredSeed + gameInfo.game.current_day * 1000);
-          globalThis.__rng = currentDayRng;
-        }
-
-        // Einheitlich den effektiven Seed ermitteln (DB-Seed oder ensuredSeed)
-        const effectiveSeed = gameInfo.settings?.seed ?? globalThis.__gameSeed;
-
-        dispatch({
-          type: 'INIT',
-          payload: {
-
-            engineMeta: {
-              currentDayRandoms: allRandomValues[gameInfo.game.current_day],
-              dailyRandomValues: allRandomValues,
-              randomNews: randomNews,
-               seed: effectiveSeed
-            }
-          }
-        });
-      } catch (error) {
-        errorHandler.error('Error initializing game', error, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game' });
-        // FIX: Set fallback currentDate on error
-        dispatch({
-          type: 'INIT', 
-          payload: {
-            currentDate: new Date()
-          }
-        });
-      }
-    };
-
-    initGame();
-  }, [gameId, role, playerName]);
-
 // Re-Render bei Änderungen aus dem Szenario‑Editor (optional)
 const [, forceScenarioRefresh] = useState(0);
 useEffect(() => {
@@ -865,83 +749,13 @@ useEffect(() => {
     window.removeEventListener('storage', onScenario);
   };
 }, []);
-  
-  // Subscribe to game updates
-  useEffect(() => {
-    mpService.subscribeToGameUpdates(
-      (game: { kpi_values?: KPI; current_day?: number; [key: string]: unknown }) => {
-        // FIX: Calculate proper currentDate based on day
-        const updatedDate = new Date();
-        updatedDate.setHours(9 + (game.current_day - 1) * 24, 0, 0, 0);
-        
-        dispatch({
-          type: 'INIT',
-          payload: {
-            day: game.current_day,
-            currentDate: updatedDate, // FIX: Include currentDate in updates
-            kpi: game.kpi_values,
-            isOver: game.state === 'finished'
-          }
-        });
-        
-        if (game.current_day !== state.day && state.engineMeta) {
-          const meta = state.engineMeta as Record<string, unknown> | undefined;
-          
-          if (meta.dailyRandomValues && meta.dailyRandomValues[game.current_day]) {
-            errorHandler.debug('[MP] Using pre-generated random values for day', undefined, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game', metadata: { day: game.current_day } });
-            
-            if (meta.seed) {
-              const dayRng = makeRng(meta.seed + game.current_day * 1000);
-              globalThis.__rng = dayRng;
-            }
-            
-            dispatch({
-              type: 'INIT',
-              payload: {
-                engineMeta: {
-                  ...meta,
-                  currentDayRandoms: meta.dailyRandomValues[game.current_day]
-                }
-              }
-            });
-          } else {
-            errorHandler.warn('[MP] No pre-generated values for day', undefined, { category: 'UNEXPECTED', component: 'MultiplayerGameView', action: 'init-game', metadata: { day: game.current_day } });
-
-            // Setze tages-spezifische RNG auch im Fallback deterministisch:
-            const seed = (meta?.seed ?? globalThis.__gameSeed) as number | undefined;
-            if (seed != null) {
-              const dayRng = makeRng(seed + game.current_day * 1000);
-              globalThis.__rng = dayRng;
-            }
-
-            const randomValues = generateDailyRandomValues(game.kpi_values?.cashEUR || 100000);
-            dispatch({
-              type: 'INIT',
-              payload: {
-                engineMeta: {
-                  currentDayRandoms: randomValues,
-                  dailyRandomValues: { 
-                    ...(meta?.dailyRandomValues || {}), 
-                    [game.current_day]: randomValues 
-                  },
-                  randomNews: meta?.randomNews || {},
-                  seed: meta?.seed
-                }
-              }
-            });
-          }
-        }
-      },
-      (players: Array<{ id: string; name: string; role: RoleId }>) => {
-        const currentPlayerId = mpService.getCurrentPlayerId();
-        setOtherPlayers(players.filter((p: { id: string; name: string; role: RoleId }) => p.id !== currentPlayerId));
-      }
-    );
-
-    return () => {
-      mpService.unsubscribeAll();
-    };
-  }, [state.day, state.engineMeta]);
+  useGameSubscriptions({
+    mpService,
+    dispatch,
+    state,
+    setOtherPlayers,
+    setRandomValuesByDay
+  });
 
  // Check for game ending or insolvency
 useEffect(() => {
