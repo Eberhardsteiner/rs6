@@ -266,10 +266,16 @@ useEffect(() => {
   };
 
   const handleActualGameStart = () => {
+    // Ensure currentRole is set from currentPlayer
+    if (currentPlayer?.role && !currentRole) {
+      setCurrentRole(currentPlayer.role as RoleId);
+      localStorage.setItem('mp_current_role', currentPlayer.role);
+    }
+
     // Move from lobby to playing
     setGamePhase('playing');
     localStorage.setItem('mp_game_phase', 'playing');
-    
+
     // Update game state in Supabase if GM
     mpService.isGameMaster().then(isGM => {
       if (isGM && currentGameId) {
