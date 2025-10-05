@@ -266,23 +266,34 @@ useEffect(() => {
   };
 
   const handleActualGameStart = () => {
-    // Ensure currentRole is set from currentPlayer
-    if (currentPlayer?.role && !currentRole) {
+    console.log('handleActualGameStart aufgerufen', { currentPlayer, currentRole, currentGameId });
+
+    // Ensure currentRole is ALWAYS set from currentPlayer if available
+    if (currentPlayer?.role) {
       setCurrentRole(currentPlayer.role as RoleId);
       localStorage.setItem('mp_current_role', currentPlayer.role);
+      (globalThis as any).__currentRole = currentPlayer.role;
+      console.log('Role gesetzt aus currentPlayer:', currentPlayer.role);
+    } else if (!currentRole) {
+      console.error('FEHLER: Weder currentPlayer.role noch currentRole verfügbar!');
+      alert('Fehler: Spielerrolle nicht gefunden. Bitte neu beitreten.');
+      return;
     }
 
     // Move from lobby to playing
+    console.log('Wechsle zu playing phase');
     setGamePhase('playing');
     localStorage.setItem('mp_game_phase', 'playing');
 
     // Update game state in Supabase if GM
     mpService.isGameMaster().then(isGM => {
+      console.log('isGameMaster:', isGM);
       if (isGM && currentGameId) {
         supabase
           .from('games')
           .update({ state: 'running' })
-          .eq('id', currentGameId);
+          .eq('id', currentGameId)
+          .then(result => console.log('Game state update:', result));
       }
     });
   };
