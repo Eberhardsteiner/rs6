@@ -812,7 +812,7 @@ useEffect(() => {
   
   // States for optional components
   const [CoachController, setCoachController] = useState<any>(null);
-  const [InfoButtos, setInfoButtos] = useState<any>(() => () => null);
+  const [InfoButtons, setInfoButtons] = useState<any>(() => () => null);
 
   const mpService = MultiplayerService.getInstance();
   const dqService = DecisionQueueService.getInstance();
@@ -835,11 +835,11 @@ useEffect(() => {
       }
       
       try {
-        const infoModule = await import('@/components/info/InfoButtos');
-        setInfoButtos(() => infoModule.default);
+        const infoModule = await import('@/components/info/InfoButtons');
+        setInfoButtons(() => infoModule.default);
       } catch {
-        // InfoButtos not available - use placeholder
-        setInfoButtos(() => () => null);
+        // InfoButtons not available - use placeholder
+        setInfoButtons(() => () => null);
       }
     };
     
@@ -2465,7 +2465,7 @@ return (
               📋 Protokolle & Informationen
             </h4>
             
-            {InfoButtos && <InfoButtos />}
+            {InfoButtons && <InfoButtons />}
             
             <div style={{ 
               display: 'flex', 

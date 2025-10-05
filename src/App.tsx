@@ -11,7 +11,7 @@ import ExportButtons from '@/components/exports/ExportButtons';
 import DebriefButton from '@/components/exports/DebriefButton';
 import IntranetButton from '@/components/intranet/IntranetButton';
 import InsolvencyModal from '@/components/dialogs/InsolvencyModal';
-import InfoButtons from '@/components/info/InfoButtos'; 
+import InfoButtons from '@/components/info/InfoButtons'; 
 import EndingView from '@/ui/EndingView';
 import KpiHistoryModal from '@/components/hud/KpiHistoryModal';
 import UserNotesField from '@/components/notes/UserNotesField';
@@ -35,9 +35,8 @@ import { day12Blocks, day12News } from '@/data/scenario_day_12';
 import { day13Blocks, day13News } from '@/data/scenario_day_13';
 import { day14Blocks, day14News } from '@/data/scenario_day_14';
 import { generateDailyRandomValues } from '@/core/engine/gameEngine';
-import { determineEnding, EndingResult } from '@/core/engine/ending';
+import type { EndingResult } from '@/core/engine/ending';
 import { determineEndingWithContext } from '@/core/engine/ending_extras';
-import FinalModal from '@/components/dialogs/FinalModal';
 import type { GameState } from '@/core/engine/gameEngine';
 import { reducer, simulateNext } from '@/core/engine/reducers';
 import { KPI, DayNewsItem } from '@/core/models/domain';
@@ -49,6 +48,7 @@ import RandomValuesDisplay from '@/components/hud/RandomValuesDisplay';
 import RandomNewsPanel from '@/components/hud/RandomNewsPanel';
 // >>> Coach nur auf der Spielseite einbinden (nicht im Onboarding):
 import CoachController from '@/components/CoachController';
+import { errorHandler, safeJSONParse, safeLocalStorageGet, safeLocalStorageSet, safeDispatchEvent } from '@/utils/errorHandler';
 
 // ✅ korrekter Import für PDF-Export-Button (aus Deinem Snippet)
 import ExportReportButton from './components/ExportReportButton';
@@ -91,18 +91,28 @@ function fmtEUR(n: number) {
 // Admin-Feature-Flag sicher lesen (Global → LocalStorage-Fallback)
 function __readWhatIfFlag(): boolean {
   try {
-    const g: any = (globalThis as any);
+    const g = globalThis;
     if (typeof g.__featureWhatIfPreview === 'boolean') return !!g.__featureWhatIfPreview;
     if (typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem('adminSettings');
+      const raw = safeLocalStorageGet('adminSettings', {
+        component: 'App',
+        action: 'read-whatif-flag',
+      });
       if (raw) {
-        try {
-          const obj = JSON.parse(raw);
-          return !!(obj?.features?.whatIfPreview);
-        } catch {}
+        const obj = safeJSONParse(raw, null, {
+          component: 'App',
+          action: 'parse-admin-settings',
+        });
+        return !!(obj?.features?.whatIfPreview);
       }
     }
-  } catch {}
+  } catch (e) {
+    errorHandler.warn('Failed to read WhatIf feature flag', e, {
+      category: 'STORAGE',
+      component: 'App',
+      action: 'read-whatif-flag',
+    });
+  }
   return false;
 }
 
@@ -114,21 +124,21 @@ const computeDaySeconds = (nRoles: number) => 8 * 60 * Math.max(1, nRoles);
 
 // ---- Rundenzeit-Override lesen (Admin) ----
 function __getRoundTimeMode(): 'off'|'global'|'matrix' {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const m = g.__roundTimeMode;
   return (m === 'global' || m === 'matrix') ? m : 'off';
 }
 function __getRoundTimeGrace(): number | undefined {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const n = Number(g.__roundTimeGraceSec);
   return Number.isFinite(n) ? n : undefined;
 }
 function __getRoundTimeMatrix(): Record<number, Partial<Record<RoleId, number>>> | undefined {
-  const g: any = globalThis as any;
-  return g.__roundTimeMatrix as any;
+  const g = globalThis;
+  return g.__roundTimeMatrix;
 }
 function __getRoundTimeGlobalSec(): number | undefined {
-  const g: any = globalThis as any;
+  const g = globalThis;
   const n = Number(g.__roundTimeGlobalSec);
   return (Number.isFinite(n) && n > 0) ? n : undefined;
 }
@@ -144,14 +154,14 @@ function getConfiguredDaySecondsFor(day: number, roles: RoleId[]): number | unde
   if (mode === 'matrix') {
     const M = __getRoundTimeMatrix();
     if (M) {
-      const row = (M as any)[day] || (M as any)[String(day)];
+      const row = M[day] || M[String(day) as unknown as number];
       if (row && typeof row === 'object') {
-        let sum = 0, any = false;
+        let sum = 0, found = false;
         for (const r of roles) {
-          const v = Number((row as any)[r]);
-          if (Number.isFinite(v) && v > 0) { sum += v; any = true; }
+          const v = Number(row[r]);
+          if (Number.isFinite(v) && v > 0) { sum += v; found = true; }
         }
-        if (any) return sum;
+        if (found) return sum;
       }
     }
   }
@@ -275,9 +285,10 @@ export default function App({ onBackToHome }: AppProps) {
   React.useEffect(() => {
     const handler = (e: Event) => {
       try {
-        const amtReq = Math.round(Number((e as CustomEvent).detail?.amount) || 0);
+        const customEvt = e as CustomEvent<{ amount: number }>;
+        const amtReq = Math.round(Number(customEvt.detail?.amount) || 0);
         if (!Number.isFinite(amtReq) || amtReq <= 0) return;
-        const g: any = globalThis as any;
+        const g = globalThis;
         const bankOn = !!g.__featureBankMechanics;
         if (!bankOn) return;
         const creditLine = Number((g.__bankSettings?.creditLineEUR ?? g.__bankCreditLineEUR) || 0);
@@ -289,19 +300,22 @@ export default function App({ onBackToHome }: AppProps) {
         // 1) Globale Spiegelwerte aktualisieren (HUD liest daraus)
         used = Math.round(used + amt);
         g.__usedCreditEUR = used;
-        try { if (typeof localStorage !== 'undefined') localStorage.setItem('bank:lastDraw', String(amt)); } catch {}
+        safeLocalStorageSet('bank:lastDraw', String(amt), {
+          component: 'App',
+          action: 'save-bank-draw',
+        });
 
         // 2) KPI-Liquidität erhöhen (Reducer-seitig robust, kein 'debt' im Projekt)
-        dispatch({ type: 'ADMIN_ADD_KPI', delta: { cashEUR: amt } } as any);
+        dispatch({ type: 'ADMIN_ADD_KPI', delta: { cashEUR: amt } });
 
         // 3) Optional: Store-Shadow der Bankdaten sanft mergen (falls vorhanden)
-        dispatch({ type: 'INIT', payload: { usedCreditEUR: used } } as any);
+        dispatch({ type: 'INIT', payload: { usedCreditEUR: used } });
       } catch {
         // ignore
       }
     };
-    window.addEventListener('bank:draw-now', handler as any);
-    return () => window.removeEventListener('bank:draw-now', handler as any);
+    window.addEventListener('bank:draw-now', handler);
+    return () => window.removeEventListener('bank:draw-now', handler);
   }, []);
 
   // ✅ ReportStore-Start (Dein Snippet), jetzt korrekt nach der state-Deklaration
@@ -325,7 +339,6 @@ export default function App({ onBackToHome }: AppProps) {
   const [daySeconds, setDaySeconds] = React.useState(DAY_SECONDS_DEFAULT);
   const [graceSeconds, setGraceSeconds] = React.useState(GRACE_SECONDS);
   const [finalShown, setFinalShown] = React.useState(false);
-  const [finalEnding, setFinalEnding] = React.useState<EndingResult | null>(null);
   const [showInsolvencyModal, setShowInsolvencyModal] = React.useState(false);
 
   // Attachment Modal State
@@ -364,31 +377,34 @@ export default function App({ onBackToHome }: AppProps) {
   // Szenario-Import (Editor)
   React.useEffect(() => {
     const onImport = (e: Event) => {
-      const detail = (e as CustomEvent).detail || {};
-      dispatch({ type: 'SCENARIO_IMPORT', mode: detail.mode, compiled: { scheduledDeltas: detail.scheduledDeltas, randomNews: detail.randomNews, meta: detail.meta } } as any);
+      const customEvt = e as CustomEvent<{ mode?: 'merge'|'replace'; scheduledDeltas?: Record<number, Array<Partial<KPI>>>; randomNews?: Record<number, unknown[]>; meta?: Record<string, unknown> }>;
+      const detail = customEvt.detail || {};
+      dispatch({ type: 'SCENARIO_IMPORT', mode: detail.mode, compiled: { scheduledDeltas: detail.scheduledDeltas, randomNews: detail.randomNews, meta: detail.meta } });
     };
     window.addEventListener('admin:scenario:import', onImport as EventListener);
-    return () => { window.removeEventListener('admin:scenario:import', onImport as any); };
+    return () => { window.removeEventListener('admin:scenario:import', onImport as EventListener); };
   }, []);
 
   // Admin-Bridge (Settings + KPI + Reset)
   React.useEffect(() => {
     const onSettings = (e: Event) => {
-      const d = (e as CustomEvent<AdminSettings>).detail;
+      const customEvt = e as CustomEvent<AdminSettings>;
+      const d = customEvt.detail;
+      const dExt = d as AdminSettings & { dayDurationSec?: number; gracePeriodSec?: number; difficultyAffectsRandoms?: boolean; difficultyAffectsScoring?: boolean };
       const rolesNow = (state.playerRoles && state.playerRoles.length) ? state.playerRoles : [state.playerRole];
       const autoSecNow = computeDaySeconds(rolesNow.length || 1);
       const confSecNow = getConfiguredDaySecondsFor(state.day || 1, rolesNow);
-      setDaySeconds(typeof confSecNow === 'number' ? confSecNow : (typeof (d as any).dayDurationSec === 'number' ? (d as any).dayDurationSec : autoSecNow));
-      if (typeof (d as any).gracePeriodSec === 'number') setGraceSeconds((d as any).gracePeriodSec);
+      setDaySeconds(typeof confSecNow === 'number' ? confSecNow : (typeof dExt.dayDurationSec === 'number' ? dExt.dayDurationSec : autoSecNow));
+      if (typeof dExt.gracePeriodSec === 'number') setGraceSeconds(dExt.gracePeriodSec);
       else { const gg = __getRoundTimeGrace(); if (typeof gg === 'number') setGraceSeconds(gg); }
-      if (d.difficulty) { (globalThis as any).__npcDifficulty = d.difficulty; }
-      if (typeof d.randomNews === 'boolean') { (globalThis as any).__randomNews = d.randomNews; }
-      if (typeof d.seed === 'number' && d.seed) { (globalThis as any).__rng = makeRng(d.seed); }
-      if (d.npcProfile) { (globalThis as any).__npcProfile = d.npcProfile; }
-      if (d.leakage) { (globalThis as any).__leakageRole = { ...((globalThis as any).__leakageRole||{}), ...d.leakage }; }
-      if (d.insolvencyMode) { (globalThis as any).__insolvencyMode = d.insolvencyMode; } // ← NEU
-      if (typeof (d as any).difficultyAffectsRandoms === 'boolean') { (globalThis as any).__difficultyAffectsRandoms = !!(d as any).difficultyAffectsRandoms; }
-      if (typeof (d as any).difficultyAffectsScoring === 'boolean') { (globalThis as any).__difficultyAffectsScoring = !!(d as any).difficultyAffectsScoring; }
+      if (d.difficulty) { globalThis.__npcDifficulty = d.difficulty; }
+      if (typeof d.randomNews === 'boolean') { globalThis.__randomNews = d.randomNews; }
+      if (typeof d.seed === 'number' && d.seed) { globalThis.__rng = makeRng(d.seed); }
+      if (d.npcProfile) { globalThis.__npcProfile = d.npcProfile; }
+      if (d.leakage) { globalThis.__leakageRole = { ...(globalThis.__leakageRole||{}), ...d.leakage }; }
+      if (d.insolvencyMode) { globalThis.__insolvencyMode = d.insolvencyMode; }
+      if (typeof dExt.difficultyAffectsRandoms === 'boolean') { globalThis.__difficultyAffectsRandoms = !!dExt.difficultyAffectsRandoms; }
+      if (typeof dExt.difficultyAffectsScoring === 'boolean') { globalThis.__difficultyAffectsScoring = !!dExt.difficultyAffectsScoring; }
     };
     const onKpiSet = (e: Event) => {
       const kpi = (e as CustomEvent<Partial<KPI>>).detail;
@@ -407,11 +423,11 @@ export default function App({ onBackToHome }: AppProps) {
 
     return () => {
       window.removeEventListener('admin:settings', onSettings);
-      window.removeEventListener('admin:kpi:set', onKpiSet as any);
-      window.removeEventListener('admin:kpi:add', onKpiAdd as any);
-      window.removeEventListener('admin:reset', onReset as any);
+      window.removeEventListener('admin:kpi:set', onKpiSet);
+      window.removeEventListener('admin:kpi:add', onKpiAdd);
+      window.removeEventListener('admin:reset', onReset as EventListener);
     };
-  }, []);
+  }, [state.playerRoles, state.playerRole, state.day]);
 
   // Endbewertung
   React.useEffect(() => {
@@ -471,7 +487,10 @@ export default function App({ onBackToHome }: AppProps) {
     });
     setStarted(true);
     // >>> Startsignal für Spielansicht (Coach/start-of-game Hooks)
-    try { window.dispatchEvent(new Event('ui:enter-game')); } catch {}
+    safeDispatchEvent(new Event('ui:enter-game'), {
+      component: 'App',
+      action: 'game-start-signal',
+    });
   };
 
   // Entscheidungen-Handler
@@ -490,7 +509,7 @@ export default function App({ onBackToHome }: AppProps) {
 
   // Attachment Handler
   const handleOpenAttachment = (filename: string) => {
-    let content = `Inhalt der Datei: ${filename}`;
+    const content = `Inhalt der Datei: ${filename}`;
     setAttachmentModalContent({ title: filename, content });
   };
 
@@ -520,12 +539,8 @@ export default function App({ onBackToHome }: AppProps) {
 
   // advanceDay: Schalter setzen -> NPC-Entscheidungen -> Tag weiter
   const advanceDay = React.useCallback(() => {
-    const myRoles = (state.playerRoles && state.playerRoles.length)
-      ? state.playerRoles
-      : [state.playerRole];
-
     // Flag direkt setzen (ohne Hilfsvariable)
-    (globalThis as any).__playerIdleToday = !state.log.some(e =>
+    globalThis.__playerIdleToday = !state.log.some(e =>
       e.day === state.day &&
       ((e.blockId && e.chosenOptionId) || (typeof e.customText === 'string' && e.customText.trim()))
     );
@@ -554,15 +569,57 @@ export default function App({ onBackToHome }: AppProps) {
 
   React.useEffect(() => {
     const refresh = () => setWhatIfEnabled(__readWhatIfFlag());
-    try { window.addEventListener('admin:settings', refresh as EventListener); } catch {}
-    try { window.addEventListener('storage', refresh as EventListener); } catch {}
-    try { window.addEventListener('focus', refresh as EventListener); } catch {}
-    try { document.addEventListener('visibilitychange', refresh as EventListener); } catch {}
+
+    const context = { component: 'App', action: 'whatif-event-listeners' };
+
+    try {
+      window.addEventListener('admin:settings', refresh as EventListener);
+    } catch (e) {
+      errorHandler.debug('Failed to add admin:settings listener', e, { category: 'EVENT', ...context });
+    }
+
+    try {
+      window.addEventListener('storage', refresh as EventListener);
+    } catch (e) {
+      errorHandler.debug('Failed to add storage listener', e, { category: 'EVENT', ...context });
+    }
+
+    try {
+      window.addEventListener('focus', refresh as EventListener);
+    } catch (e) {
+      errorHandler.debug('Failed to add focus listener', e, { category: 'EVENT', ...context });
+    }
+
+    try {
+      document.addEventListener('visibilitychange', refresh as EventListener);
+    } catch (e) {
+      errorHandler.debug('Failed to add visibilitychange listener', e, { category: 'EVENT', ...context });
+    }
+
     return () => {
-      try { window.removeEventListener('admin:settings', refresh as any); } catch {}
-      try { window.removeEventListener('storage', refresh as any); } catch {}
-      try { window.removeEventListener('focus', refresh as any); } catch {}
-      try { document.removeEventListener('visibilitychange', refresh as any); } catch {}
+      try {
+        window.removeEventListener('admin:settings', refresh as any);
+      } catch (e) {
+        errorHandler.debug('Failed to remove admin:settings listener', e, { category: 'EVENT', ...context });
+      }
+
+      try {
+        window.removeEventListener('storage', refresh as any);
+      } catch (e) {
+        errorHandler.debug('Failed to remove storage listener', e, { category: 'EVENT', ...context });
+      }
+
+      try {
+        window.removeEventListener('focus', refresh as any);
+      } catch (e) {
+        errorHandler.debug('Failed to remove focus listener', e, { category: 'EVENT', ...context });
+      }
+
+      try {
+        document.removeEventListener('visibilitychange', refresh as any);
+      } catch (e) {
+        errorHandler.debug('Failed to remove visibilitychange listener', e, { category: 'EVENT', ...context });
+      }
     };
   }, []);
 
@@ -643,7 +700,10 @@ export default function App({ onBackToHome }: AppProps) {
     () => [...newsBase, ...(newsRandomVisible as any[])],
     [newsBase, newsRandomVisible]
   );
-  const myRolesView = state.playerRoles?.length ? state.playerRoles : [state.playerRole];
+  const myRolesView = React.useMemo(
+    () => state.playerRoles?.length ? state.playerRoles : [state.playerRole],
+    [state.playerRoles, state.playerRole]
+  );
   const blocks = blocksAll.filter(b => myRolesView.includes(b.role));
 
   // Heutige Auswahl pro Block (Hervorhebung)
@@ -797,7 +857,11 @@ export default function App({ onBackToHome }: AppProps) {
                 applyState={(s:any)=> dispatch({ type:'INIT', payload: s })}
                 selectMeta={(s:any)=>{
                   let seed: number | null = null;
-                  try { const raw = localStorage.getItem('admin:seed'); if (raw!=null) seed = Number(raw); } catch {}
+                  const raw = safeLocalStorageGet('admin:seed', {
+                    component: 'App',
+                    action: 'read-admin-seed',
+                  });
+                  if (raw != null) seed = Number(raw);
                   return { day: s?.day, seed };
                 }}
               />
@@ -1037,7 +1101,11 @@ export default function App({ onBackToHome }: AppProps) {
         getState={()=> state}
         selectMeta={(s:any)=>{
           let seed: number | null = null;
-          try { const raw = localStorage.getItem('admin:seed'); if (raw!=null) seed = Number(raw); } catch {}
+          const raw = safeLocalStorageGet('admin:seed', {
+            component: 'App',
+            action: 'read-admin-seed-autosave',
+          });
+          if (raw != null) seed = Number(raw);
           return { day: s?.day, seed };
         }}
       />

@@ -14,6 +14,7 @@ import { MultiplayerService } from '@/services/multiplayerService';
 import { imprintText } from './data/imprint';
 import { privacyPolicyText } from './data/privacyPolicy';
 import { disclaimerText } from './data/disclaimer';
+import { errorHandler, safeLocalStorageSet } from '@/utils/errorHandler';
 
 type AppMode = 'selection' | 'singleplayer-onboarding' | 'multiplayer-onboarding' | 'admin';
 
@@ -60,8 +61,7 @@ export default function AppWrapper() {
   };
 
   // Handler for single player onboarding completion
-  const handleSinglePlayerStart = (name: string, roles: string[]) => {
-    // Store name and roles if needed (e.g., in context or state)
+  const handleSinglePlayerStart = () => {
     setMode('singleplayer');
   };
 
@@ -75,9 +75,18 @@ export default function AppWrapper() {
     // Persist the fresh multiplayer session so MultiplayerApp hydrates into the LOBBY (not PLAYING)
     try {
       // Store current session
-      localStorage.setItem('mp_current_game', gameId);
-      localStorage.setItem('mp_current_role', role);
-      localStorage.setItem('mp_game_phase', 'lobby');
+      safeLocalStorageSet('mp_current_game', gameId, {
+        component: 'AppWrapper',
+        action: 'persist-multiplayer-session',
+      });
+      safeLocalStorageSet('mp_current_role', role, {
+        component: 'AppWrapper',
+        action: 'persist-multiplayer-session',
+      });
+      safeLocalStorageSet('mp_game_phase', 'lobby', {
+        component: 'AppWrapper',
+        action: 'persist-multiplayer-session',
+      });
 
       // Set globals (optional, kept for parity with MultiplayerApp)
       (globalThis as any).__multiplayerMode = true;
@@ -90,7 +99,13 @@ export default function AppWrapper() {
         const url = new URL(window.location.href);
         url.searchParams.set('game', gameId);
         window.history.replaceState({}, '', url.toString());
-      } catch {}
+      } catch (e) {
+        errorHandler.debug('Failed to update URL with game parameter', e, {
+          category: 'UNEXPECTED',
+          component: 'AppWrapper',
+          action: 'update-url-param',
+        });
+      }
     } finally {
       // Switch to actual multiplayer app
       setMode('multiplayer');

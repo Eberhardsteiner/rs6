@@ -14,12 +14,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // Type definitions für unsere Datenbank-Tabellen
 export interface Game {
   id: string;
-  name: string;
+  name?: string;
   created_by: string;
   created_at: string;
   state: 'lobby' | 'running' | 'paused' | 'finished';
+  status: 'waiting' | 'ready' | 'starting';
   current_day: number;
   kpi_values: any;
+  session_code?: string;
+  join_code?: string;
+  host_id?: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  game_mode: 'standard' | 'challenge' | 'tutorial' | 'sandbox';
+  scenario_data: Record<string, any>;
+  theme: string;
+  max_players: number;
 }
 
 export interface Player {
@@ -28,8 +37,15 @@ export interface Player {
   user_id: string;
   is_gm: boolean;
   name: string;
-  role: 'CEO' | 'CFO' | 'OPS' | 'HRLEGAL' | null;
+  display_name: string;
+  role: 'CEO' | 'CFO' | 'OPS' | 'HRLEGAL' | 'TRAINER' | null;
   joined_at: string;
+  last_seen_at?: string;
+  last_seen?: string;
+  is_active?: boolean;
+  ready?: boolean;
+  is_ready?: boolean;
+  game_state?: Record<string, any>;
 }
 
 export interface GameAdminSettings {
