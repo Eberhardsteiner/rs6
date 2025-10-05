@@ -395,6 +395,7 @@ const [attachmentsForDay, setAttachmentsForDay] = useState<Attachment[]>([]);
   const [deadlineTs, setDeadlineTs] = useState<number | null>(null);
   const [startTs, setStartTs] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState<number>(Date.now());
+  const [gameSeed, setGameSeed] = useState<number | null>(null);
 
   /** NEU: Attachment-Modal (zeigt Inhalte aus attachmentContents) */
   const [showAttachment, setShowAttachment] = useState<string | null>(null);
@@ -505,6 +506,29 @@ const copyGameId = useCallback(async () => {
       console.log('[TrainerDashboard] KPI-Werte aus DB:', kpiValues);
 
       setCurrentDay((gameData as any)?.current_day || 1);
+
+      // NEU: Seed und Einstellungen aus game_admin_settings laden
+      const { data: settingsData, error: settingsErr } = await supabase
+        .from('game_admin_settings')
+        .select('seed, settings, features')
+        .eq('game_id', gameId)
+        .single();
+
+      if (!settingsErr && settingsData) {
+        const seed = settingsData.seed;
+        setGameSeed(seed);
+        console.log('[TrainerDashboard] Geladener Seed aus DB:', seed);
+
+        // Globale Variablen synchronisieren (wie im MultiplayerGameView)
+        (globalThis as any).__gameSeed = seed;
+
+        // Shared played titles aus globalThis übernehmen (falls vorhanden)
+        if ((globalThis as any).__playedNewsTitles && Array.isArray((globalThis as any).__playedNewsTitles)) {
+          playedTitlesRef.current = [...(globalThis as any).__playedNewsTitles];
+        }
+      } else {
+        console.warn('[TrainerDashboard] Keine game_admin_settings gefunden oder Fehler:', settingsErr);
+      }
 
       // Validierung und Initialisierung der KPI-Werte
       if (!kpiValues || typeof kpiValues !== 'object' || Object.keys(kpiValues).length === 0) {
@@ -660,8 +684,8 @@ try {
     let dayRandomNews: DayNewsItem[] = [];
 
     if (useRandomNews) {
-      // Seed (deterministisch), separate RNG nur für News:
-      const s = (typeof seed === 'number' && Number.isFinite(seed)) ? seed : Math.floor(Math.random() * 1e9);
+      // KRITISCH: Seed muss aus game_admin_settings kommen (bereits in gameSeed State geladen)
+      const s = (typeof seed === 'number' && Number.isFinite(seed)) ? seed : (gameSeed || Math.floor(Math.random() * 1e9));
       const prevRng = (globalThis as any).__rng;
 
       // Admin‑Intensität → Generator‑Intensität
@@ -669,32 +693,49 @@ try {
       const arr = Array.isArray(g2.__eventIntensityByDay) ? g2.__eventIntensityByDay : [];
       const intensityStr = mapIntensity(useIntensity ? (Number(arr[d - 1]) || 1) : 1);
       const diff = (g2.__mpDifficulty || g2.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
-      const [minN, maxN] = diff === 'hard' ? [5,6] : (diff === 'easy' ? [1,2] : [3,4]);
-      const target = minN + Math.floor(Math.random() * (maxN - minN + 1));
 
-      const itemsAll: any[] = [];
-     const seen = new Set(playedTitlesRef.current);
-      let attempts = 0;
-      while (itemsAll.length < target && attempts < 12) {
-        (globalThis as any).__rng = makeRng(s + d * 1000 + 500 + attempts * 97);
-        const batch = generateRandomNewsForDay(undefined, {
-          enabled: true, intensity: intensityStr, difficulty: diff, day: d,
-          alreadyPlayed: Array.from(seen), respectRoles: false, roleFilter: ['CEO','CFO','OPS','HRLEGAL']
-        }) as any[];
-        for (const n of (batch || [])) {
-          if (!seen.has(n.title) && itemsAll.length < target) {
-            itemsAll.push(n); seen.add(n.title);
-          }
-        }
-        attempts++;
-      }
+      // EXAKT wie MultiplayerGameView: Seed + Tag * 1000 + 500
+      const daySpecificSeed = s + d * 1000;
+
+      // Synchronisiere mit globalThis.__playedNewsTitles (gemeinsame Duplikatvermeidung)
+      const played: string[] = (globalThis as any).__playedNewsTitles || [];
+      const seen = new Set([...played, ...playedTitlesRef.current]);
+
+      // RNG für News deterministisch setzen (EXAKT wie MultiplayerGameView)
+      (globalThis as any).__rng = makeRng(daySpecificSeed + 500);
+
+      // Pool-basierte News erzeugen (EXAKT wie MultiplayerGameView)
+      const items = generateRandomNewsForDay(undefined, {
+        enabled: true,
+        intensity: intensityStr,
+        difficulty: diff,
+        day: d,
+        alreadyPlayed: Array.from(seen)
+      });
+
+      // RNG wiederherstellen
       (globalThis as any).__rng = prevRng;
 
-      dayRandomNews = (itemsAll as any[]).map((n: any) => ({
-        id: n.id, title: n.title, text: n.text, source: n.category,
-        severity: mapSeverityForUi(n.severity), impact: n.impact, roles: n.roles ?? null
+      // In DayNewsItem-Form bringen (EXAKT wie MultiplayerGameView)
+      dayRandomNews = (items as any[]).map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        text: n.text,
+        source: n.category,
+        severity: mapSeverityForUi(n.severity),
+        impact: n.impact,
+        roles: (n as any).roles ?? null
       }));
-      playedTitlesRef.current.push(...(itemsAll as any[]).map(n => n.title));
+
+      // Gespielte Titel synchronisieren (KRITISCH für Duplikatvermeidung)
+      const newTitles = (items as any[]).map(n => n.title);
+      playedTitlesRef.current.push(...newTitles);
+
+      // WICHTIG: Auch in globalThis.__playedNewsTitles speichern für Spieler-Synchronisation
+      if (!(globalThis as any).__playedNewsTitles) {
+        (globalThis as any).__playedNewsTitles = [];
+      }
+      (globalThis as any).__playedNewsTitles.push(...newTitles);
     }
 
     // Einmalig am Ende setzen (leer, falls useRandomNews=false)
