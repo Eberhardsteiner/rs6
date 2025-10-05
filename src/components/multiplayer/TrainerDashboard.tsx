@@ -442,11 +442,15 @@ const copyGameId = useCallback(async () => {
     return blocksForDay.every(b => decisionsByBlockToday.has(getBlockId(b as any)));
   }, [blocksForDay, decisionsByBlockToday]);
 
-  // „Verlassen/Abmelden“: Supabase-Session beenden + Bypass/Flags löschen
+  // „Verlassen/Abmelden": Supabase-Session beenden + Bypass/Flags löschen + Auth-Token löschen
   const handleLeave = useCallback(async () => {
     try { await supabase.auth.signOut(); } catch {}
     ['mp_trainer_mode', 'mp_trainer_game_id', 'mp_current_role', 'mp_current_game', 'mp_player_id']
       .forEach(k => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch {} });
+
+    // WICHTIG: Auth-Token aus sessionStorage entfernen
+    try { sessionStorage.removeItem('mp_trainer_auth_token'); } catch {}
+
     try { onLeave(); } catch {}
     try { window.location.href = '/?multiplayer=0'; } catch {}
   }, [onLeave]);

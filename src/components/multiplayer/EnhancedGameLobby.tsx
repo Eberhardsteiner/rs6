@@ -2,12 +2,14 @@
 import React from 'react';
 import GameLobby from './GameLobby';
 import TrainerDashboard from './TrainerDashboard';
+import TrainerAuthGate, { isTrainerAuthenticated, clearTrainerAuth } from './TrainerAuthGate';
 
 type GameLobbyProps = React.ComponentProps<typeof GameLobby>;
 
 export default function EnhancedGameLobby(props: GameLobbyProps) {
   const [resolved, setResolved] = React.useState(false);
   const [isTrainer, setIsTrainer] = React.useState(false);
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [gameId, setGameId] = React.useState<string>('');
 
   React.useEffect(() => {
@@ -21,28 +23,44 @@ export default function EnhancedGameLobby(props: GameLobbyProps) {
         '';
       const idFromUrl = new URLSearchParams(window.location.search).get('game') || '';
 
-      setIsTrainer(bypass || lsRole === 'TRAINER');
+      const trainerMode = bypass || lsRole === 'TRAINER';
+      setIsTrainer(trainerMode);
       setGameId(idFromProps || idFromLs || idFromUrl || '');
+
+      if (trainerMode) {
+        setIsAuthenticated(isTrainerAuthenticated());
+      }
     } finally {
-      setResolved(true); // verhindert "Flackern" der Lobby vor dem Umschalten
+      setResolved(true);
     }
   }, [ (props as any)?.game?.id ]);
 
   if (!resolved) return null;
 
   if (isTrainer && gameId) {
-    // Direkter Sprung ins Trainer-Dashboard
+    if (!isAuthenticated) {
+      return (
+        <TrainerAuthGate
+          gameId={gameId}
+          onAuthenticated={() => setIsAuthenticated(true)}
+          onCancel={() => {
+            clearTrainerAuth();
+            setIsTrainer(false);
+            window.location.href = '/?multiplayer=1';
+          }}
+        />
+      );
+    }
+
     return (
       <TrainerDashboard
         gameId={gameId}
         onLeave={() => {
-          // TrainerDashboard hat bereits einen eigenen Leave-Flow;
-          // hier optional: Navigation zurück auf Landing Page, falls gewünscht.
+          clearTrainerAuth();
         }}
       />
     );
   }
 
-  // Standardfall: Spielerlobby
   return <GameLobby {...props} />;
 }
