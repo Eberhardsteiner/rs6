@@ -82,6 +82,8 @@ import { computeRoundSecondsForDay, readGraceSeconds } from './helpers/roundTime
 import { getBlocksForDay, getNewsForDay } from './helpers/scenarioDataLoader';
 import { getScoringWeightsSafe } from './helpers/scoringHelpers';
 import { setupPdfMake } from './helpers/pdfSetup';
+import { GameHeader } from './game/GameHeader';
+import { ControlsPanel } from './game/ControlsPanel';
 
 // Local ThemeMode type and top-level lazy for TrainerDashboard
 type ThemeMode = 'classic' | 'business' | 'dynamic';
@@ -1927,60 +1929,15 @@ return (
         )}
 
         <div data-coach-controls-anchor style={{ display: 'none' }} />
-      {/* Multiplayer Header */}
-      <div style={{
-        background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-        color: 'white',
-        padding: '12px 16px',
-        marginBottom: 24,
-        borderRadius: 8,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-          <span style={{ fontWeight: 700, fontSize: 18 }}>🎮 Mehrspielermodus</span>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span title={`Vollständige ID: ${gameId}`}>Spiel: <strong>{gameId.substring(0, 8)}...</strong></span>
-            <button
-              onClick={handleCopyGameId}
-              aria-live="polite"
-              style={{
-                padding: '4px 10px',
-                borderRadius: 6,
-                border: '1px solid rgba(255,255,255,0.35)',
-                background: 'rgba(255,255,255,0.08)',
-                color: 'white',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: 12
-              }}
-              title="Spiel-ID in die Zwischenablage kopieren"
-            >
-              {copiedGameId ? 'Kopiert ✓' : 'Spiel-ID kopieren'}
-            </button>
-          </div>
-          <span>Rolle: <strong>{role}</strong></span>
 
-          {isGM && <span style={{ background: '#f59e0b', padding: '2px 8px', borderRadius: 4 }}>👑 GM</span>}
-
-        
-        </div>
-        <button
-          onClick={onLeave}
-          style={{
-            padding: '8px 16px',
-            background: 'white',
-            color: '#6366f1',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-            fontWeight: 600
-          }}
-        >
-          Spiel verlassen
-        </button>
-      </div>
+      <GameHeader
+        gameId={gameId}
+        role={role}
+        isGM={isGM}
+        copiedGameId={copiedGameId}
+        onCopyGameId={handleCopyGameId}
+        onLeave={onLeave}
+      />
 
       {/* Day Sync Controller */}
       <DaySyncController
@@ -2142,85 +2099,18 @@ return (
             day={state.day}
           />
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {role === 'CEO' && (
-              <button
-                onClick={declareInsolvency}
-                style={{
-                  flex: 1,
-                  padding: '8px',
-                  background: '#dc2626',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontWeight: 600
-                }}
-              >
-                ⚠️ Insolvenz erklären
-              </button>
-            )}
-            
-            <button
-              onClick={() => setShowDecisionHistory(true)}
-              style={{
-                flex: 1,
-                padding: '8px',
-                background: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: 6,
-                cursor: 'pointer'
-              }}
-            >
-              📊 Entscheidungs-Historie
-            </button>
-          </div>
+          <ControlsPanel
+            role={role}
+            state={state}
+            gameId={gameId}
+            showDeclarationButton={role === 'CEO'}
+            onDeclareInsolvency={declareInsolvency}
+            onShowDecisionHistory={() => setShowDecisionHistory(true)}
+            InfoButtons={InfoButtons}
+            ExportReportButtonMP={ExportReportButtonMP}
+          />
 
-          {/* Export and Info Controls */}
-          <div style={{ 
-            padding: 12,
-            background: '#f9fafb',
-            borderRadius: 8,
-            border: '1px solid #e5e7eb',
-            marginBottom: 16 
-          }}>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: 14, color: '#374151' }}>
-              📋 Protokolle & Informationen
-            </h4>
-            
-            {InfoButtons && <InfoButtons />}
-            
-            <div style={{ 
-              display: 'flex', 
-              gap: 8, 
-              flexWrap: 'wrap',
-              marginBottom: 8 
-            }}>
-              <ExportReportButtonMP 
-                fileName={`Gesamtprotokoll_${role}_Tag${state.day}.pdf`}
-                state={state}
-                role={role}
-              />
-              <DebriefButton 
-                label="🧭 Debriefing"
-                style={{
-                  padding: '8px 16px',
-                  background: 'linear-gradient(135deg, #10b981, #059669)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  fontSize: 13,
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
-                }}
-              />
-            </div>
-
-                        {saveLoadEnabled && (
+            {saveLoadEnabled && (
               <div
                 style={{
                   width: '100%',
@@ -2339,6 +2229,7 @@ return (
           </div>
         </div>
 
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
         {/* News Column */}
         <div className="card" style={{ 
   flex: '2 1 480px',
