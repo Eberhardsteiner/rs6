@@ -86,6 +86,7 @@ import { GameHeader } from './game/GameHeader';
 import { ControlsPanel } from './game/ControlsPanel';
 import { WhatIfPreview } from './game/WhatIfPreview';
 import { GameOverScreenFull } from './game/GameOverScreenFull';
+import { KpiSection, DecisionsSection, NewsSection, OtherPlayersSection } from './sections';
 
 // Local ThemeMode type and top-level lazy for TrainerDashboard
 type ThemeMode = 'classic' | 'business' | 'dynamic';
