@@ -83,17 +83,6 @@ import { getBlocksForDay, getNewsForDay } from './helpers/scenarioDataLoader';
 import { getScoringWeightsSafe } from './helpers/scoringHelpers';
 import { setupPdfMake } from './helpers/pdfSetup';
 
-
-
-
-
-
-
-
-
-
-
-
 // Local ThemeMode type and top-level lazy for TrainerDashboard
 type ThemeMode = 'classic' | 'business' | 'dynamic';
 const TrainerDashboard = React.lazy(async () => {
@@ -113,8 +102,6 @@ const TrainerDashboard = React.lazy(async () => {
 });
 
 const GAME_THEME: GameTheme = 'dynamic'; // 'dynamic' | 'minimal' | 'corporate'
-
-
 
 /** ── Admin/Trainer-übersteuerbare Rundenzeiten (global/matrix) ───────────── */
 const RT_ROLES = ['CEO','CFO','OPS','HRLEGAL'] as const;
@@ -185,8 +172,6 @@ async function computeAdaptiveFactor(gameId: string): Promise<number> {
   }
 }
 
-
-
 // Types
 interface MultiplayerGameViewProps {
   gameId: string;
@@ -201,7 +186,6 @@ interface KpiEstimate {
   value: number;
   actualValue?: number;
 }
-
 
 // Export Report Button Component
 function ExportReportButtonMP({ 
@@ -301,8 +285,6 @@ function MultiplayerGameViewInner({
   onLeave 
 }: MultiplayerGameViewProps) {
 
-
-
   
 // ---- Theme Binding (Classic / Business / Dynamic) via AdminPanel ----
 const [themeMode, setThemeMode] = useState<ThemeMode>('classic');
@@ -320,8 +302,6 @@ useEffect(() => {
   window.addEventListener('admin:settings', handler);
   return () => window.removeEventListener('admin:settings', handler);
 }, []);
-
-
 
   // FIX: Initialize with a valid currentDate
   const initialDate = new Date();
@@ -582,7 +562,6 @@ useEffect(() => {
 
   
 
-
   
   // States for optional components
   const [CoachController, setCoachController] = useState<unknown>(null);
@@ -647,7 +626,6 @@ useEffect(() => {
       scoringWeights: { cashEUR: 0.5, profitLossEUR: 0.5 }
     });
   }, [role, playerName]);
-
 
     // MP: Kreditaufnahme-Flag live verfolgen (Adminpanel → adminSettings)
   useEffect(() => {
@@ -732,7 +710,6 @@ useEffect(() => {
     localStorage.setItem(`mp_kpi_estimates_${gameId}_${role}`, JSON.stringify(kpiEstimates));
   }, [kpiEstimates, gameId, role]);
 
-
    // Auto-Save: bei Tageswechsel in __autosave__ sichern (wenn aktiviert)
   useEffect(() => {
     try {
@@ -772,8 +749,6 @@ useEffect(() => {
             playerRoles: [role]
           }
         });
-
-
 
         
         // SYNCHRONIZED RANDOM VALUES using Seed
@@ -845,7 +820,6 @@ if (globalThis.__randomNews) {
   randomNews[day] = dayNews;
   played.push(...items.map((n: { title: string }) => n.title));
 }
-
 
          
           }
@@ -1034,7 +1008,6 @@ function mapSeverityForUi(s: 'low'|'mid'|'high'): 'low'|'medium'|'high' {
   return s === 'mid' ? 'medium' : s;
 }
 
-
   
 function mergeDelta(a: Partial<KPI>, b: Partial<KPI>): Partial<KPI> {
    const out: Record<string, unknown> = { ...(a || {}) };
@@ -1157,7 +1130,6 @@ function computeInvariantDelta(nextKpi: KPI, history: KPI[]): Partial<KPI> {
   const combinedDelta = mergeDelta(mergedDelta, invDelta);
    const resultKpi = applyDeltaToKpi(state.kpi, combinedDelta);
 
-
   // 5) UI aktualisieren (einmaliges AddDelta – vermeidet Doppelanwendung)
   dispatch({ type: 'ADMIN_ADD_KPI', delta: combinedDelta });
 
@@ -1204,7 +1176,6 @@ const handleExportReport = useCallback(() => {
 const handleRestart = useCallback(() => {
   onLeave();
 }, [onLeave]);
-
 
 const handleCreditTaken = async (amount: number) => {
    const nextKpi = { ...state.kpi, cashEUR: (state.kpi.cashEUR || 0) + amount };
@@ -1283,9 +1254,6 @@ const handleCopyGameId = async () => {
   }
 };
 
-
-
-
   const handleOpenAttachment = (filename: string) => {
     let content = `Inhalt der Datei: ${filename}\n\n`;
     if (filename.includes('bilanz')) {
@@ -1346,7 +1314,6 @@ await supabase.from('games').update({ kpi_values: nextKpi }).eq('id', gameId);
     }
   };
 
-
   
 // --- PATCH: Persistiere Entscheidungen robust via Upsert (DB hat UNIQUE auf game_id,player_id,day,block_id) ---
 const handleDecisionMade = useCallback(async (...args: unknown[]) => {
@@ -1390,7 +1357,6 @@ const handleDecisionMade = useCallback(async (...args: unknown[]) => {
   }
 }, [gameId, state.day]);
 
-
   
 const runPreview = useCallback(async () => {
     try {
@@ -1418,7 +1384,6 @@ const runPreview = useCallback(async () => {
         }
       }
 
-
       const result = simulateNext(state as GameState, npcDeltas);
       
       const visibleKpis = MultiplayerService.getRoleKpiVisibility(role);
@@ -1443,7 +1408,6 @@ const runPreview = useCallback(async () => {
       setPreview(null);
     }
   }, [state, whatIfEnabled, role, gameId]);
-
 
   const handleKpiInput = (kpiKey: keyof KPI, value: string) => {
     const numValue = parseFloat(value) || 0;
@@ -1493,9 +1457,6 @@ const newsRandom = useMemo(() => {
     return !rs || rs.includes(role);
   });
 }, [newsRandomAll, role]);
-
-
-
 
   // Injizierte MP‑News (global + rollenbasiert)
   const [injectedNews, setInjectedNews] = useState<Array<DayNewsItem & { roles?: string[] | null }>>([]);
@@ -1705,10 +1666,6 @@ const TeamCommunicationSection = ({
   );
 };
 
-
-
-
-
 const [gameTheme, setGameTheme] = React.useState<GameTheme>(() => {
   const admin = getAdminGameTheme();
   const user = allowUserOverride() ? readUserOverride() : null;
@@ -1771,7 +1728,6 @@ React.useEffect(() => {
 
   return () => { alive = false; supabase.removeChannel(ch); };
 }, [gameId]);
-
 
 // Realtime: Auf Spieleintrag reagieren (Admin-Tag-Set/Jump)
 React.useEffect(() => {
@@ -1913,11 +1869,6 @@ if (showInsolvencyView && state.insolvency) {
     />
   );
 }
-
-
-
-
-
 
   
 // HAUPT-RETURN - nur HIER die Änderungen machen
@@ -3144,7 +3095,6 @@ return (
                 </div>
               </div>
             </div>
-
 
             {/* Communications (MP) */}
             <div style={{
