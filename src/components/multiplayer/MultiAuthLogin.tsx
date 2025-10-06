@@ -1857,12 +1857,13 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
           .select()
           .single();
 
-        if (upErr) {
-          if (upErr.code === '23505' && upErr.message?.includes('idx_players_game_role_unique')) {
-            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-          }
-          throw upErr;
-        }
+       if (upErr) {
+         // 23505 = UNIQUE violation (u.a. durch den (game_id,role)-Index ausgelöst)
+        if (upErr.code === '23505') {
+           throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+         }
+        throw upErr;
+      }
 
         localStorage.setItem('mp_current_game', finalGameId);
         localStorage.setItem('mp_current_role', selectedRole);
