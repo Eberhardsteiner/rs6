@@ -200,6 +200,29 @@ export default function GameLobby({
 
   useEffect(() => { ensureGameParam(); }, [ensureGameParam]);
 
+  // HEARTBEAT: last_seen regelm\u00e4\u00dfig aktualisieren (alle 30 Sekunden)
+  useEffect(() => {
+    if (!currentPlayer?.id) return;
+
+    const updateHeartbeat = async () => {
+      try {
+        const mpService = MultiplayerService.getInstance();
+        await mpService.updatePlayerLastSeen(currentPlayer.id);
+        console.log('[GameLobby] Heartbeat updated');
+      } catch (err) {
+        console.error('[GameLobby] Failed to update heartbeat:', err);
+      }
+    };
+
+    // Sofort beim Mount
+    updateHeartbeat();
+
+    // Dann alle 30 Sekunden
+    const heartbeatInterval = setInterval(updateHeartbeat, 30000);
+
+    return () => clearInterval(heartbeatInterval);
+  }, [currentPlayer?.id]);
+
   // Timer countdown
   useEffect(() => {
     if (settings.lobbySettings?.showTimer && !isStarting) {

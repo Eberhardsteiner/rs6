@@ -547,7 +547,29 @@ useEffect(() => {
   return () => window.removeEventListener('admin:settings', handler as any);
 }, []);
 
+  // HEARTBEAT: last_seen regelm\u00e4\u00dfig aktualisieren (alle 30 Sekunden)
+  useEffect(() => {
+    const mpService = MultiplayerService.getInstance();
+    const playerId = mpService.getCurrentPlayerId();
+    if (!playerId) return;
 
+    const updateHeartbeat = async () => {
+      try {
+        await mpService.updatePlayerLastSeen(playerId);
+        console.log('[MultiplayerGameView] Heartbeat updated');
+      } catch (err) {
+        console.error('[MultiplayerGameView] Failed to update heartbeat:', err);
+      }
+    };
+
+    // Sofort beim Mount
+    updateHeartbeat();
+
+    // Dann alle 30 Sekunden
+    const heartbeatInterval = setInterval(updateHeartbeat, 30000);
+
+    return () => clearInterval(heartbeatInterval);
+  }, []);
 
   // FIX: Initialize with a valid currentDate
   const initialDate = new Date();

@@ -227,12 +227,12 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         .from('games')
         .select('id')
         .eq('session_code', code)
-        .single();
+        .maybeSingle();
 
       if (game && isMounted) {
         // Echtzeit-Subscription einrichten
         subscription = supabase
-          .channel(`game-${game.id}-players`)
+          .channel(`game-${game.id}-players-login`)
           .on(
             'postgres_changes',
             {
@@ -242,14 +242,16 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
               filter: `game_id=eq.${game.id}`
             },
             async (payload) => {
-              console.log('Player change detected:', payload);
+              console.log('[MultiAuthLogin] Player change detected:', payload);
               if (isMounted) {
-                // Bei jeder Änderung die Rollen neu laden
+                // Bei jeder Änderung die Rollen SOFORT neu laden
                 await fetchOccupiedRoles(code);
               }
             }
           )
-          .subscribe();
+          .subscribe((status) => {
+            console.log('[MultiAuthLogin] Realtime subscription status:', status);
+          });
       }
     };
 
@@ -385,21 +387,34 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
         // Game-ID bestimmen
         const gid = currentGameId || (await (async () => {
-          const { data: g } = await supabase.from('games').select('id').eq('session_code', joinCode).single();
+          const { data: g } = await supabase.from('games').select('id').eq('session_code', joinCode).maybeSingle();
           return g?.id || joinCode; // Fallback
         })());
 
-        // FRISCHER SERVER-CHECK direkt vor dem Beitritt (vermeidet Race Conditions)
+        // KRITISCH: LETZTER SERVER-CHECK direkt vor dem Beitritt
+        // Dies ist die letzte Gelegenheit, Race Conditions zu verhindern
+        console.log('[MultiAuthLogin] Performing final role check before join...');
         const { data: existingPlayers, error: epErr } = await supabase
           .from('players')
-          .select('id')
+          .select('id, role, user_id, name')
           .eq('game_id', gid)
           .eq('role', selectedRole);
 
-        if (epErr) throw epErr;
-        if ((existingPlayers || []).length > 0) {
-          throw new Error('Diese Rolle wurde gerade von einem anderen Spieler gewählt.');
+        if (epErr) {
+          console.error('[MultiAuthLogin] Error checking role:', epErr);
+          throw epErr;
         }
+
+        // Prüfen ob die Rolle bereits vergeben ist (und nicht vom aktuellen User)
+        const { data: { user } } = await supabase.auth.getUser();
+        const roleOccupiedByOther = (existingPlayers || []).some(p => p.user_id !== user?.id);
+
+        if (roleOccupiedByOther) {
+          console.error('[MultiAuthLogin] Role already taken by another player:', existingPlayers);
+          throw new Error(`Die Rolle ${selectedRole} wurde gerade von einem anderen Spieler gewählt. Bitte wähle eine andere Rolle.`);
+        }
+
+        console.log('[MultiAuthLogin] Role is free, proceeding with join...');
 
         await mpService.joinGame(gid, playerName, selectedRole);
         finalGameId = gid;

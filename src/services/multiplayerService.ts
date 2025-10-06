@@ -576,6 +576,30 @@ export class MultiplayerService {
     return this.currentRole || (localStorage.getItem('mp_current_role') as RoleId);
   }
 
+  async updatePlayerLastSeen(playerId?: string): Promise<void> {
+    const pid = playerId || this.playerId;
+    if (!pid) {
+      console.warn('[MultiplayerService] updatePlayerLastSeen: no player ID');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('players')
+        .update({
+          last_seen: new Date().toISOString(),
+          last_seen_at: new Date().toISOString()
+        })
+        .eq('id', pid);
+
+      if (error) {
+        console.error('[MultiplayerService] Failed to update last_seen:', error);
+      }
+    } catch (err) {
+      console.error('[MultiplayerService] Exception updating last_seen:', err);
+    }
+  }
+
   static getRoleKpiVisibility(role: RoleId): (keyof KPI)[] {
     const visibility: Record<RoleId, (keyof KPI)[]> = {
       CEO: ['cashEUR', 'profitLossEUR', 'publicPerception', 'bankTrust'],
