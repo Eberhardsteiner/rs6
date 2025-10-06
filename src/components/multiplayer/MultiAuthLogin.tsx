@@ -2046,6 +2046,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         </div>
       </div>
     );
+     };
 
   // Render Joining Screen
   const renderJoining = () => (
