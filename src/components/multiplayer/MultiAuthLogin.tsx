@@ -1659,6 +1659,15 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   );
 
   // ========== SCREEN 2: ROLE + AUTH SELECTION ==========
+
+// Legacy-Screen kapseln, damit kein freistehendes `return` mehr existiert
+  const RoleAuthScreen: React.FC = () => {
+    const roles: RoleId[] = trainerFeatureEnabled
+      ? ['CEO','CFO','OPS','HRLEGAL','TRAINER']
+      : ['CEO','CFO','OPS','HRLEGAL'];
+
+
+  
       const handleRoleSelect = async (role: RoleId) => {
       if (occupiedRoles.has(role)) {
         setError(`Die Rolle ${role} ist bereits belegt.`);
