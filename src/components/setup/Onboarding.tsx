@@ -205,8 +205,7 @@ export default function Onboarding({ onStart, onShowModal }: Props) {
               <div>
                 <div className="ob-hint-title">Ziel der Simulation</div>
                 <div className="ob-hint-text">
-                  14 Tage handlungsfähig bleiben – ohne Zahlungsunfähigkeit. Entscheidungen wirken zeitverzögert  und
-                  werden erst beim Tageswechsel auf die KPI angewandt.
+                 
                 </div>
               </div>
             </div>
