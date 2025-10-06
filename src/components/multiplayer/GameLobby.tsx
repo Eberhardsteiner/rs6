@@ -174,7 +174,18 @@ export default function GameLobby({
   const [liveGame, setLiveGame] = useState<Game>(game);
   
   const countdownIntervalRef = useRef<NodeJS.Timeout>();
-  const timerRef = useRef<NodeJS.Timeout>();
+   const timerRef = useRef<NodeJS.Timeout>();
+
+  const markGameRunning = useCallback(async () => {
+    try {
+      await supabase.from('games')
+        .update({ state: 'running', status: 'running' })
+        .eq('id', game.id);
+    } catch (e) {
+      console.warn('[GameLobby] Konnte Spielstatus nicht auf running setzen:', e);
+    }
+  }, [game.id]);
+
 
   // Settings-Liveupdates (Adminkonsole)
   useEffect(() => {
