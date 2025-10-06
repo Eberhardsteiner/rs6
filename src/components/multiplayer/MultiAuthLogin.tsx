@@ -338,7 +338,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
     }
 
     // Proceed to role selection
-    setStep('role-selection');
+   
   };
 
   // Step 2: Create or join game with selected role
