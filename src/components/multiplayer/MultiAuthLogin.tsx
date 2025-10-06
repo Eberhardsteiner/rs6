@@ -666,12 +666,14 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       WebkitTextFillColor: '#ffffff'
     },
     roleButtonDisabled: {
-      opacity: 0.9,
+      opacity: 0.7,
       cursor: 'not-allowed',
-      borderColor: 'rgba(239,68,68,0.7)',
-      background: 'linear-gradient(145deg, rgba(239,68,68,0.25), rgba(127,29,29,0.35))',
+      borderColor: 'rgba(239,68,68,0.9)',
+      background: 'repeating-linear-gradient(45deg, rgba(127,29,29,0.5), rgba(127,29,29,0.5) 10px, rgba(185,28,28,0.4) 10px, rgba(185,28,28,0.4) 20px)',
       position: 'relative' as const,
-      filter: 'grayscale(0.2)'
+      filter: 'grayscale(0.5) brightness(0.7)',
+      boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(239,68,68,0.3)',
+      pointerEvents: 'none' as const
     },
     roleButtonUpdating: {
       animation: 'pulse-update 0.6s ease-out'
@@ -1308,19 +1310,21 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
                         position: 'absolute',
                         top: 8,
                         right: 8,
-                        fontSize: 18,
-                        filter: 'drop-shadow(0 0 6px rgba(239,68,68,0.8))'
+                        fontSize: 24,
+                        filter: 'drop-shadow(0 0 8px rgba(239,68,68,1))',
+                        animation: 'pulse 2s ease-in-out infinite'
                       }}
                     >
-                      ⛔
+                      🔒
                     </div>
                   )}
 
                   <div style={{
                     fontSize: '16px',
-                    color: isOccupied ? 'rgba(255,255,255,0.6)' : '#ffffff',
-                    WebkitTextFillColor: isOccupied ? 'rgba(255,255,255,0.6)' : '#ffffff',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+                    color: isOccupied ? 'rgba(255,255,255,0.4)' : '#ffffff',
+                    WebkitTextFillColor: isOccupied ? 'rgba(255,255,255,0.4)' : '#ffffff',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                    textDecoration: isOccupied ? 'line-through' : 'none'
                   }}>
                     {role}
                   </div>
@@ -1329,20 +1333,31 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
                     <div style={{
                       position: 'absolute',
                       inset: 0,
-                      background: 'rgba(0,0,0,0.7)',
+                      background: 'rgba(0,0,0,0.85)',
                       borderRadius: '12px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      color: '#f87171',
-                      textTransform: 'uppercase',
-                      letterSpacing: '1px',
-                      textShadow: '0 0 8px rgba(248,113,113,0.8)'
+                      gap: '4px',
+                      pointerEvents: 'none'
                     }}>
-                      BELEGT
+                      <div style={{
+                        fontSize: '28px',
+                        animation: 'pulse 2s ease-in-out infinite'
+                      }}>
+                        🔒
+                      </div>
+                      <div style={{
+                        fontSize: '14px',
+                        fontWeight: '800',
+                        color: '#ef4444',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1.5px',
+                        textShadow: '0 0 10px rgba(239,68,68,0.8), 0 0 20px rgba(239,68,68,0.5)'
+                      }}>
+                        BELEGT
+                      </div>
                     </div>
                   )}
                 </button>
@@ -1882,24 +1897,30 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
                   disabled={isOccupied}
                   style={{
                     padding: '16px',
+                    position: 'relative',
                     background: isSelected
                       ? 'linear-gradient(135deg, #14b8a6 0%, #0891b2 100%)'
                       : isOccupied
-                      ? 'rgba(30,41,59,0.5)'
+                      ? 'repeating-linear-gradient(45deg, rgba(127,29,29,0.5), rgba(127,29,29,0.5) 10px, rgba(185,28,28,0.4) 10px, rgba(185,28,28,0.4) 20px)'
                       : 'rgba(15,23,42,0.8)',
                     border: isSelected
                       ? '2px solid #14b8a6'
+                      : isOccupied
+                      ? '2px solid rgba(239,68,68,0.9)'
                       : '1px solid rgba(20,184,166,0.3)',
                     borderRadius: '8px',
-                    color: isOccupied ? '#64748b' : '#fff',
+                    color: isOccupied ? 'rgba(255,255,255,0.4)' : '#fff',
                     fontSize: '16px',
                     fontWeight: '600',
                     cursor: isOccupied ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s ease',
-                    opacity: isOccupied ? 0.5 : 1
+                    opacity: isOccupied ? 0.7 : 1,
+                    filter: isOccupied ? 'grayscale(0.5) brightness(0.7)' : 'none',
+                    textDecoration: isOccupied ? 'line-through' : 'none',
+                    pointerEvents: isOccupied ? 'none' : 'auto'
                   }}
                 >
-                  {role} {isOccupied && '🔒'}
+                  {role} {isOccupied && <span style={{ marginLeft: '8px', fontSize: '20px', animation: 'pulse 2s ease-in-out infinite' }}>🔒</span>}
                 </button>
               );
             })}

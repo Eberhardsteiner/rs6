@@ -303,8 +303,14 @@ export class MultiplayerService {
             last_seen: new Date().toISOString()
           })
           .eq('id', existing.id);
-          
-        if (updateError) throw updateError;
+
+        if (updateError) {
+          // Spezifische Behandlung für Unique-Constraint-Verletzung
+          if (updateError.code === '23505' || updateError.message?.includes('duplicate key') || updateError.message?.includes('idx_players_game_role_unique')) {
+            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+          }
+          throw updateError;
+        }
         
         this.gameId = gameId;
         this.playerId = existing.id;
@@ -326,6 +332,12 @@ export class MultiplayerService {
 
         if (error) {
           console.error('Join game error:', error);
+
+          // Spezifische Behandlung für Unique-Constraint-Verletzung (Rolle bereits belegt)
+          if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('idx_players_game_role_unique')) {
+            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+          }
+
           throw new Error('Beitritt fehlgeschlagen: ' + error.message);
         }
 
@@ -357,7 +369,13 @@ export class MultiplayerService {
       .update({ role: normalizedRole })
       .eq('id', this.playerId);
 
-    if (error) throw error;
+    if (error) {
+      // Spezifische Behandlung für Unique-Constraint-Verletzung
+      if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('idx_players_game_role_unique')) {
+        throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+      }
+      throw error;
+    }
 
     this.currentRole = normalizedRole;
     localStorage.setItem('mp_current_role', normalizedRole);
