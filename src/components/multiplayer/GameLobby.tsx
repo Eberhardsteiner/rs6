@@ -1,6 +1,7 @@
 // src/components/multiplayer/GameLobby.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MultiplayerService } from '@/services/multiplayerService';
+import { supabase } from '@/services/supabaseClient';
 import type { Game, Player } from '@/services/supabaseClient';
 import type { RoleId } from '@/core/models/domain';
 import InfoModal from '@/components/info/InfoModal';
@@ -170,6 +171,25 @@ export default function GameLobby({
   const countdownIntervalRef = useRef<NodeJS.Timeout>();
   const timerRef = useRef<NodeJS.Timeout>();
 
+  // Start heartbeat to keep player active in lobby
+  useEffect(() => {
+    const mpService = MultiplayerService.getInstance();
+    mpService.startHeartbeat();
+
+    return () => {
+      mpService.stopHeartbeat();
+    };
+  }, []);
+
+  // Sync readyStatus from players data (loads from Supabase)
+  useEffect(() => {
+    const newStatus = new Map<string, boolean>();
+    players.forEach(p => {
+      newStatus.set(p.id, p.is_ready || false);
+    });
+    setReadyStatus(newStatus);
+  }, [players]);
+
   // Settings-Liveupdates (Adminkonsole)
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -246,9 +266,22 @@ export default function GameLobby({
     }, 1000);
   };
 
-  const handleSetReady = () => {
+  const handleSetReady = async () => {
     const newStatus = !readyStatus.get(currentPlayer.id);
     setReadyStatus(prev => new Map(prev).set(currentPlayer.id, newStatus));
+
+    try {
+      const { error } = await supabase
+        .from('players')
+        .update({ is_ready: newStatus })
+        .eq('id', currentPlayer.id);
+
+      if (error) {
+        console.error('Failed to update ready status:', error);
+      }
+    } catch (err) {
+      console.error('Exception updating ready status:', err);
+    }
   };
 
   const formatTime = (seconds: number): string => {

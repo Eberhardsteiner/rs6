@@ -236,6 +236,7 @@ export class MultiplayerService {
         .insert({
           session_code: sessionCode,
           host_id: user.id,
+          state: 'waiting',
           status: 'waiting',
           current_day: 1,
           difficulty: 'medium',
@@ -477,17 +478,17 @@ export class MultiplayerService {
   async startGame(): Promise<void> {
     if (!this.gameId) throw new Error('Not in game');
 
-    // Update game state to running
+    // Update game state to running (set both state and status for consistency)
     const { error } = await supabase
       .from('games')
       .update({
-        state: 'running'
-        // started_at existiert vermutlich nicht, daher entfernt
+        state: 'running',
+        status: 'running'
       })
       .eq('id', this.gameId);
 
     if (error) throw error;
-    
+
     console.log('Game started');
   }
 
