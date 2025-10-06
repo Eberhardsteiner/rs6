@@ -146,13 +146,13 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   }, []);
 
   // Funktion zum Abrufen der belegten Rollen (FIX: select user_id as well)
-  const fetchOccupiedRoles = async (gameIdOrCode: string) => {
+  // RETURNS: Die aufgelöste Game-ID (wichtig für Realtime-Subscription)
+  const fetchOccupiedRoles = async (gameIdOrCode: string): Promise<string | null> => {
     try {
       // Zuerst versuchen wir es als Game-ID
-      let gameId = gameIdOrCode;
+      let gameId = gameIdOrCode.trim();
 
-     // Join-Codes sind jetzt UUIDs: erst per RPC auflösen; wenn nicht gefunden, bleibt es die eingegebene ID.
-       gameId = gameIdOrCode.trim();
+      // Join-Codes sind jetzt UUIDs: erst per RPC auflösen; wenn nicht gefunden, bleibt es die eingegebene ID.
       try {
         const { data, error } = await supabase.rpc('join_game', { p_join_code: gameId });
         if (!error) {
@@ -166,9 +166,11 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       } catch (e) {
         console.warn('[join_game] RPC exception:', e);
       }
+
       if (!gameId) {
         setOccupiedRoles(new Set());
-        return;
+        setCurrentGameId(null);
+        return null;
       }
 
       // Jetzt holen wir die belegten Rollen (inkl. user_id)
@@ -181,7 +183,8 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       if (pErr) {
         console.error('Error fetching players:', pErr);
         setOccupiedRoles(new Set());
-        return;
+        setCurrentGameId(null);
+        return null;
       }
 
       // Aktuelle User-ID holen
@@ -189,7 +192,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       const currentUserId = user?.id;
 
       const occ = new Set<RoleId>();
-      (players || []).forEach((p: any) => { 
+      (players || []).forEach((p: any) => {
         // Rolle nur als belegt markieren, wenn sie nicht vom aktuellen User ist
         if (p.role && p.user_id !== currentUserId) {
           occ.add(p.role as RoleId);
@@ -198,9 +201,12 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
       setOccupiedRoles(occ);
       setCurrentGameId(gameId);
+      return gameId; // Wichtig: Gibt die aufgelöste Game-ID zurück!
     } catch (e) {
       console.error('Error in fetchOccupiedRoles:', e);
       setOccupiedRoles(new Set());
+      setCurrentGameId(null);
+      return null;
     }
   };
 
@@ -218,40 +224,38 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         return;
       }
 
-      // Initiale Daten laden
-      await fetchOccupiedRoles(joinCode.trim());
+      // Initiale Daten laden UND die aufgelöste Game-ID bekommen
+      const resolvedGameId = await fetchOccupiedRoles(joinCode.trim());
 
-      // Game-ID für Subscription holen
-      const code = joinCode.trim().toUpperCase();
-      const { data: game } = await supabase
-        .from('games')
-        .select('id')
-        .eq('session_code', code)
-        .maybeSingle();
+      // CRITICAL FIX: Realtime-Subscription mit der AUFGELÖSTEN Game-ID starten
+      // Vorher wurde session_code verwendet, was nicht funktioniert wenn join_game RPC die ID auflöst!
+      if (resolvedGameId && isMounted) {
+        console.log('[MultiAuthLogin] Starting realtime subscription for game:', resolvedGameId);
 
-      if (game && isMounted) {
         // Echtzeit-Subscription einrichten
         subscription = supabase
-          .channel(`game-${game.id}-players-login`)
+          .channel(`game-${resolvedGameId}-players-login`)
           .on(
             'postgres_changes',
             {
               event: '*',
               schema: 'public',
               table: 'players',
-              filter: `game_id=eq.${game.id}`
+              filter: `game_id=eq.${resolvedGameId}`
             },
             async (payload) => {
               console.log('[MultiAuthLogin] Player change detected:', payload);
               if (isMounted) {
                 // Bei jeder Änderung die Rollen SOFORT neu laden
-                await fetchOccupiedRoles(code);
+                await fetchOccupiedRoles(joinCode.trim());
               }
             }
           )
           .subscribe((status) => {
             console.log('[MultiAuthLogin] Realtime subscription status:', status);
           });
+      } else {
+        console.warn('[MultiAuthLogin] Could not resolve game ID for:', joinCode);
       }
     };
 
@@ -262,6 +266,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       isMounted = false;
       clearTimeout(timeoutId);
       if (subscription) {
+        console.log('[MultiAuthLogin] Cleaning up realtime subscription');
         supabase.removeChannel(subscription);
       }
     };
