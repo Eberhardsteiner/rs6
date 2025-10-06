@@ -380,22 +380,29 @@ export default function GameLobby({
     const player = players.find(p => p.role === role);
     const isReady = player ? readyStatus.get(player.id) : false;
     const info = roleInfo[role];
-    
+
+    // Prüfen ob Spieler aktiv (kürzlich aktiv oder Spiel läuft)
+    const isGameRunning = game.state === 'running' || game.status === 'running';
+    const isActive = player && isGameRunning && player.last_seen &&
+      (new Date().getTime() - new Date(player.last_seen).getTime()) < 120000; // Aktiv innerhalb 2 Minuten
+
     return (
       <div
         key={role}
         style={{
           position: 'relative',
           padding: 24,
-          background: player 
-            ? `linear-gradient(135deg, ${info.color}15, ${info.color}05)` 
+          background: player
+            ? `linear-gradient(135deg, ${info.color}15, ${info.color}05)`
             : 'rgba(255, 255, 255, 0.05)',
           border: `2px solid ${player ? info.color : 'rgba(255, 255, 255, 0.1)'}`,
           borderRadius: 16,
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           transform: isReady ? 'scale(1.02)' : 'scale(1)',
-          boxShadow: isReady 
-            ? `0 10px 30px ${info.color}30` 
+          boxShadow: isReady
+            ? `0 10px 30px ${info.color}30`
+            : isActive
+            ? `0 8px 25px ${info.color}40`
             : '0 5px 15px rgba(0, 0, 0, 0.1)'
         }}
       >
@@ -417,6 +424,35 @@ export default function GameLobby({
           {role}
         </div>
 
+        {/* Active Indicator (Pulsing dot) */}
+        {isActive && (
+          <div style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 10px',
+            background: 'rgba(34, 197, 94, 0.15)',
+            border: '1px solid rgba(34, 197, 94, 0.5)',
+            borderRadius: 20,
+            fontSize: 11,
+            fontWeight: 600,
+            color: '#22c55e'
+          }}>
+            <span style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: '#22c55e',
+              animation: 'pulse 2s ease-in-out infinite',
+              boxShadow: '0 0 8px #22c55e'
+            }} />
+            SPIELT
+          </div>
+        )}
+
         {/* Icon & Player Info */}
         <div style={{ textAlign: 'center', marginTop: 8 }}>
           <div style={{
@@ -426,7 +462,7 @@ export default function GameLobby({
           }}>
             {info.icon}
           </div>
-          
+
           <div style={{
             fontSize: 18,
             fontWeight: 700,
@@ -436,7 +472,7 @@ export default function GameLobby({
           }}>
             {player ? player.name : 'Wartet auf Spieler...'}
           </div>
-          
+
           <div style={{
             fontSize: 12,
             color: player ? '#6b7280' : 'rgba(255, 255, 255, 0.3)',
@@ -449,17 +485,19 @@ export default function GameLobby({
         {/* Status */}
         <div style={{
           padding: '8px',
-          background: isReady 
-            ? 'linear-gradient(135deg, #10b981, #059669)' 
+          background: isActive
+            ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+            : isReady
+            ? 'linear-gradient(135deg, #10b981, #059669)'
             : (player ? 'rgba(255, 255, 255, 0.1)' : 'transparent'),
-          color: isReady ? 'white' : (player ? '#9ca3af' : 'rgba(255, 255, 255, 0.3)'),
+          color: (isActive || isReady) ? 'white' : (player ? '#9ca3af' : 'rgba(255, 255, 255, 0.3)'),
           borderRadius: 8,
           fontSize: 13,
           fontWeight: 600,
           textAlign: 'center',
           letterSpacing: '0.3px'
         }}>
-          {isReady ? '✓ BEREIT' : (player ? '⏳ WARTET' : '○ LEER')}
+          {isActive ? '🎮 AKTIV IM SPIEL' : isReady ? '✓ BEREIT' : (player ? '⏳ WARTET' : '○ LEER')}
         </div>
       </div>
     );
@@ -797,6 +835,50 @@ export default function GameLobby({
             }} />
             SYSTEM STATUS: ONLINE | CRISIS LEVEL: CRITICAL | DAY: 0/14
           </div>
+
+          {/* Active Players Indicator */}
+          {(game.state === 'running' || game.status === 'running') && (() => {
+            const isGameRunning = true;
+            const activePlayers = players.filter(p =>
+              p.last_seen &&
+              (new Date().getTime() - new Date(p.last_seen).getTime()) < 120000
+            );
+
+            if (activePlayers.length > 0) {
+              return (
+                <div style={{
+                  marginTop: 12,
+                  padding: '10px 14px',
+                  background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.1))',
+                  border: '1px solid rgba(34, 197, 94, 0.4)',
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  fontSize: 13,
+                  color: '#22c55e',
+                  fontWeight: 600
+                }}>
+                  <span style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: '#22c55e',
+                    animation: 'pulse 2s ease-in-out infinite',
+                    boxShadow: '0 0 10px #22c55e'
+                  }} />
+                  <span>
+                    🎮 {activePlayers.length} Spieler aktiv im laufenden Spiel
+                  </span>
+                  <div style={{ flex: 1 }} />
+                  <span style={{ fontSize: 11, color: '#4ade80' }}>
+                    {activePlayers.map(p => p.name).join(', ')}
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
 
         {/* Player Grid */}
