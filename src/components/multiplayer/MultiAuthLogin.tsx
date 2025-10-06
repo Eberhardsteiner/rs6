@@ -341,7 +341,7 @@ const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
     }
 
     // Proceed to role selection
-   setStep('role-auth');
+     setStep('role-auth');
   };
 
   // Step 2: Create or join game with selected role
