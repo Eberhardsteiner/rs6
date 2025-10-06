@@ -7,7 +7,7 @@ import '@/styles/onboarding.css';
 import { supabase } from '@/services/supabaseClient';
 import InfoModal from '@/components/info/InfoModal';
 import { infoContents } from '@/data/infoContent';
-import '@/styles/onboarding.css';
+
 
 interface GameLobbyProps {
   game: Game;
@@ -169,6 +169,10 @@ export default function GameLobby({
   const [pressingCopy, setPressingCopy] = useState(false);
   const [rippleKey, setRippleKey] = useState(0);
 
+// Live-Ansichten (Realtime)
+  const [livePlayers, setLivePlayers] = useState<Player[]>(players);
+  const [liveGame, setLiveGame] = useState<Game>(game);
+  
   const countdownIntervalRef = useRef<NodeJS.Timeout>();
   const timerRef = useRef<NodeJS.Timeout>();
 
