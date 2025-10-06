@@ -173,6 +173,7 @@ interface DayStatus {
   timeRemaining: number;
   canAdvance: boolean;
   waitingFor: RoleId[];
+  playerPresence: Map<RoleId, 'not_in_game' | 'in_game' | 'left'>; // Spieler-Status
 }
 
 export default function DaySyncController({
@@ -191,7 +192,8 @@ export default function DaySyncController({
     decisionsComplete: false,
     timeRemaining: daySeconds,
     canAdvance: false,
-    waitingFor: []
+    waitingFor: [],
+    playerPresence: new Map()
   });
   const [processingDayChange, setProcessingDayChange] = useState(false);
   const [countdown, setCountdown] = useState(daySeconds);
@@ -199,7 +201,9 @@ export default function DaySyncController({
 
   const mpService = MultiplayerService.getInstance();
   const dqService = DecisionQueueService.getInstance();
-  // Nur CEO darf den Tageswechsel auslösen
+  // Alle Rollen für Lampen-Anzeige (CEO wurde hinzugefügt)
+  const ALL_ROLES: RoleId[] = ['CEO', 'CFO', 'HRLEGAL', 'OPS'] as RoleId[];
+  // Nur diese Rollen müssen Ready sein für Tageswechsel (CEO ausgeschlossen)
   const REQUIRED_ROLES: RoleId[] = ['CFO', 'HRLEGAL', 'OPS'] as RoleId[];
   const isCEO = role === 'CEO';
 
@@ -222,6 +226,37 @@ export default function DaySyncController({
     }
   };
 
+  // Funktion: Spieler-Anwesenheit aus players-Tabelle abrufen
+  const fetchPlayerPresence = async (): Promise<Map<RoleId, 'not_in_game' | 'in_game' | 'left'>> => {
+    try {
+      const { data } = await supabase
+        .from('players')
+        .select('role, status, left_at')
+        .eq('game_id', gameId);
+
+      const presenceMap = new Map<RoleId, 'not_in_game' | 'in_game' | 'left'>();
+      ALL_ROLES.forEach(r => presenceMap.set(r, 'not_in_game')); // Standard: nicht im Spiel
+
+      (data || []).forEach((player: any) => {
+        const playerRole = player.role as RoleId;
+        if (!ALL_ROLES.includes(playerRole)) return;
+
+        if (player.left_at !== null) {
+          presenceMap.set(playerRole, 'left'); // Rot: Spiel verlassen
+        } else if (player.status === 'in_game' || player.status === 'lobby') {
+          presenceMap.set(playerRole, 'in_game'); // Orange: Im Spiel
+        }
+      });
+
+      return presenceMap;
+    } catch (error) {
+      console.error('Fehler beim Abrufen der Spieler-Anwesenheit:', error);
+      const m = new Map<RoleId, 'not_in_game' | 'in_game' | 'left'>();
+      ALL_ROLES.forEach(r => m.set(r, 'not_in_game'));
+      return m;
+    }
+  };
+
   const setPlayerReady = async (r: RoleId, ready = true) => {
     try {
       await supabase
@@ -239,9 +274,11 @@ export default function DaySyncController({
       });
       // lokalen Status aktualisieren
       const m = await fetchReadyMap();
+      const presence = await fetchPlayerPresence();
       setDayStatus(prev => ({
         ...prev,
         playersReady: m,
+        playerPresence: presence,
         canAdvance: REQUIRED_ROLES.every(rr => m.get(rr)) || inGracePeriod
       }));
     } catch (e) {
@@ -291,6 +328,7 @@ export default function DaySyncController({
 
                 // Entscheidungen weiterhin prüfen (für Malus/Autofill), aber Advance-Gate an Ready-Lampen koppeln
         const readyMap = await fetchReadyMap();
+        const presenceMap = await fetchPlayerPresence();
         const allReady = REQUIRED_ROLES.every(r => readyMap.get(r) === true);
 
         setDayStatus(prev => ({
@@ -298,6 +336,7 @@ export default function DaySyncController({
           decisionsComplete: validation.isComplete,
           waitingFor: validation.missingRoles,
           playersReady: readyMap,
+          playerPresence: presenceMap,
           canAdvance: allReady || inGracePeriod
         }));
 
@@ -345,21 +384,37 @@ export default function DaySyncController({
     }));
   };
 
-  // Realtime: Player-Ready-Änderungen abonnieren
+  // Realtime: Player-Ready-Änderungen & Spieler-Status abonnieren
   useEffect(() => {
-    const channel = supabase
+    const readyChannel = supabase
       .channel('mp-player-ready')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_ready' }, (payload) => {
         const rec: any = payload.new || payload.old;
         if (rec?.game_id === gameId && rec?.day === currentDay) {
-          fetchReadyMap().then(m => {
+          Promise.all([fetchReadyMap(), fetchPlayerPresence()]).then(([m, presence]) => {
             const allReady = REQUIRED_ROLES.every(r => m.get(r) === true);
-            setDayStatus(prev => ({ ...prev, playersReady: m, canAdvance: allReady || inGracePeriod }));
+            setDayStatus(prev => ({ ...prev, playersReady: m, playerPresence: presence, canAdvance: allReady || inGracePeriod }));
           }).catch(() => {});
         }
       })
       .subscribe();
-    return () => { try { channel.unsubscribe(); } catch {} };
+
+    // Zweiter Channel: Spieler-Änderungen (An-/Abwesenheit)
+    const playersChannel = supabase
+      .channel('mp-players-status')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${gameId}` }, () => {
+        fetchPlayerPresence().then(presence => {
+          setDayStatus(prev => ({ ...prev, playerPresence: presence }));
+        }).catch(() => {});
+      })
+      .subscribe();
+
+    return () => {
+      try {
+        readyChannel.unsubscribe();
+        playersChannel.unsubscribe();
+      } catch {}
+    };
   }, [gameId, currentDay, inGracePeriod]);
 
     const handleDayAdvance = async () => {
@@ -572,7 +627,17 @@ try {
   }
 } catch {}
 
-      
+      // Ready-Status für den NEUEN Tag zurücksetzen (alle Lampen wieder orange/grau/rot)
+      try {
+        await supabase
+          .from('player_ready')
+          .delete()
+          .eq('game_id', gameId)
+          .eq('day', currentDay + 1);
+      } catch (e) {
+        console.warn('Konnte Ready-Status für neuen Tag nicht zurücksetzen:', e);
+      }
+
       // Trigger local state update
       onDayAdvance(currentDay + 1, finalDelta);
       if (insolv.triggered) {
@@ -594,8 +659,49 @@ try {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-   const getStatusColor = (ready: boolean): string => {
-    return ready ? '#10b981' : '#6b7280'; // grün = an, grau = aus
+  /**
+   * Farb-Logik für Lampen:
+   * - Grau (#9ca3af): Rolle nicht im Spiel
+   * - Orange (#f97316): Rolle im Spiel, aber noch keine Entscheidung getroffen
+   * - Rot (#ef4444): Rolle hat Spiel verlassen
+   * - Grün (#10b981): Entscheidung für diesen Tag getroffen
+   */
+  const getLampColor = (
+    playerRole: RoleId,
+    presence: 'not_in_game' | 'in_game' | 'left',
+    ready: boolean
+  ): string => {
+    // Rot: Spieler hat das Spiel verlassen
+    if (presence === 'left') {
+      return '#ef4444';
+    }
+    // Grau: Spieler ist nicht im Spiel
+    if (presence === 'not_in_game') {
+      return '#9ca3af';
+    }
+    // Grün: Spieler im Spiel und Entscheidung getroffen
+    if (ready) {
+      return '#10b981';
+    }
+    // Orange: Spieler im Spiel, aber Entscheidung noch nicht getroffen
+    return '#f97316';
+  };
+
+  const getLampTitle = (
+    playerRole: RoleId,
+    presence: 'not_in_game' | 'in_game' | 'left',
+    ready: boolean
+  ): string => {
+    if (presence === 'left') {
+      return `${playerRole}: Spiel verlassen`;
+    }
+    if (presence === 'not_in_game') {
+      return `${playerRole}: Nicht im Spiel`;
+    }
+    if (ready) {
+      return `${playerRole}: Entscheidungen getroffen`;
+    }
+    return `${playerRole}: Anwesend, wartet auf Entscheidungen`;
   };
 
 
@@ -636,23 +742,28 @@ try {
           </div>
         </div>
 
-          {/* Player Status (fix: CFO, HRLEGAL, OPS; Lampen aus/anz) */}
+          {/* Player Status Lampen: CEO, CFO, HRLEGAL, OPS */}
         <div style={{ display: 'flex', gap: 8 }}>
-          {REQUIRED_ROLES.map(playerRole => {
+          {ALL_ROLES.map(playerRole => {
             const ready = dayStatus.playersReady.get(playerRole) || false;
+            const presence = dayStatus.playerPresence.get(playerRole) || 'not_in_game';
+            const lampColor = getLampColor(playerRole, presence, ready);
+            const lampTitle = getLampTitle(playerRole, presence, ready);
+
             return (
               <div
                 key={playerRole}
                 style={{
                   padding: '4px 8px',
-                  background: getStatusColor(ready),
+                  background: lampColor,
                   color: 'white',
                   borderRadius: 4,
                   fontSize: 12,
                   fontWeight: 600,
-                  opacity: ready ? 1 : 0.7
+                  opacity: presence === 'not_in_game' ? 0.5 : 1,
+                  transition: 'all 0.3s ease'
                 }}
-                title={ready ? 'Entscheidungen gemeldet' : 'Wartet auf „Entscheidungen getroffen“'}
+                title={lampTitle}
               >
                 {playerRole} {ready ? '●' : '○'}
               </div>
