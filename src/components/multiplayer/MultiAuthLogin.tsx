@@ -1766,8 +1766,14 @@ const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
             console.warn('Trainer membership upsert failed:', e);
           }
 
+          // Set UI state to 'joining' before calling onSuccess to show loading screen
+          setStep('joining');
+          setError('');
+
+          // Save to localStorage
           localStorage.setItem('mp_current_game', finalGameId);
           localStorage.setItem('mp_current_role', 'TRAINER');
+          localStorage.setItem('mp_user_name', 'Trainer');
           if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
 
           onSuccess(finalGameId, 'TRAINER');
@@ -1877,8 +1883,14 @@ const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
         throw upErr;
       }
 
+        // Set UI state to 'joining' before calling onSuccess to show loading screen
+        setStep('joining');
+        setError('');
+
+        // Save to localStorage
         localStorage.setItem('mp_current_game', finalGameId);
         localStorage.setItem('mp_current_role', selectedRole);
+        localStorage.setItem('mp_user_name', playerName);
         if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
 
         onSuccess(finalGameId, selectedRole);
