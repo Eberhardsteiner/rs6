@@ -295,17 +295,14 @@ export default function GameLobby({
     }
   }, [readyStatus, isStarting, settings.autoStartWhenReady]);
 
-  const allPlayersReady = (): boolean => {
-    // Alle Spieler bereit Logik
-    const everyoneReady = players.length > 0 && players.every(p => readyStatus.get(p.id));
-    // Wenn 'Früher Einstieg' aktiviert ist, darf bereits EIN Spieler ins Spiel (Einzelstart).
+    const allPlayersReady = (): boolean => {
+    const everyoneReady = livePlayers.length > 0 && livePlayers.every(p => readyStatus.get(p.id));
     if (settings.allowEarlyEntry) {
-      // Ein Spieler kann starten, sobald ER bereit ist – unabhängig von anderen.
       return !!(currentPlayer && readyStatus.get(currentPlayer.id));
     }
-    // Standard: alle 4 Spieler müssen bereit sein
-    return players.length === 4 && everyoneReady;
+    return livePlayers.length === 4 && everyoneReady;
   };
+
 
   const initiateCountdown = () => {
     setIsStarting(true);
