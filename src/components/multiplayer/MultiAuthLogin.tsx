@@ -12,9 +12,6 @@ interface MultiAuthLoginProps {
 const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
 
 export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
-
-const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
-  
   // Load admin settings or from localStorage as fallback
 
   let adminSettings = (globalThis as any).__multiplayerSettings;
@@ -341,7 +338,7 @@ const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
     }
 
     // Proceed to role selection
-     setStep('role-auth');
+    setStep('role-selection');
   };
 
   // Step 2: Create or join game with selected role
@@ -1662,15 +1659,6 @@ const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
   );
 
   // ========== SCREEN 2: ROLE + AUTH SELECTION ==========
-
-// Legacy-Screen kapseln, damit kein freistehendes `return` mehr existiert
-  const RoleAuthScreen: React.FC = () => {
-    const roles: RoleId[] = trainerFeatureEnabled
-      ? ['CEO','CFO','OPS','HRLEGAL','TRAINER']
-      : ['CEO','CFO','OPS','HRLEGAL'];
-
-
-  
       const handleRoleSelect = async (role: RoleId) => {
       if (occupiedRoles.has(role)) {
         setError(`Die Rolle ${role} ist bereits belegt.`);
@@ -1766,14 +1754,8 @@ const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
             console.warn('Trainer membership upsert failed:', e);
           }
 
-          // Set UI state to 'joining' before calling onSuccess to show loading screen
-          setStep('joining');
-          setError('');
-
-          // Save to localStorage
           localStorage.setItem('mp_current_game', finalGameId);
           localStorage.setItem('mp_current_role', 'TRAINER');
-          localStorage.setItem('mp_user_name', 'Trainer');
           if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
 
           onSuccess(finalGameId, 'TRAINER');
@@ -1875,22 +1857,15 @@ const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
           .select()
           .single();
 
-       if (upErr) {
-         // 23505 = UNIQUE violation (u.a. durch den (game_id,role)-Index ausgelöst)
-        if (upErr.code === '23505') {
-           throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-         }
-        throw upErr;
-      }
+        if (upErr) {
+          if (upErr.code === '23505' && upErr.message?.includes('idx_players_game_role_unique')) {
+            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+          }
+          throw upErr;
+        }
 
-        // Set UI state to 'joining' before calling onSuccess to show loading screen
-        setStep('joining');
-        setError('');
-
-        // Save to localStorage
         localStorage.setItem('mp_current_game', finalGameId);
         localStorage.setItem('mp_current_role', selectedRole);
-        localStorage.setItem('mp_user_name', playerName);
         if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
 
         onSuccess(finalGameId, selectedRole);
@@ -2061,7 +2036,6 @@ const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
         </div>
       </div>
     );
-     };
 
   // Render Joining Screen
   const renderJoining = () => (
@@ -2264,7 +2238,7 @@ const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
 
   // Render Role and Auth combined screen
   const renderRoleAndAuth = () => {
-    return <RoleAuthScreen />;
+    return renderRoleSelection();
   };
 
   // Main render logic - New Flow: game-mode → role-auth → joining
