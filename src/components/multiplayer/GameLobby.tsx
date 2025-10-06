@@ -926,12 +926,12 @@ export default function GameLobby({
           </div>
 
           {/* Active Players Indicator */}
-          {(game.state === 'running' || game.status === 'running') && (() => {
-            const isGameRunning = true;
-            const activePlayers = players.filter(p =>
-              p.last_seen &&
-              (new Date().getTime() - new Date(p.last_seen).getTime()) < 120000
-            );
+                  {(liveGame.state === 'running' || liveGame.status === 'running') && (() => {
+          const activePlayers = livePlayers.filter(p =>
+            p.last_seen &&
+            (new Date().getTime() - new Date(p.last_seen).getTime()) < 120000
+          );
+
 
             if (activePlayers.length > 0) {
               return (
