@@ -306,31 +306,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
     }
   };
 
-  // Step 1: Choose game mode (create or join)
-  const handleGameAction = async () => {
-    setError('');
 
-    if (gameMode === 'join') {
-      if (!joinCode.trim()) {
-        setError('Bitte Spiel-Code eingeben');
-        return;
-      }
-
-      // Fetch occupied roles before showing role selection
-      setLoading(true);
-      try {
-        await fetchOccupiedRoles(joinCode.trim());
-        setLoading(false);
-      } catch (e) {
-        setError('Fehler beim Laden der Spieldaten');
-        setLoading(false);
-        return;
-      }
-    }
-
-    // Proceed to role selection
-    setStep('role-selection');
-  };
 
   // Step 2: Create or join game with selected role
   const handleFinalJoin = async () => {
