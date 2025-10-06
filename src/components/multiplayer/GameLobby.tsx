@@ -210,6 +210,55 @@ export default function GameLobby({
   useEffect(() => {
     if (!currentPlayer?.id) return;
 
+// Realtime: Spieler-Liste für diese Lobby live halten
+  useEffect(() => {
+    if (!game?.id) return;
+
+    let mounted = true;
+
+    const refetch = async () => {
+      const { data, error } = await supabase
+        .from('players')
+        .select('*')
+        .eq('game_id', game.id);
+      if (!error && mounted) setLivePlayers(data as Player[]);
+    };
+
+    refetch();
+
+    const ch = supabase
+      .channel(`lobby-players-${game.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${game.id}` },
+        () => { refetch(); }
+      )
+      .subscribe();
+
+    return () => { mounted = false; supabase.removeChannel(ch); };
+  }, [game?.id]);
+
+  // Realtime: Spielstatus (z. B. 'running') beobachten
+  useEffect(() => {
+    if (!game?.id) return;
+
+    const ch = supabase
+      .channel(`game-status-${game.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${game.id}` },
+        (payload) => { setLiveGame(payload.new as Game); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
+  }, [game?.id]);
+
+  // Prop-Änderungen als Fallback übernehmen
+  useEffect(() => { setLivePlayers(players); }, [players]);
+  useEffect(() => { setLiveGame(game); }, [game]);
+
+    
     const updateHeartbeat = async () => {
       try {
         const mpService = MultiplayerService.getInstance();
