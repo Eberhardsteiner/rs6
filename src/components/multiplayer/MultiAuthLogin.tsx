@@ -12,6 +12,9 @@ interface MultiAuthLoginProps {
 const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
 
 export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
+
+const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
+  
   // Load admin settings or from localStorage as fallback
 
   let adminSettings = (globalThis as any).__multiplayerSettings;
