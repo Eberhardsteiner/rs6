@@ -5,7 +5,6 @@ import PerformanceIndicator from '@/components/hud/PerformanceIndicator';
 import AdminFloatingButton from '@/admin/AdminFloatingButton';
 import { RotateCcw, Copy } from 'lucide-react';
 import { clearState } from '@/services/storageLocal';
-import { supabase } from '@/services/supabaseClient';
 
 interface ShellProps {
   children: React.ReactNode;
@@ -14,10 +13,9 @@ interface ShellProps {
   gameCodeToDisplay?: string;
 }
 
-export default function Shell({ children, backButton, gameCodeToDisplay }: ShellProps) { // <-- gameCodeToDisplay MUSS hier destructuring werden
+export default function Shell({ children, backButton, gameCodeToDisplay }: ShellProps) {
 
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
-  const [trainerPresent, setTrainerPresent] = React.useState(false);
 
   const handleReset = () => {
     setShowResetConfirm(true);
@@ -29,49 +27,11 @@ export default function Shell({ children, backButton, gameCodeToDisplay }: Shell
   };
 
 
-    // MP-Schwierigkeit aus globalen Multiplayer-Einstellungen auslesen (nur Anzeige; SP bleibt unberührt)
+  // MP-Schwierigkeit aus globalen Multiplayer-Einstellungen auslesen (nur Anzeige; SP bleibt unberührt)
   const g: any = globalThis as any;
   const __mpRaw = g?.__mpDifficulty ?? g?.__multiplayerSettings?.mpDifficulty;
   const mpDifficulty: 'easy' | 'normal' | 'hard' | null =
     __mpRaw === 'easy' || __mpRaw === 'normal' || __mpRaw === 'hard' ? __mpRaw : null;
-
-  // Check if trainer is present in the game
-  React.useEffect(() => {
-    if (!gameCodeToDisplay) {
-      setTrainerPresent(false);
-      return;
-    }
-
-    let active = true;
-    const fetchTrainerPresence = async () => {
-      const { data } = await supabase
-        .from('players')
-        .select('id')
-        .eq('game_id', gameCodeToDisplay)
-        .eq('role', 'TRAINER')
-        .maybeSingle();
-      if (active) {
-        setTrainerPresent(!!data);
-      }
-    };
-
-    fetchTrainerPresence();
-
-    const channel = supabase
-      .channel(`trainer-presence-${gameCodeToDisplay}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'players',
-        filter: `game_id=eq.${gameCodeToDisplay}`
-      }, fetchTrainerPresence)
-      .subscribe();
-
-    return () => {
-      active = false;
-      supabase.removeChannel(channel);
-    };
-  }, [gameCodeToDisplay]);
 
 
   return (
@@ -127,38 +87,7 @@ export default function Shell({ children, backButton, gameCodeToDisplay }: Shell
             <DifficultyBadge />
           )}
 
-          {/* Trainer Presence Indicator */}
-          {trainerPresent && (
-            <span
-              title="Trainer*in anwesend"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '2px 10px',
-                borderRadius: 9999,
-                border: '1px solid rgba(59,130,246,0.35)',
-                fontSize: 12,
-                background: 'rgba(59,130,246,0.12)',
-                color: '#1e40af',
-                fontWeight: 600
-              }}
-            >
-              <div style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: '#60a5fa',
-                boxShadow: '0 0 8px #60a5fa'
-              }} />
-              Trainer anwesend
-            </span>
-          )}
 
-
-
-
-          
           {/* NEU: Laufende Performance-Anzeige (3 Kreise) */}
           <PerformanceIndicator />
           {/* Back-Button direkt neben dem Neustart-Button */}

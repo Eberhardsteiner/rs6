@@ -201,8 +201,8 @@ export default function DaySyncController({
 
   const mpService = MultiplayerService.getInstance();
   const dqService = DecisionQueueService.getInstance();
-  // Alle Rollen für Lampen-Anzeige (CEO wurde hinzugefügt)
-  const ALL_ROLES: RoleId[] = ['CEO', 'CFO', 'HRLEGAL', 'OPS'] as RoleId[];
+  // Alle Rollen für Lampen-Anzeige (CEO und TRAINER)
+  const ALL_ROLES: RoleId[] = ['CEO', 'CFO', 'HRLEGAL', 'OPS', 'TRAINER'] as RoleId[];
   // Nur diese Rollen müssen Ready sein für Tageswechsel (CEO ausgeschlossen)
   const REQUIRED_ROLES: RoleId[] = ['CFO', 'HRLEGAL', 'OPS'] as RoleId[];
   const isCEO = role === 'CEO';
@@ -661,16 +661,27 @@ try {
 
   /**
    * Farb-Logik für Lampen:
-   * - Grau (#9ca3af): Rolle nicht im Spiel
-   * - Orange (#f97316): Rolle im Spiel, aber noch keine Entscheidung getroffen
-   * - Rot (#ef4444): Rolle hat Spiel verlassen
+   * Für CEO, CFO, OPS, HRLEGAL:
+   * - Rot (#ef4444): Spieler hat das Spiel verlassen
+   * - Grau (#9ca3af): Spieler ist nicht im Spiel
+   * - Orange (#f97316): Spieler ist im Spiel, hat aber noch keine Entscheidung getroffen
    * - Grün (#10b981): Entscheidung für diesen Tag getroffen
+   *
+   * Für TRAINER (vereinfacht):
+   * - Grau (#9ca3af): Nicht anwesend
+   * - Blau (#3b82f6): Anwesend
    */
   const getLampColor = (
     playerRole: RoleId,
     presence: 'not_in_game' | 'in_game' | 'left',
     ready: boolean
   ): string => {
+    // Spezielle Logik für TRAINER: nur grau/blau
+    if (playerRole === 'TRAINER') {
+      return presence === 'not_in_game' ? '#9ca3af' : '#3b82f6';
+    }
+
+    // Logik für CEO, CFO, OPS, HRLEGAL
     // Rot: Spieler hat das Spiel verlassen
     if (presence === 'left') {
       return '#ef4444';
@@ -692,6 +703,14 @@ try {
     presence: 'not_in_game' | 'in_game' | 'left',
     ready: boolean
   ): string => {
+    // Spezielle Logik für TRAINER
+    if (playerRole === 'TRAINER') {
+      return presence === 'not_in_game'
+        ? 'Trainer*in nicht anwesend'
+        : 'Trainer*in anwesend';
+    }
+
+    // Logik für CEO, CFO, OPS, HRLEGAL
     if (presence === 'left') {
       return `${playerRole}: Spiel verlassen`;
     }
@@ -742,13 +761,15 @@ try {
           </div>
         </div>
 
-          {/* Player Status Lampen: CEO, CFO, HRLEGAL, OPS */}
+          {/* Player Status Lampen: CEO, CFO, HRLEGAL, OPS, Trainer*in */}
         <div style={{ display: 'flex', gap: 8 }}>
-          {ALL_ROLES.map(playerRole => {
+          {ALL_ROLES.map((playerRole, idx) => {
             const ready = dayStatus.playersReady.get(playerRole) || false;
             const presence = dayStatus.playerPresence.get(playerRole) || 'not_in_game';
             const lampColor = getLampColor(playerRole, presence, ready);
             const lampTitle = getLampTitle(playerRole, presence, ready);
+            const isTrainer = playerRole === 'TRAINER';
+            const displayLabel = isTrainer ? 'Trainer*in' : playerRole;
 
             return (
               <div
@@ -761,11 +782,12 @@ try {
                   fontSize: 12,
                   fontWeight: 600,
                   opacity: presence === 'not_in_game' ? 0.5 : 1,
-                  transition: 'all 0.3s ease'
+                  transition: 'all 0.3s ease',
+                  marginLeft: isTrainer && idx > 0 ? '4px' : '0'
                 }}
                 title={lampTitle}
               >
-                {playerRole} {ready ? '●' : '○'}
+                {displayLabel} {isTrainer ? (presence !== 'not_in_game' ? '●' : '○') : (ready ? '●' : '○')}
               </div>
             );
           })}
