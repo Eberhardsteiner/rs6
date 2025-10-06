@@ -12,6 +12,9 @@ interface MultiAuthLoginProps {
 const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
 
 export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
+
+const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
+  
   // Load admin settings or from localStorage as fallback
 
   let adminSettings = (globalThis as any).__multiplayerSettings;
@@ -338,7 +341,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
     }
 
     // Proceed to role selection
-    setStep('role-selection');
+     setStep('role-auth');
   };
 
   // Step 2: Create or join game with selected role
@@ -1659,6 +1662,15 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   );
 
   // ========== SCREEN 2: ROLE + AUTH SELECTION ==========
+
+// Legacy-Screen kapseln, damit kein freistehendes `return` mehr existiert
+  const RoleAuthScreen: React.FC = () => {
+    const roles: RoleId[] = trainerFeatureEnabled
+      ? ['CEO','CFO','OPS','HRLEGAL','TRAINER']
+      : ['CEO','CFO','OPS','HRLEGAL'];
+
+
+  
       const handleRoleSelect = async (role: RoleId) => {
       if (occupiedRoles.has(role)) {
         setError(`Die Rolle ${role} ist bereits belegt.`);
@@ -1857,12 +1869,13 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
           .select()
           .single();
 
-        if (upErr) {
-          if (upErr.code === '23505' && upErr.message?.includes('idx_players_game_role_unique')) {
-            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-          }
-          throw upErr;
-        }
+       if (upErr) {
+         // 23505 = UNIQUE violation (u.a. durch den (game_id,role)-Index ausgelöst)
+        if (upErr.code === '23505') {
+           throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+         }
+        throw upErr;
+      }
 
         localStorage.setItem('mp_current_game', finalGameId);
         localStorage.setItem('mp_current_role', selectedRole);
@@ -2036,6 +2049,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         </div>
       </div>
     );
+     };
 
   // Render Joining Screen
   const renderJoining = () => (
@@ -2238,7 +2252,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
   // Render Role and Auth combined screen
   const renderRoleAndAuth = () => {
-    return renderRoleSelection();
+    return <RoleAuthScreen />;
   };
 
   // Main render logic - New Flow: game-mode → role-auth → joining

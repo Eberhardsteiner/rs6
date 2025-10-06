@@ -290,6 +290,55 @@ export default function GameLobby({
     return () => clearInterval(heartbeatInterval);
   }, [currentPlayer?.id]);
 
+  // Realtime: Spieler-Liste für diese Lobby live halten (top-level)
+  useEffect(() => {
+    if (!game?.id) return;
+
+    let mounted = true;
+
+    const refetch = async () => {
+      const { data, error } = await supabase
+        .from('players')
+        .select('*')
+        .eq('game_id', game.id);
+      if (!error && mounted) setLivePlayers(data as Player[]);
+    };
+
+    refetch();
+
+    const ch = supabase
+      .channel(`lobby-players-${game.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${game.id}` },
+        () => { refetch(); }
+      )
+      .subscribe();
+
+    return () => { mounted = false; supabase.removeChannel(ch); };
+  }, [game?.id]);
+
+  // Realtime: Spielstatus (z. B. 'running') beobachten (top-level)
+  useEffect(() => {
+    if (!game?.id) return;
+
+    const ch = supabase
+      .channel(`game-status-${game.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${game.id}` },
+        (payload) => { setLiveGame(payload.new as Game); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
+  }, [game?.id]);
+
+  // Prop-Änderungen als Fallback übernehmen (top-level)
+  useEffect(() => { setLivePlayers(players); }, [players]);
+  useEffect(() => { setLiveGame(game); }, [game]);
+
+  
   // Timer countdown
   useEffect(() => {
     if (settings.lobbySettings?.showTimer && !isStarting) {
