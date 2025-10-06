@@ -315,7 +315,7 @@ export default function GameLobby({
   };
 
 
-  const initiateCountdown = () => {
+   const initiateCountdown = () => {
     setIsStarting(true);
     const seconds = (settings.autoStartDelaySeconds ?? settings.lobbyCountdownSeconds ?? 5);
     setCountdown(seconds);
@@ -324,6 +324,7 @@ export default function GameLobby({
       setCountdown(prev => {
         if (prev === null || prev <= 1) {
           if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+          void markGameRunning(); // andere Lobbys sehen sofort „läuft“
           onGameStart();
           return null;
         }
@@ -331,6 +332,7 @@ export default function GameLobby({
       });
     }, 1000);
   };
+
 
   const handleSetReady = () => {
     const newStatus = !readyStatus.get(currentPlayer.id);
