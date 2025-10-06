@@ -1659,15 +1659,20 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   );
 
   // ========== SCREEN 2: ROLE + AUTH SELECTION ==========
-  const renderRoleAndAuth = () => {
-    const roles: RoleId[] = trainerFeatureEnabled
-      ? ['CEO', 'CFO', 'OPS', 'HRLEGAL', 'TRAINER']
-      : ['CEO', 'CFO', 'OPS', 'HRLEGAL'];
-
-    const handleRoleSelect = (role: RoleId) => {
+      const handleRoleSelect = async (role: RoleId) => {
+      if (occupiedRoles.has(role)) {
+        setError(`Die Rolle ${role} ist bereits belegt.`);
+        return;
+      }
+      // JOIN-Fall: Rolle sofort auf dem Server reservieren -> triggert Realtime-Sperre bei allen
+      if (gameMode === 'join' && currentGameId) {
+        const ok = await reserveRole(role, currentGameId);
+        if (!ok) return; // Fehlertext wurde in reserveRole gesetzt
+      }
       setSelectedRole(role);
       setError('');
     };
+
 
     const handleContinue = async () => {
       if (!selectedRole) {
