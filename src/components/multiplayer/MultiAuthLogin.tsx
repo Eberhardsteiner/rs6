@@ -8,6 +8,9 @@ interface MultiAuthLoginProps {
   onSuccess: (gameId: string, role: RoleId) => void;
 }
 
+// ZENTRALES Trainer‑Passwort (auch außerhalb von useEffect nutzbar)
+const TRAINER_PASSWORD = (globalThis as any).__trainerPassword || 'observer101';
+
 export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   // Load admin settings or from localStorage as fallback
 
