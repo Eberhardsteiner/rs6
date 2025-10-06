@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MultiplayerService } from '@/services/multiplayerService';
 import type { Game, Player } from '@/services/supabaseClient';
 import type { RoleId } from '@/core/models/domain';
+import '@/styles/onboarding.css';
+import { supabase } from '@/services/supabaseClient';
 import InfoModal from '@/components/info/InfoModal';
 import { infoContents } from '@/data/infoContent';
 import '@/styles/onboarding.css';
