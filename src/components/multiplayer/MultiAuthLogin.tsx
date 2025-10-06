@@ -2249,7 +2249,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
   // Render Role and Auth combined screen
   const renderRoleAndAuth = () => {
-    return renderRoleSelection();
+    return <RoleAuthScreen />;
   };
 
   // Main render logic - New Flow: game-mode → role-auth → joining
