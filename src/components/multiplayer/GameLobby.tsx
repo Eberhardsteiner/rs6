@@ -992,7 +992,7 @@ export default function GameLobby({
           <div style={{
             background: 'linear-gradient(90deg, #3b82f6, #10b981)',
             height: '100%',
-            width: `${(players.length / 4) * 100}%`,
+            width: `${(livePlayers.length / 4) * 100}%`,
             transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
             boxShadow: '0 0 20px rgba(59, 130, 246, 0.5)'
           }} />
