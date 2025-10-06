@@ -267,20 +267,27 @@ useEffect(() => {
     }
   };
 
-  const handleActualGameStart = () => {
+  const handleActualGameStart = async () => {
     // Move from lobby to playing
     setGamePhase('playing');
     localStorage.setItem('mp_game_phase', 'playing');
     
-    // Update game state in Supabase if GM
-    mpService.isGameMaster().then(isGM => {
-      if (isGM && currentGameId) {
-        supabase
+    // Fix: Update game state in Supabase for ALL players, not just GM
+    // This ensures that late-joining players can see the game is running
+    if (currentGameId) {
+      try {
+        await supabase
           .from('games')
-          .update({ state: 'running' })
+          .update({ 
+            state: 'running',
+            status: 'running'
+          })
           .eq('id', currentGameId);
+        console.log('[MultiplayerApp] Game state updated to running');
+      } catch (err) {
+        console.error('[MultiplayerApp] Failed to update game state:', err);
       }
-    });
+    }
   };
 
   const handleLeaveMultiplayer = async () => {

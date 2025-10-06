@@ -377,7 +377,8 @@ export default function GameLobby({
   );
 
   const getRoleCard = (role: RoleId) => {
-    const player = players.find(p => p.role === role);
+    // Fix: Case-insensitive Vergleich für CEO, CFO, OPS, HRLEGAL
+    const player = players.find(p => p.role?.toUpperCase() === role.toUpperCase());
     const isReady = player ? readyStatus.get(player.id) : false;
     const info = roleInfo[role];
 
@@ -470,7 +471,7 @@ export default function GameLobby({
             color: player ? '#1f2937' : 'rgba(255, 255, 255, 0.4)',
             minHeight: 28
           }}>
-            {player ? player.name : 'Wartet auf Spieler...'}
+            {player ? (player.display_name || player.name) : 'Wartet auf Spieler...'}
           </div>
 
           <div style={{
@@ -872,7 +873,7 @@ export default function GameLobby({
                   </span>
                   <div style={{ flex: 1 }} />
                   <span style={{ fontSize: 11, color: '#4ade80' }}>
-                    {activePlayers.map(p => p.name).join(', ')}
+                    {activePlayers.map(p => p.display_name || p.name).join(', ')}
                   </span>
                 </div>
               );
