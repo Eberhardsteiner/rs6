@@ -217,6 +217,7 @@ export default function GameLobby({
 
   useEffect(() => { ensureGameParam(); }, [ensureGameParam]);
 
+  
   // HEARTBEAT: last_seen regelm\u00e4\u00dfig aktualisieren (alle 30 Sekunden)
   useEffect(() => {
     if (!currentPlayer?.id) return;
