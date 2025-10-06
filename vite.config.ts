@@ -5,6 +5,7 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/TESTLQ1/',
 resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -12,7 +13,7 @@ resolve: {
     dedupe: ['react', 'react-dom'],
   },
 
-  
+
   // Wichtig: Diese Header sorgen dafür, dass Supabase-Ressourcen wieder geladen werden
   server: {
     headers: {
@@ -26,7 +27,7 @@ resolve: {
       'Cross-Origin-Embedder-Policy': 'credentialless'
     }
   },
-  
+
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
