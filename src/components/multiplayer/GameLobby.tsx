@@ -739,7 +739,7 @@ export default function GameLobby({
           }}>
             <InfoButton 
               icon="🏭" 
-              label="APS Profil" 
+              label="Unternehmens-Profil" 
               infoKey="apsProfile" 
               color="#10b981"
             />
