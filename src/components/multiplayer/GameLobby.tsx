@@ -1037,7 +1037,7 @@ export default function GameLobby({
             {settings.allowEarlyEntry && (
               <div style={{ textAlign: 'center', marginTop: 12 }}>
                 <button
-                  onClick={onGameStart}
+                  onClick={async () => { await markGameRunning(); onGameStart(); }}
                   style={{
                     padding: '12px 40px',
                     fontSize: 16,
