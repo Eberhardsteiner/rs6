@@ -466,8 +466,8 @@ export default function GameLobby({
 
   const getRoleCard = (role: RoleId) => {
     // Fix: Case-insensitive Vergleich für CEO, CFO, OPS, HRLEGAL
-    const player = players.find(p => p.role?.toUpperCase() === role.toUpperCase());
-    const isReady = player ? readyStatus.get(player.id) : false;
+   const player = livePlayers.find(p => p.role?.toUpperCase() === role.toUpperCase());
+  const isGameRunning = liveGame.state === 'running' || liveGame.status === 'running';
     const info = roleInfo[role];
 
     // Prüfen ob Spieler aktiv (kürzlich aktiv oder Spiel läuft)
