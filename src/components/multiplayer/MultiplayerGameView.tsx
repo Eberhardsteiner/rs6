@@ -1110,6 +1110,36 @@ if ((globalThis as any).__randomNews) {
     initGame();
   }, [gameId, role, playerName]);
 
+  // NEW: Start heartbeat and set up real-time observation for join-in-progress
+  useEffect(() => {
+    console.log('[MP] Starting heartbeat and real-time observation');
+
+    // Start heartbeat to keep player active
+    mpService.startHeartbeat();
+
+    // Set up comprehensive real-time observation
+    const { unsubscribe } = mpService.observeGame(gameId, {
+      onGameUpdate: (game) => {
+        console.log('[MP] Game status update:', game.status, 'Day:', game.current_day);
+        // Game updates are already handled by existing subscription
+      },
+      onPlayersUpdate: (players) => {
+        console.log('[MP] Players update:', players.length, 'active players');
+        const currentPlayerId = mpService.getCurrentPlayerId();
+        setOtherPlayers(players.filter((p: any) => p.id !== currentPlayerId));
+      },
+      onPresenceSync: (presenceState) => {
+        console.log('[MP] Presence sync:', Object.keys(presenceState).length, 'online');
+      }
+    });
+
+    return () => {
+      console.log('[MP] Stopping heartbeat and cleaning up observation');
+      mpService.stopHeartbeat();
+      unsubscribe();
+    };
+  }, [gameId]);
+
 // Re-Render bei Änderungen aus dem Szenario‑Editor (optional)
 const [, forceScenarioRefresh] = useState(0);
 useEffect(() => {

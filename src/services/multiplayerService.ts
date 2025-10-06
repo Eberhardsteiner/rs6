@@ -4,6 +4,21 @@ import { makeRng } from '@/core/utils/prng';
 import type { GameState, KPI, RoleId, DayNewsItem } from '@/core/models/domain';
 
 
+// Error types for robust error handling
+export type MPErrorCode =
+  | 'ROLE_TAKEN'
+  | 'GAME_NOT_FOUND'
+  | 'GAME_ENDED'
+  | 'NETWORK_ERROR'
+  | 'UNAUTHORIZED'
+  | 'UNKNOWN';
+
+export interface MPError {
+  code: MPErrorCode;
+  message: string;
+  originalError?: Error;
+}
+
 export class MultiplayerService {
   private static instance: MultiplayerService;
   private gameId: string | null = null;
@@ -12,6 +27,8 @@ export class MultiplayerService {
   private currentPlayerName: string | null = null;
   private currentRole: RoleId | null = null;
   private subscriptions: any[] = [];
+  private presenceChannel: any = null;
+  private heartbeatInterval: NodeJS.Timeout | null = null;
 
   static getInstance(): MultiplayerService {
     if (!MultiplayerService.instance) {
@@ -545,11 +562,21 @@ export class MultiplayerService {
   // ============ HELPER METHODS ============
 
   async leaveGame(): Promise<void> {
+    // Stop heartbeat
+    this.stopHeartbeat();
+
     if (this.playerId) {
-      await supabase
-        .from('players')
-        .delete()
-        .eq('id', this.playerId);
+      try {
+        // Use RPC to soft-delete (set left_at)
+        await supabase.rpc('rpc_mark_player_left', { p_player_id: this.playerId });
+      } catch (error) {
+        console.error('Error marking player as left:', error);
+        // Fallback: direct delete
+        await supabase
+          .from('players')
+          .delete()
+          .eq('id', this.playerId);
+      }
     }
 
     this.gameId = null;
@@ -557,11 +584,343 @@ export class MultiplayerService {
     this.currentPlayerName = null;
     this.currentRole = null;
     this.unsubscribeAll();
-    
+
     // Clear localStorage
     localStorage.removeItem('mp_current_game');
     localStorage.removeItem('mp_player_id');
     localStorage.removeItem('mp_current_role');
+  }
+
+  // ============ NEW METHODS FOR ROBUST MULTIPLAYER ============
+
+  /**
+   * Parse error from Supabase RPC call to structured MPError
+   */
+  private parseRPCError(error: any): MPError {
+    const message = error?.message || String(error);
+
+    if (message.includes('ROLE_TAKEN')) {
+      return {
+        code: 'ROLE_TAKEN',
+        message: 'Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.',
+        originalError: error
+      };
+    }
+    if (message.includes('GAME_NOT_FOUND')) {
+      return {
+        code: 'GAME_NOT_FOUND',
+        message: 'Spiel nicht gefunden. Bitte überprüfe den Spiel-Code.',
+        originalError: error
+      };
+    }
+    if (message.includes('GAME_ENDED')) {
+      return {
+        code: 'GAME_ENDED',
+        message: 'Dieses Spiel ist bereits beendet.',
+        originalError: error
+      };
+    }
+    if (message.includes('UNAUTHORIZED')) {
+      return {
+        code: 'UNAUTHORIZED',
+        message: 'Du bist nicht berechtigt, diese Aktion auszuführen.',
+        originalError: error
+      };
+    }
+    if (message.includes('network') || message.includes('fetch') || message.includes('timeout')) {
+      return {
+        code: 'NETWORK_ERROR',
+        message: 'Netzwerkfehler. Bitte überprüfe deine Verbindung.',
+        originalError: error
+      };
+    }
+
+    return {
+      code: 'UNKNOWN',
+      message: 'Ein unbekannter Fehler ist aufgetreten.',
+      originalError: error
+    };
+  }
+
+  /**
+   * Claim a role and join game using new RPC function with robust error handling
+   * Includes exponential backoff retry logic for network errors
+   */
+  async claimRoleAndJoin(
+    gameId: string,
+    desiredRole: RoleId,
+    playerName: string,
+    maxRetries: number = 3
+  ): Promise<Player> {
+    let lastError: MPError | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const { data, error } = await supabase.rpc('rpc_claim_role_and_join', {
+          p_game_id: gameId,
+          p_desired_role: desiredRole,
+          p_player_name: playerName
+        });
+
+        if (error) {
+          lastError = this.parseRPCError(error);
+
+          // Don't retry on non-network errors
+          if (lastError.code !== 'NETWORK_ERROR') {
+            throw lastError;
+          }
+
+          // Exponential backoff for network errors
+          const delayMs = Math.min(1000 * Math.pow(2, attempt), 5000);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          continue;
+        }
+
+        if (!data) {
+          throw new Error('No player data returned from RPC');
+        }
+
+        // Success - update local state
+        this.gameId = gameId;
+        this.playerId = data.id;
+        this.currentRole = desiredRole;
+        this.currentPlayerName = playerName;
+
+        // Update localStorage
+        localStorage.setItem('mp_current_game', gameId);
+        localStorage.setItem('mp_player_id', data.id);
+        localStorage.setItem('mp_current_role', desiredRole);
+
+        console.log('Successfully claimed role:', desiredRole, 'in game:', gameId);
+
+        return data as Player;
+      } catch (error) {
+        if (attempt === maxRetries - 1) {
+          lastError = lastError || this.parseRPCError(error);
+          throw lastError;
+        }
+      }
+    }
+
+    throw lastError || this.parseRPCError(new Error('Failed after retries'));
+  }
+
+  /**
+   * Observe a game with comprehensive real-time subscriptions
+   * Sets up postgres_changes and Presence tracking
+   */
+  observeGame(
+    gameId: string,
+    callbacks: {
+      onGameUpdate?: (game: Game) => void;
+      onPlayersUpdate?: (players: Player[]) => void;
+      onPresenceSync?: (presence: any) => void;
+    }
+  ): { unsubscribe: () => void } {
+    const channels: any[] = [];
+
+    // Subscribe to game updates
+    if (callbacks.onGameUpdate) {
+      const gameChannel = supabase
+        .channel(`game-updates-${gameId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'games',
+            filter: `id=eq.${gameId}`
+          },
+          (payload) => {
+            console.log('Game update:', payload);
+            if (payload.new) {
+              callbacks.onGameUpdate?.(payload.new as Game);
+            }
+          }
+        )
+        .subscribe();
+
+      channels.push(gameChannel);
+      this.subscriptions.push(gameChannel);
+    }
+
+    // Subscribe to player updates
+    if (callbacks.onPlayersUpdate) {
+      const playersChannel = supabase
+        .channel(`players-updates-${gameId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'players',
+            filter: `game_id=eq.${gameId}`
+          },
+          async () => {
+            // Refetch all active players
+            const { data } = await supabase
+              .from('players')
+              .select('*')
+              .eq('game_id', gameId)
+              .is('left_at', null)
+              .order('joined_at', { ascending: true });
+
+            if (data) {
+              console.log('Players update:', data);
+              callbacks.onPlayersUpdate?.(data as Player[]);
+            }
+          }
+        )
+        .subscribe();
+
+      channels.push(playersChannel);
+      this.subscriptions.push(playersChannel);
+    }
+
+    // Set up Presence tracking
+    if (callbacks.onPresenceSync) {
+      this.presenceChannel = supabase
+        .channel(`presence-${gameId}`, {
+          config: {
+            presence: {
+              key: this.userId || 'anonymous'
+            }
+          }
+        })
+        .on('presence', { event: 'sync' }, () => {
+          const state = this.presenceChannel.presenceState();
+          console.log('Presence sync:', state);
+          callbacks.onPresenceSync?.(state);
+        })
+        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+          console.log('Presence join:', key, newPresences);
+        })
+        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+          console.log('Presence leave:', key, leftPresences);
+        })
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED' && this.playerId) {
+            // Track presence
+            await this.presenceChannel.track({
+              user_id: this.userId,
+              player_id: this.playerId,
+              role: this.currentRole,
+              online_at: new Date().toISOString()
+            });
+          }
+        });
+
+      channels.push(this.presenceChannel);
+      this.subscriptions.push(this.presenceChannel);
+    }
+
+    return {
+      unsubscribe: () => {
+        channels.forEach(ch => supabase.removeChannel(ch));
+        if (this.presenceChannel) {
+          this.presenceChannel.untrack();
+          this.presenceChannel = null;
+        }
+      }
+    };
+  }
+
+  /**
+   * Start heartbeat to update last_seen every 30 seconds
+   */
+  startHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      return; // Already running
+    }
+
+    const updateHeartbeat = async () => {
+      if (!this.playerId) return;
+
+      try {
+        await supabase
+          .from('players')
+          .update({
+            last_seen: new Date().toISOString(),
+            is_active: true
+          })
+          .eq('id', this.playerId);
+
+        console.log('Heartbeat updated');
+      } catch (error) {
+        console.error('Heartbeat failed:', error);
+      }
+    };
+
+    // Initial heartbeat
+    updateHeartbeat();
+
+    // Set interval for 30 seconds
+    this.heartbeatInterval = setInterval(updateHeartbeat, 30000);
+    console.log('Heartbeat started');
+  }
+
+  /**
+   * Stop heartbeat
+   */
+  stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+      console.log('Heartbeat stopped');
+    }
+  }
+
+  /**
+   * Set game status (for host/trainer)
+   */
+  async setGameStatus(gameId: string, newStatus: 'lobby' | 'waiting' | 'running' | 'ended'): Promise<void> {
+    try {
+      const { error } = await supabase.rpc('rpc_set_game_status', {
+        p_game_id: gameId,
+        p_new_status: newStatus
+      });
+
+      if (error) {
+        const mpError = this.parseRPCError(error);
+        throw mpError;
+      }
+
+      console.log('Game status updated to:', newStatus);
+    } catch (error) {
+      console.error('Failed to set game status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get occupied roles for a game (for UI role selection)
+   */
+  async getOccupiedRoles(gameId: string): Promise<Set<RoleId>> {
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .select('role, user_id')
+        .eq('game_id', gameId)
+        .is('left_at', null)
+        .not('role', 'is', null);
+
+      if (error) throw error;
+
+      const currentUserId = (await supabase.auth.getUser()).data.user?.id;
+      const occupied = new Set<RoleId>();
+
+      (data || []).forEach((player: any) => {
+        // Don't mark role as occupied if it's the current user's role
+        if (player.role && player.user_id !== currentUserId) {
+          occupied.add(player.role as RoleId);
+        }
+      });
+
+      return occupied;
+    } catch (error) {
+      console.error('Error fetching occupied roles:', error);
+      return new Set();
+    }
   }
 
   getCurrentGameId(): string | null {

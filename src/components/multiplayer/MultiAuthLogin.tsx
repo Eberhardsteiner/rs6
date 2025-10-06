@@ -145,14 +145,13 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
     }
   }, []);
 
-  // Funktion zum Abrufen der belegten Rollen (FIX: select user_id as well)
+  // Funktion zum Abrufen der belegten Rollen (using service method)
   const fetchOccupiedRoles = async (gameIdOrCode: string) => {
     try {
       // Zuerst versuchen wir es als Game-ID
-      let gameId = gameIdOrCode;
+      let gameId = gameIdOrCode.trim();
 
-     // Join-Codes sind jetzt UUIDs: erst per RPC auflösen; wenn nicht gefunden, bleibt es die eingegebene ID.
-       gameId = gameIdOrCode.trim();
+      // Join-Codes sind jetzt UUIDs: erst per RPC auflösen; wenn nicht gefunden, bleibt es die eingegebene ID.
       try {
         const { data, error } = await supabase.rpc('join_game', { p_join_code: gameId });
         if (!error) {
@@ -166,38 +165,18 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       } catch (e) {
         console.warn('[join_game] RPC exception:', e);
       }
+
       if (!gameId) {
         setOccupiedRoles(new Set());
         return;
       }
 
-      // Jetzt holen wir die belegten Rollen (inkl. user_id)
-      const { data: players, error: pErr } = await supabase
-        .from('players')
-        .select('role,user_id')
-        .eq('game_id', gameId)
-        .not('role', 'is', null);
-
-      if (pErr) {
-        console.error('Error fetching players:', pErr);
-        setOccupiedRoles(new Set());
-        return;
-      }
-
-      // Aktuelle User-ID holen
-      const { data: { user } } = await supabase.auth.getUser();
-      const currentUserId = user?.id;
-
-      const occ = new Set<RoleId>();
-      (players || []).forEach((p: any) => { 
-        // Rolle nur als belegt markieren, wenn sie nicht vom aktuellen User ist
-        if (p.role && p.user_id !== currentUserId) {
-          occ.add(p.role as RoleId);
-        }
-      });
-
-      setOccupiedRoles(occ);
+      // Use the service method to get occupied roles (excludes current user's role)
+      const occupied = await mpService.getOccupiedRoles(gameId);
+      setOccupiedRoles(occupied);
       setCurrentGameId(gameId);
+
+      console.log('Occupied roles fetched:', Array.from(occupied));
     } catch (e) {
       console.error('Error in fetchOccupiedRoles:', e);
       setOccupiedRoles(new Set());
@@ -332,7 +311,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
     setStep('role-selection');
   };
 
-  // Step 2: Create or join game with selected role
+  // Step 2: Create or join game with selected role (using new robust RPC)
   const handleFinalJoin = async () => {
     if (!selectedRole) {
       setError('Bitte wähle eine Rolle');
@@ -348,13 +327,13 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
     // Trainer-Passwort prüfen (nur bei TRAINER)
     if (selectedRole === 'TRAINER') {
+      const TRAINER_PASSWORD = 'observer101';
       if (trainerPass !== TRAINER_PASSWORD) {
         setLoading(false);
         setError('Falsches Trainer-Passwort');
         return;
       }
     }
-
 
     setError('');
     setStep('joining');
@@ -374,8 +353,8 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         });
         finalGameId = gameId;
 
-        // Join as host with selected role
-        await mpService.joinGame(finalGameId, playerName, selectedRole);
+        // Use new robust claimRoleAndJoin method
+        await mpService.claimRoleAndJoin(finalGameId, selectedRole, playerName);
 
       } else if (gameMode === 'join') {
         // Join existing game
@@ -389,19 +368,8 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
           return g?.id || joinCode; // Fallback
         })());
 
-        // FRISCHER SERVER-CHECK direkt vor dem Beitritt (vermeidet Race Conditions)
-        const { data: existingPlayers, error: epErr } = await supabase
-          .from('players')
-          .select('id')
-          .eq('game_id', gid)
-          .eq('role', selectedRole);
-
-        if (epErr) throw epErr;
-        if ((existingPlayers || []).length > 0) {
-          throw new Error('Diese Rolle wurde gerade von einem anderen Spieler gewählt.');
-        }
-
-        await mpService.joinGame(gid, playerName, selectedRole);
+        // Use new robust claimRoleAndJoin method with error handling
+        await mpService.claimRoleAndJoin(gid, selectedRole, playerName);
         finalGameId = gid;
       }
 
@@ -429,13 +397,14 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         } catch {}
       }
 
-      
       // Success - call parent callback
       onSuccess(finalGameId, selectedRole);
 
     } catch (err: any) {
-      setError(err.message || 'Fehler beim Spielbeitritt');
-      setStep('game-mode');
+      // Handle MPError types
+      const errorMessage = err?.message || err?.toString() || 'Fehler beim Spielbeitritt';
+      setError(errorMessage);
+      setStep('role-auth');  // Go back to role selection on error
       setLoading(false);
     }
   };
