@@ -862,6 +862,7 @@ export default function GameLobby({
               </button>
             </div>
 
+            {/* Früher Eintritt - wenn Setting aktiviert */}
             {settings.allowEarlyEntry && (
               <div style={{ textAlign: 'center', marginTop: 12 }}>
                 <button
@@ -891,6 +892,53 @@ export default function GameLobby({
                   title="Einzelstart: Du kannst schon ins Spiel, auch wenn andere noch nicht da sind."
                 >
                   Jetzt alleine starten
+                </button>
+              </div>
+            )}
+
+            {/* Laufendes Spiel beitreten - wenn Spiel bereits gestartet */}
+            {(game.state === 'running' || game.status === 'running') && (
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <div style={{
+                  padding: '12px 24px',
+                  background: 'rgba(251, 191, 36, 0.1)',
+                  border: '2px solid rgba(251, 191, 36, 0.5)',
+                  borderRadius: 12,
+                  marginBottom: 12,
+                  fontSize: 14,
+                  color: '#fbbf24',
+                  fontWeight: 600
+                }}>
+                  ⚡ Das Spiel läuft bereits!
+                </div>
+                <button
+                  onClick={onGameStart}
+                  style={{
+                    padding: '14px 50px',
+                    fontSize: 18,
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 40,
+                    cursor: 'pointer',
+                    transform: 'scale(1)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: '0 10px 30px rgba(245, 158, 11, 0.4)',
+                    letterSpacing: '0.5px',
+                    animation: 'pulse 2s ease-in-out infinite'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 15px 40px rgba(245, 158, 11, 0.6)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 10px 30px rgba(245, 158, 11, 0.4)';
+                  }}
+                  title="Dem laufenden Spiel sofort beitreten"
+                >
+                  🚀 Sofort Spiel beitreten
                 </button>
               </div>
             )}

@@ -198,13 +198,15 @@ useEffect(() => {
           if (player) {
             setCurrentPlayer(player);
           }
-          
+
           setLobbyLoading(false);
-          
-          // Hinweis: Nicht mehr automatisch in den Spielmodus springen,
-          // auch wenn der DB-Status bereits 'running' ist.
-          // Der Wechsel erfolgt nur noch explizit durch die Lobby (onGameStart)
-          // oder durch Rehydration aus localStorage ('mp_game_phase' === 'playing').
+
+          // WICHTIG: Wenn das Spiel bereits läuft, direkt beitreten
+          // Dies ermöglicht Nachzüglern (z.B. CEO tritt bei, nachdem CFO bereits spielt)
+          if (gameInfo.game.state === 'running' || gameInfo.game.status === 'running') {
+            console.log('[MultiplayerApp] Game already running, auto-joining...');
+            handleActualGameStart();
+          }
         } catch (err) {
           console.error('Error loading game data:', err);
           setLobbyLoading(false);
