@@ -1075,7 +1075,7 @@ export default function GameLobby({
             )}
 
             {/* Laufendes Spiel beitreten - wenn Spiel bereits gestartet */}
-            {(game.state === 'running' || game.status === 'running') && (
+            {(liveGame.state === 'running' || liveGame.status === 'running') && (
               <div style={{ textAlign: 'center', marginTop: 16 }}>
                 <div style={{
                   padding: '12px 24px',
