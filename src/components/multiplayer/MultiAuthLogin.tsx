@@ -275,46 +275,45 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
     };
   }, [joinCode, gameMode]);
 
-  // Rolle reservieren (optimistische UI-Updates)
+    // Rolle reservieren: (game_id,user_id) wird per UPSERT angelegt/aktualisiert.
+  // UNIQUE(game_id,role) verhindert Doppelvergabe auf DB‑Ebene (Atomarität).
   const reserveRole = async (role: RoleId, gameId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
-      // Prüfen ob Rolle noch frei ist
-      const { data: existingPlayers, error: existingErr } = await supabase
+      const { data: row, error } = await supabase
         .from('players')
-        .select('id')
-        .eq('game_id', gameId)
-        .eq('role', role);
-
-      if (existingErr) {
-        console.error('Error checking role before reserving:', existingErr);
-        return false;
-      }
-      if ((existingPlayers || []).length > 0) {
-        setError('Diese Rolle wurde gerade von einem anderen Spieler gewählt.');
-        return false;
-      }
-
-      // Rolle reservieren durch Update des eigenen Player-Eintrags
-      const { error } = await supabase
-        .from('players')
-        .update({ role: role })
-        .eq('game_id', gameId)
-        .eq('user_id', user.id);
+        .upsert(
+          {
+            game_id: gameId,
+            user_id: user.id,
+            role,
+            name: playerName || 'Spieler',
+            is_active: true,
+            last_seen: new Date().toISOString()
+          },
+          { onConflict: 'game_id,user_id' } // legt den eigenen Eintrag an/updated ihn
+        )
+        .select()
+        .single();
 
       if (error) {
-        console.error('Error reserving role:', error);
+        // 23505 = UNIQUE-Verletzung (z. B. (game_id,role) bereits belegt)
+        if ((error as any).code === '23505') {
+          setError(`Die Rolle ${role} wurde gerade von jemand anderem reserviert.`);
+        } else {
+          console.error('Error reserving role:', error);
+        }
         return false;
       }
-
-      return true;
+      return !!row;
     } catch (err) {
       console.error('Error in reserveRole:', err);
       return false;
     }
   };
+
 
   // Step 1: Choose game mode (create or join)
   const handleGameAction = async () => {
