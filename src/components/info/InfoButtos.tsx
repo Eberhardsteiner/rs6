@@ -35,7 +35,7 @@ export default function InfoButtons() {
   });
 
   const buttonConfigs = [
-    { key: 'apsProfile', icon: Building2, label: 'APS – Kurzprofil', color: '#0ea5e9' },
+    { key: 'apsProfile', icon: Building2, label: 'Unternehmen - Kurzprofil', color: '#0ea5e9' },
     { key: 'businessModel', icon: TrendingUp, label: 'Geschäftsmodell', color: '#10b981' },
     { key: 'financials', icon: DollarSign, label: 'Finanzielle Lage', color: '#f59e0b' },
     { key: 'trigger', icon: AlertTriangle, label: 'Liquiditätsfalle', color: '#ef4444' },
