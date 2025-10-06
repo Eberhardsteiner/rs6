@@ -563,17 +563,23 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
     }
   };
 
-  // Role selection handler with optimistic updates
+    // Role selection handler – reserviert beim Beitreten sofort serverseitig
   const handleRoleSelection = async (role: RoleId) => {
     if (occupiedRoles.has(role)) {
       setError(`Die Rolle ${role} ist bereits belegt.`);
       return;
     }
 
-    // Rolle sofort als ausgewählt markieren
+    // JOIN-Fall: Rolle direkt im Server reservieren (triggert Realtime-Sperre)
+    if (gameMode === 'join' && currentGameId) {
+      const ok = await reserveRole(role, currentGameId);
+      if (!ok) return; // Fehlertext wurde bereits gesetzt
+    }
+
     setSelectedRole(role);
     setError('');
   };
+
 
   // Reagiere sofort, wenn die aktuell gewählte Rolle zwischenzeitlich belegt wird
   useEffect(() => {
