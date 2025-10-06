@@ -2036,7 +2036,6 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         </div>
       </div>
     );
-  };
 
   // Render Joining Screen
   const renderJoining = () => (
@@ -2236,6 +2235,11 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       `}</style>
     </div>
   );
+
+  // Render Role and Auth combined screen
+  const renderRoleAndAuth = () => {
+    return renderRoleSelection();
+  };
 
   // Main render logic - New Flow: game-mode → role-auth → joining
   if (step === 'game-mode') {
