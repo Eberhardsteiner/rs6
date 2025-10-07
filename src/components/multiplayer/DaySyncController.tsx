@@ -480,19 +480,34 @@ export default function DaySyncController({
           };
         });
 
-        // Ereignisse für Verlauf/Transparenz
-        await supabase.from('events').insert({
-          game_id: gameId,
-          day: currentDay,
-          type: 'penalty',
-          content: { label: 'Zeitüberschreitung', missing_roles: validationForPenalty.missingRoles, penalty_points: penaltyPoints }
-        });
-        await supabase.from('events').insert({
-          game_id: gameId,
-          day: currentDay,
-          type: 'auto_decisions',
-          content: { roles: validationForPenalty.missingRoles, deltas: autoDecisions }
-        });
+        // UNKRITISCHE OPERATION: Ereignisse für Verlauf/Transparenz
+        try {
+          const { error: penaltyError } = await supabase.from('events').insert({
+            game_id: gameId,
+            day: currentDay,
+            type: 'penalty',
+            content: { label: 'Zeitüberschreitung', missing_roles: validationForPenalty.missingRoles, penalty_points: penaltyPoints }
+          });
+          if (penaltyError) {
+            console.warn('Penalty-Event konnte nicht erstellt werden:', penaltyError);
+          }
+        } catch (e) {
+          console.warn('Fehler beim Erstellen des Penalty-Events:', e);
+        }
+
+        try {
+          const { error: autoDecisionError } = await supabase.from('events').insert({
+            game_id: gameId,
+            day: currentDay,
+            type: 'auto_decisions',
+            content: { roles: validationForPenalty.missingRoles, deltas: autoDecisions }
+          });
+          if (autoDecisionError) {
+            console.warn('Auto-Decision-Event konnte nicht erstellt werden:', autoDecisionError);
+          }
+        } catch (e) {
+          console.warn('Fehler beim Erstellen des Auto-Decision-Events:', e);
+        }
       }
 
 
@@ -553,20 +568,36 @@ try {
 const mode = (globalThis as any).__insolvencyMode as ('hard'|'soft'|'off') || 'hard';
 const insolv = evaluateInsolvencyByRules(newKpi);
 
-      
-      // Update game state in Supabase
-      await supabase
-  .from('games')
-  .update({
-    current_day: currentDay + 1,
-    kpi_values: newKpi,
-    ...(insolv.triggered && mode === 'hard' ? { state: 'finished' } : {})
-  })
-  .eq('id', gameId);
 
+      // KRITISCHE OPERATION 1: Update game state in Supabase
+      const { error: gameUpdateError } = await supabase
+        .from('games')
+        .update({
+          current_day: currentDay + 1,
+          kpi_values: newKpi,
+          ...(insolv.triggered && mode === 'hard' ? { state: 'finished' } : {})
+        })
+        .eq('id', gameId);
 
-      // Create day change event
-           await supabase
+      if (gameUpdateError) {
+        console.error('Fehler beim Aktualisieren des Spielstatus:', gameUpdateError);
+        throw new Error(`Spielstatus konnte nicht aktualisiert werden: ${gameUpdateError.message}`);
+      }
+
+      // KRITISCHE OPERATION 2: Verifizierung, dass der Tag tatsächlich weitergezählt wurde
+      const { data: verifyGame, error: verifyError } = await supabase
+        .from('games')
+        .select('current_day')
+        .eq('id', gameId)
+        .maybeSingle();
+
+      if (verifyError || !verifyGame || verifyGame.current_day !== currentDay + 1) {
+        console.error('Verifizierung des Tageswechsels fehlgeschlagen:', verifyError);
+        throw new Error('Tageswechsel konnte nicht verifiziert werden');
+      }
+
+      // KRITISCHE OPERATION 3: Create day change event
+      const { error: dayChangeEventError } = await supabase
         .from('events')
         .insert({
           game_id: gameId,
@@ -578,40 +609,61 @@ const insolv = evaluateInsolvencyByRules(newKpi);
             kpi_delta: finalDelta,
             decision_count: decisionCount,
             player_decisions: Object.fromEntries(playerDecisions),
-            penalty_points,               // ggf. 0 oder undefined
-            auto_decisions: autoDecisions // pro fehlender Rolle zufällig simuliert
+            penalty_points,
+            auto_decisions: autoDecisions
           }
         });
 
-
-      // Create snapshot for history
-      await supabase
-        .from('game_state_snapshots')
-        .insert({
-          game_id: gameId,
-          day: currentDay,
-          state: {
-            kpi: state.kpi,
-            decisions: decisionCount,
-            timestamp: new Date().toISOString()
-          }
-        });
-
-// (a) Insolvenz/Warnung als Event
-if (insolv.triggered) {
-  await supabase
-    .from('events')
-    .insert({
-      game_id: gameId,
-      day: currentDay + 1,
-      type: mode === 'hard' ? 'insolvency' : 'insolvency_warning',
-      content: {
-        mode,
-        criteria: insolv.criteria,
-        kpi: newKpi
+      if (dayChangeEventError) {
+        console.error('Fehler beim Erstellen des Tageswechsel-Events:', dayChangeEventError);
+        // Event-Fehler ist nicht kritisch genug, um den Tageswechsel zu blockieren
+        console.warn('Tageswechsel wurde ausgeführt, aber Event konnte nicht erstellt werden');
       }
-    });
-}
+
+      // UNKRITISCHE OPERATION: Create snapshot for history
+      try {
+        const { error: snapshotError } = await supabase
+          .from('game_state_snapshots')
+          .insert({
+            game_id: gameId,
+            day: currentDay,
+            state: {
+              kpi: state.kpi,
+              decisions: decisionCount,
+              timestamp: new Date().toISOString()
+            }
+          });
+
+        if (snapshotError) {
+          console.warn('Snapshot konnte nicht erstellt werden:', snapshotError);
+        }
+      } catch (e) {
+        console.warn('Fehler beim Erstellen des Snapshots:', e);
+      }
+
+      // UNKRITISCHE OPERATION: Insolvenz/Warnung als Event
+      if (insolv.triggered) {
+        try {
+          const { error: insolvencyEventError } = await supabase
+            .from('events')
+            .insert({
+              game_id: gameId,
+              day: currentDay + 1,
+              type: mode === 'hard' ? 'insolvency' : 'insolvency_warning',
+              content: {
+                mode,
+                criteria: insolv.criteria,
+                kpi: newKpi
+              }
+            });
+
+          if (insolvencyEventError) {
+            console.warn('Insolvenz-Event konnte nicht erstellt werden:', insolvencyEventError);
+          }
+        } catch (e) {
+          console.warn('Fehler beim Erstellen des Insolvenz-Events:', e);
+        }
+      }
 
 // (b) Auto‑Save (lokaler Speicherslot pro Spiel), falls im Adminpanel aktiviert
 try {
@@ -646,8 +698,15 @@ try {
 
 
     } catch (error) {
-      console.error('Error advancing day:', error);
-      alert('Fehler beim Tageswechsel. Bitte versuchen Sie es erneut.');
+      console.error('Kritischer Fehler beim Tageswechsel:', error);
+
+      // Spezifische Fehlermeldung basierend auf dem Fehlertyp
+      let errorMessage = 'Fehler beim Tageswechsel';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      alert(`${errorMessage}\n\nBitte versuchen Sie es erneut. Falls das Problem weiterhin besteht, kontaktieren Sie den Administrator.`);
     } finally {
       setProcessingDayChange(false);
     }
