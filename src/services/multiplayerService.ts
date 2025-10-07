@@ -562,6 +562,29 @@ export class MultiplayerService {
 
   // ============ HELPER METHODS ============
 
+    /**
+   * Normalisiert Game-Objekte aus Realtime/Reads, so dass 'state' und 'status' konsistent sind.
+   * - Wenn entweder state oder status 'running' ist, werden beide auf 'running' gesetzt.
+   * - Wenn entweder state oder status 'finished' ist, werden beide auf 'finished' gesetzt.
+   * (Nur im zurückgegebenen Objekt; es erfolgt kein DB-Write.)
+   */
+  private normalizeGame(game: Game): Game {
+    if (!game) return game;
+    const g = { ...game };
+    const running = (g as any).status === 'running' || g.state === 'running';
+    if (running) {
+      g.state = 'running';
+      (g as any).status = 'running';
+    }
+    const finished = (g as any).status === 'finished' || g.state === 'finished';
+    if (finished) {
+      g.state = 'finished';
+      (g as any).status = 'finished';
+    }
+    return g;
+  }
+
+
   async leaveGame(): Promise<void> {
     // Stop heartbeat
     this.stopHeartbeat();
