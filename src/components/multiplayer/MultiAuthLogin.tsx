@@ -1642,40 +1642,11 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             finalGameId = existingGame.id;
           }
 
-          // Upsert trainer player
-          const { data: playerRow, error: upErr } = await supabase
-            .from('players')
-            .upsert({
-              game_id: finalGameId,
-              user_id: user.id,
-              role: 'TRAINER',
-              name: 'Trainer',
-              is_gm: false,
-              is_active: true,
-              last_seen: new Date().toISOString()
-            }, { onConflict: 'game_id,user_id' })
-            .select()
-            .single();
-
-          if (upErr) {
-            if (upErr.code === '23505') {
-              throw new Error('Fehler beim Beitreten als Trainer. Bitte versuche es erneut.');
-            }
-            throw upErr;
-          }
-
-          try {
-            await supabase.from('trainer_memberships').upsert({
-              game_id: finalGameId,
-              user_id: user.id
-            });
-          } catch (e) {
-            console.warn('Trainer membership upsert failed:', e);
-          }
 
           localStorage.setItem('mp_current_game', finalGameId);
           localStorage.setItem('mp_current_role', 'TRAINER');
-          if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
+          // Trainer hat absichtlich keine players-Zeile:
+ localStorage.removeItem('mp_player_id');
 
           onSuccess(finalGameId, 'TRAINER');
         } catch (e: any) {
