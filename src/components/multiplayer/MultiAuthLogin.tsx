@@ -136,7 +136,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
       // Join-Codes sind jetzt UUIDs: erst per RPC auflösen; wenn nicht gefunden, bleibt es die eingegebene ID.
       try {
-        const { data, error } = await supabase.rpc('join_game', { p_join_code: gameId });
+       const { data, error } = await supabase.rpc('resolve_join_code', { p_join_code: gameId });
         if (!error) {
           const rpcId = Array.isArray(data) ? data?.[0]?.game_id : data?.game_id;
           if (rpcId) {
