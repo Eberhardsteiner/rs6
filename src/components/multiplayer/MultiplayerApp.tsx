@@ -222,9 +222,10 @@ useEffect(() => {
       mpService.subscribeToGameUpdates(
         (game) => {
           setGameData(game);
-          if (game.state === 'running') {
+                   if ((game.state === 'running') || (game.status === 'running')) {
             handleActualGameStart();
           }
+
         },
         (updatedPlayers) => {
           setPlayers(updatedPlayers);
