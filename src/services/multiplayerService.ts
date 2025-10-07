@@ -517,7 +517,8 @@ export class MultiplayerService {
         (payload) => {
           console.log('Game update:', payload);
           if (payload.new) {
-            onGameUpdate(payload.new as Game);
+                       onGameUpdate(this.normalizeGame(payload.new as Game));
+
           }
         }
       )
