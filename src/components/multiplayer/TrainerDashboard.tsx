@@ -164,13 +164,26 @@ const DECISION_CONFIRM_KEYS = [
 function DecisionStatusBar({ decisionsToday }: { decisionsToday: Array<any> }) {
   type R = 'CFO'|'HRLEGAL'|'OPS';
   const ok = (role: R) => {
-    return (decisionsToday || []).some(d => {
-      if ((d?.player?.role || '').toUpperCase() !== role) return false;
-      const blk = (d?.block_id || '').toString().toUpperCase();
-      const metaType = (d?.decision_metadata?.type || d?.metadata?.type || '').toString().toLowerCase();
-      return DECISION_CONFIRM_KEYS.some(k => blk.includes(k)) ||
-             ['decision_confirmed','decisions_submit','done','confirm'].includes(metaType);
-    });
+    // Prüfe ob die Rolle mindestens eine Entscheidung getroffen hat
+    const roleDecisions = (decisionsToday || []).filter(d =>
+      (d?.player?.role || '').toUpperCase() === role
+    );
+
+    // Wenn mindestens eine Entscheidung existiert, gilt die Rolle als "fertig"
+    // Alternative: Prüfe auf spezielle Bestätigungs-Block-IDs
+    if (roleDecisions.length > 0) {
+      // Prüfe ob eine Bestätigungs-Entscheidung dabei ist
+      const hasConfirmation = roleDecisions.some(d => {
+        const blk = (d?.block_id || '').toString().toUpperCase();
+        const metaType = (d?.decision_metadata?.type || d?.metadata?.type || '').toString().toLowerCase();
+        return DECISION_CONFIRM_KEYS.some(k => blk.includes(k)) ||
+               ['decision_confirmed','decisions_submit','done','confirm'].includes(metaType);
+      });
+      // Falls keine explizite Bestätigung, aber Entscheidungen vorhanden sind,
+      // betrachte die Rolle als aktiv (gelbe Lampe wäre besser, aber grün ist ok)
+      return hasConfirmation || roleDecisions.length > 0;
+    }
+    return false;
   };
 
   const Lamp = ({active, label}: {active: boolean; label: string}) => (
@@ -482,7 +495,9 @@ const copyGameId = useCallback(async () => {
           ...d,
           player: d.players || d.player || null
         }));
-      } catch {
+        console.log('[TrainerDashboard] Entscheidungen geladen (mit Join):', decisionsData.length);
+      } catch (joinErr) {
+        console.warn('[TrainerDashboard] Join fehlgeschlagen, verwende Fallback:', joinErr);
         // Fallback ohne Join
         const { data: d2, error: e2 } = await supabase
           .from('decisions')
@@ -493,8 +508,16 @@ const copyGameId = useCallback(async () => {
         const map = new Map<string, any>();
         (playersData || []).forEach((p) => map.set(p.id, p));
         decisionsData = (d2 || []).map((d) => ({ ...d, player: map.get(d.player_id) || null }));
+        console.log('[TrainerDashboard] Entscheidungen geladen (Fallback):', decisionsData.length);
       }
       setDecisions(decisionsData as any);
+
+      // Debug: Zeige Entscheidungen nach Tag gruppiert
+      const byDay = decisionsData.reduce((acc: any, d: any) => {
+        acc[d.day] = (acc[d.day] || 0) + 1;
+        return acc;
+      }, {});
+      console.log('[TrainerDashboard] Entscheidungen nach Tag:', byDay);
 
       // Spielstand
       const { data: gameData, error: gErr } = await supabase
@@ -509,7 +532,9 @@ const copyGameId = useCallback(async () => {
       const kpiValues = (gameData as any)?.kpi_values;
       console.log('[TrainerDashboard] KPI-Werte aus DB:', kpiValues);
 
-      setCurrentDay((gameData as any)?.current_day || 1);
+      const dbDay = (gameData as any)?.current_day || 1;
+      console.log('[TrainerDashboard] Aktueller Tag aus DB:', dbDay);
+      setCurrentDay(dbDay);
 
       // NEU: Seed und Einstellungen aus game_admin_settings laden
       const { data: settingsData, error: settingsErr } = await supabase
@@ -760,27 +785,52 @@ try {
       const msg = (hintDrafts[playerId] || '').trim();
       if (!msg) return;
       try {
+        console.log('[TrainerHint] Versuche Nachricht zu senden an player_id:', playerId);
         const { data: { user }, error: authErr } = await supabase.auth.getUser();
-        if (authErr) throw authErr;
-        if (!user) throw new Error('Nicht angemeldet.');
+        if (authErr) {
+          console.error('[TrainerHint] Auth-Fehler:', authErr);
+          throw authErr;
+        }
+        if (!user) {
+          console.error('[TrainerHint] Kein User gefunden');
+          throw new Error('Nicht angemeldet.');
+        }
+
+        console.log('[TrainerHint] User gefunden:', user.id);
 
         // Spalte: sender_uid
-        const { error: insErr } = await supabase.from('trainer_hints').insert({
+        const { data, error: insErr } = await supabase.from('trainer_hints').insert({
           game_id: gameId,
           player_id: playerId,
           sender_uid: user.id,
           message: msg,
           sent_at: new Date().toISOString()
-        });
-        if (insErr) throw insErr;
+        }).select();
 
+        if (insErr) {
+          console.error('[TrainerHint] Insert-Fehler:', insErr);
+          throw insErr;
+        }
+
+        console.log('[TrainerHint] Nachricht erfolgreich gesendet:', data);
         setHintDrafts((prev) => ({ ...prev, [playerId]: '' }));
+
+        // Erfolgsmeldung für 2 Sekunden anzeigen
+        const successMsg = `Hinweis an ${players.find(p => p.id === playerId)?.name || 'Spieler'} gesendet!`;
+        setError('');
+        window.setTimeout(() => {
+          const temp = document.createElement('div');
+          temp.textContent = successMsg;
+          temp.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:12px 20px;border-radius:8px;z-index:9999;';
+          document.body.appendChild(temp);
+          window.setTimeout(() => document.body.removeChild(temp), 2000);
+        }, 100);
       } catch (e: any) {
-        console.error('[TrainerHint] insert failed', e);
-        setError(e?.message || 'Hinweis konnte nicht gesendet werden.');
+        console.error('[TrainerHint] Fehler beim Senden:', e);
+        setError(`Hinweis konnte nicht gesendet werden: ${e?.message || 'Unbekannter Fehler'}`);
       }
     },
-    [gameId, hintDrafts]
+    [gameId, hintDrafts, players]
   );
 
   // Broadcast an alle Spieler
@@ -788,25 +838,47 @@ try {
     const msg = (broadcastAll || '').trim();
     if (!msg) return;
     try {
+      console.log('[TrainerBroadcast] Versuche Broadcast an alle Spieler');
       const { data: { user }, error: authErr } = await supabase.auth.getUser();
-      if (authErr) throw authErr;
-      if (!user) throw new Error('Nicht angemeldet.');
+      if (authErr) {
+        console.error('[TrainerBroadcast] Auth-Fehler:', authErr);
+        throw authErr;
+      }
+      if (!user) {
+        console.error('[TrainerBroadcast] Kein User gefunden');
+        throw new Error('Nicht angemeldet.');
+      }
+
+      console.log('[TrainerBroadcast] User gefunden:', user.id);
+      console.log('[TrainerBroadcast] Sende an Spieler:', players.map(p => p.name).join(', '));
 
       const rows = (players || []).map((p) => ({
         game_id: gameId,
-        player_id: p.id, // explizit pro Spieler (statt NULL)
+        player_id: p.id,
         sender_uid: user.id,
         message: msg,
         sent_at: new Date().toISOString()
       }));
 
-      const { error: insErr } = await supabase.from('trainer_hints').insert(rows);
-      if (insErr) throw insErr;
+      const { data, error: insErr } = await supabase.from('trainer_hints').insert(rows).select();
+      if (insErr) {
+        console.error('[TrainerBroadcast] Insert-Fehler:', insErr);
+        throw insErr;
+      }
 
+      console.log('[TrainerBroadcast] Broadcast erfolgreich gesendet an', data?.length, 'Spieler');
       setBroadcastAll('');
+      setError('');
+
+      // Erfolgsmeldung
+      const temp = document.createElement('div');
+      temp.textContent = `Broadcast an ${players.length} Spieler gesendet!`;
+      temp.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:12px 20px;border-radius:8px;z-index:9999;';
+      document.body.appendChild(temp);
+      window.setTimeout(() => document.body.removeChild(temp), 2000);
     } catch (e: any) {
-      console.error('[TrainerHint] broadcast failed', e);
-      setError(e?.message || 'Broadcast konnte nicht gesendet werden.');
+      console.error('[TrainerBroadcast] Fehler:', e);
+      setError(`Broadcast konnte nicht gesendet werden: ${e?.message || 'Unbekannter Fehler'}`);
     }
   }, [broadcastAll, gameId, players]);
 
@@ -1115,8 +1187,32 @@ try {
       <div style={{ marginTop: 20, background: 'white', padding: 16, borderRadius: 8 }}>
         <h3>Punktstände (Summe KPI-Impact je Rolle)</h3>
         {(() => {
+          console.log('[TrainerDashboard] Berechne Punktstände für', decisions.length, 'Entscheidungen');
           const agg = aggregateImpactByRole(decisions);
+          console.log('[TrainerDashboard] Aggregierte Impacts:', agg);
           const rows = ROLES.map(r => ({ r, ...agg[r] })).sort((a, b) => b.points - a.points);
+          console.log('[TrainerDashboard] Sortierte Rangliste:', rows);
+
+          // Prüfe ob alle Werte 0 sind
+          const allZero = rows.every(row => row.points === 0);
+          if (allZero && decisions.length > 0) {
+            return (
+              <div style={{ padding: 16, background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: 8 }}>
+                <div style={{ color: '#78350f', fontWeight: 600, marginBottom: 8 }}>
+                  ⚠️ Keine KPI-Auswirkungen gefunden
+                </div>
+                <div style={{ fontSize: 13, color: '#92400e' }}>
+                  {decisions.length} Entscheidung(en) vorhanden, aber keine KPI-Deltas gespeichert.
+                  <br />Mögliche Ursachen:
+                  <ul style={{ marginTop: 4, paddingLeft: 20 }}>
+                    <li>Entscheidungen haben kein kpi_delta Feld</li>
+                    <li>KPI-Deltas sind alle 0</li>
+                    <li>Szenario-Blöcke haben keine KPI-Auswirkungen definiert</li>
+                  </ul>
+                </div>
+              </div>
+            );
+          }
           return (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -1390,28 +1486,46 @@ try {
                 {/* Zufalls‑News (deterministisch aus Seed/Intensität) */}
         <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
           <h3 style={{ margin: '0 0 10px 0' }}>🎲 Zufalls‑News (Tag {currentDay})</h3>
-          {randomNewsForDay.length === 0 ? (
-            <div style={{ color: '#6b7280' }}>Keine Zufalls‑News erzeugt.</div>
-          ) : (
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {randomNewsForDay.map((n) => (
-                <li key={n.id || n.title} style={{ marginBottom: 8 }}>
-                  <div style={{ fontWeight: 600 }}>{n.title}</div>
-                  <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    Quelle: {n.source || '—'} • Intensität: {n.severity ?? '—'} {(n as any).roles ? `• Rollen: ${rolesLabel((n as any).roles)}` : '• Rollen: alle'}
-                  </div>
-                  {(n as any).impact && (
-                    <div style={{ fontSize: 12, marginTop: 4 }}>
-                      KPI Δ: <code style={{ fontSize: 12, background: '#f3f4f6', padding: '2px 6px', borderRadius: 4 }}>
-                        {formatKpiShort((n as any).impact)}
-                      </code>
+          {(() => {
+            const g2: any = globalThis as any;
+            const useRandomNews = !!g2.__randomNews;
+            if (!useRandomNews) {
+              return (
+                <div style={{ padding: 12, background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: 6, color: '#78350f' }}>
+                  ⚠️ Zufallsnews-Feature ist deaktiviert.
+                  <div style={{ fontSize: 12, marginTop: 4 }}>Im Admin-Panel unter "Spieleinstellungen" aktivieren.</div>
+                </div>
+              );
+            }
+            if (randomNewsForDay.length === 0) {
+              return (
+                <div style={{ padding: 12, background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 6, color: '#6b7280' }}>
+                  Keine Zufalls‑News für Tag {currentDay} generiert.
+                  <div style={{ fontSize: 12, marginTop: 4 }}>Möglicherweise wurden alle verfügbaren News bereits gespielt.</div>
+                </div>
+              );
+            }
+            return (
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {randomNewsForDay.map((n) => (
+                  <li key={n.id || n.title} style={{ marginBottom: 8 }}>
+                    <div style={{ fontWeight: 600 }}>{n.title}</div>
+                    <div style={{ fontSize: 12, color: '#6b7280' }}>
+                      Quelle: {n.source || '—'} • Intensität: {n.severity ?? '—'} {(n as any).roles ? `• Rollen: ${rolesLabel((n as any).roles)}` : '• Rollen: alle'}
                     </div>
-                  )}
-                  {(n as any).content && <div style={{ fontSize: 13, marginTop: 4 }}>{(n as any).content}</div>}
-                </li>
-              ))}
-            </ul>
-          )}
+                    {(n as any).impact && (
+                      <div style={{ fontSize: 12, marginTop: 4 }}>
+                        KPI Δ: <code style={{ fontSize: 12, background: '#f3f4f6', padding: '2px 6px', borderRadius: 4 }}>
+                          {formatKpiShort((n as any).impact)}
+                        </code>
+                      </div>
+                    )}
+                    {(n as any).content && <div style={{ fontSize: 13, marginTop: 4 }}>{(n as any).content}</div>}
+                  </li>
+                ))}
+              </ul>
+            );
+          })()}
         </div>
 
 
@@ -1421,7 +1535,63 @@ try {
 
 
         {/* Tages‑Randoms (Engine‑Δ‑Werte) */}
-
+        <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
+          <h3 style={{ margin: '0 0 10px 0' }}>📈 Tages‑Randoms</h3>
+          {dailyRandoms ? (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Cash</td>
+                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
+                    {(dailyRandoms.cashEUR ?? 0).toLocaleString('de-DE')} €
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Gewinn/Verlust</td>
+                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
+                    {(dailyRandoms.profitLossEUR ?? 0).toLocaleString('de-DE')} €
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Kundentreue</td>
+                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
+                    {Math.round(dailyRandoms.customerLoyalty ?? 0)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Bankvertrauen</td>
+                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
+                    {Math.round(dailyRandoms.bankTrust ?? 0)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Workforce</td>
+                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
+                    {Math.round(dailyRandoms.workforceEngagement ?? 0)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Public</td>
+                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
+                    {Math.round(dailyRandoms.publicPerception ?? 0)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          ) : (
+            <div style={{ padding: 12, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, color: '#991b1b' }}>
+              ⚠️ Keine Δ‑Werte berechnet.
+              <div style={{ fontSize: 12, marginTop: 4 }}>
+                Mögliche Ursachen:
+                <ul style={{ marginTop: 4, paddingLeft: 20 }}>
+                  <li>Seed konnte nicht aus game_admin_settings geladen werden</li>
+                  <li>Fehler bei der Berechnung der Zufallswerte</li>
+                  <li>gameKpis (cashEUR) ist nicht verfügbar</li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Anhänge des Tages (aus Szenario, Overrides & Data/ZIP) */}
         <div
@@ -1535,54 +1705,6 @@ try {
         </div>
 
 
-        
-        <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
-          <h3 style={{ margin: '0 0 10px 0' }}>📈 Tages‑Randoms</h3>
-          {dailyRandoms ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <tbody>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Cash</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {(dailyRandoms.cashEUR ?? 0).toLocaleString('de-DE')} €
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Gewinn/Verlust</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {(dailyRandoms.profitLossEUR ?? 0).toLocaleString('de-DE')} €
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Kundentreue</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {Math.round(dailyRandoms.customerLoyalty ?? 0)}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Bankvertrauen</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {Math.round(dailyRandoms.bankTrust ?? 0)}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Workforce</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {Math.round(dailyRandoms.workforceEngagement ?? 0)}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Public</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {Math.round(dailyRandoms.publicPerception ?? 0)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          ) : (
-            <div style={{ color: '#6b7280' }}>Keine Δ‑Werte berechnet.</div>
-          )}
-        </div>
 
         {/* Entscheidungsblöcke des Tages – jetzt mit Optionen & KPI-Auswirkung */}
         <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
