@@ -448,9 +448,10 @@ export class MultiplayerService {
       if (playersError) throw playersError;
 
       return {
-        game,
+        game: this.normalizeGame(game as Game),
         players: players || [],
         settings: (async () => {
+
           try {
             const { data: admin } = await supabase
               .from('game_admin_settings')
