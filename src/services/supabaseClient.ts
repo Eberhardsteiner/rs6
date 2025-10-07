@@ -18,7 +18,8 @@ export interface Game {
   created_by: string;
   created_at: string;
   state: 'lobby' | 'running' | 'paused' | 'finished';
-  status: 'waiting' | 'ready' | 'starting';
+    status: 'waiting' | 'ready' | 'starting' | 'running' | 'finished';
+
   current_day: number;
   kpi_values: any;
   session_code?: string;
