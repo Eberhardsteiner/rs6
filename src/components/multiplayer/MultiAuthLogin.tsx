@@ -75,7 +75,8 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         // 4) LocalStorage vervollständigen
         localStorage.setItem('mp_current_game', trainerGameId);
         localStorage.setItem('mp_current_role', 'TRAINER');
-        if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
+        // Trainer hat absichtlich keine players-Zeile:
+ localStorage.removeItem('mp_player_id');
 
         // 5) Weiter in die App
         onSuccess(trainerGameId, 'TRAINER');
