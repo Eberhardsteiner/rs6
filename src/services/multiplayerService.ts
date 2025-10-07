@@ -1040,14 +1040,28 @@ export class MultiplayerService {
       });
     } catch {}
 
-    // Snapshot (best-effort)
+    // Snapshot (wichtig für KPI-Historie)
     try {
-      await supabase.from('game_state_snapshots').insert({
+      const { error: snapErr } = await supabase.from('game_state_snapshots').insert({
         game_id: gameId,
         day: (game as any).current_day,
-        state: { kpi: next, source: 'admin_kpi_change', ts: new Date().toISOString() }
+        kpi: next,  // Direkt als JSONB-Feld
+        state: {
+          kpi: next,
+          source: 'admin_kpi_change',
+          prev: prev,
+          delta: payload,
+          action,
+          ts: new Date().toISOString()
+        },
+        type: 'admin_kpi_change'
       });
-    } catch {}
+      if (snapErr) {
+        console.warn('Admin KPI-Snapshot konnte nicht erstellt werden:', snapErr);
+      }
+    } catch (e) {
+      console.warn('Fehler beim Erstellen des Admin-KPI-Snapshots:', e);
+    }
 
     return { prev, next };
   }
@@ -1107,14 +1121,26 @@ export class MultiplayerService {
       });
     } catch {}
 
-    // Snapshot (best-effort) – dokumentiert Sprung ohne KPI-Änderung
+    // Snapshot (wichtig für KPI-Historie) – dokumentiert Sprung ohne KPI-Änderung
     try {
-      await supabase.from('game_state_snapshots').insert({
+      const { error: snapErr } = await supabase.from('game_state_snapshots').insert({
         game_id: gameId,
         day: nextDay,
-        state: { kpi, source: 'admin_day_set', prevDay, ts: new Date().toISOString() }
+        kpi: kpi,  // Direkt als JSONB-Feld
+        state: {
+          kpi,
+          source: 'admin_day_set',
+          prevDay,
+          ts: new Date().toISOString()
+        },
+        type: 'admin_day_set'
       });
-    } catch {}
+      if (snapErr) {
+        console.warn('Admin Day-Set-Snapshot konnte nicht erstellt werden:', snapErr);
+      }
+    } catch (e) {
+      console.warn('Fehler beim Erstellen des Day-Set-Snapshots:', e);
+    }
 
     return { prevDay, nextDay, kpi };
   }
@@ -1171,14 +1197,26 @@ export class MultiplayerService {
       });
     } catch {}
 
-    // Snapshot (best-effort)
+    // Snapshot (wichtig für KPI-Historie)
     try {
-      await supabase.from('game_state_snapshots').insert({
+      const { error: snapErr } = await supabase.from('game_state_snapshots').insert({
         game_id: gameId,
         day: nextDay,
-        state: { kpi, source: 'admin_day_advance_forced', prevDay, ts: new Date().toISOString() }
+        kpi: kpi,  // Direkt als JSONB-Feld
+        state: {
+          kpi,
+          source: 'admin_day_advance_forced',
+          prevDay,
+          ts: new Date().toISOString()
+        },
+        type: 'admin_day_advance_forced'
       });
-    } catch {}
+      if (snapErr) {
+        console.warn('Admin Day-Advance-Snapshot konnte nicht erstellt werden:', snapErr);
+      }
+    } catch (e) {
+      console.warn('Fehler beim Erstellen des Day-Advance-Snapshots:', e);
+    }
 
     return { prevDay, nextDay, kpi };
   }

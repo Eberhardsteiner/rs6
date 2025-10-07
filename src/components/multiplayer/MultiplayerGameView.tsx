@@ -975,23 +975,47 @@ useEffect(() => {
     const initGame = async () => {
       try {
         const gameInfo = await mpService.getGameInfo();
-        
+
         const currentPlayerId = mpService.getCurrentPlayerId();
         const currentPlayer = gameInfo.players.find((p: any) => p.id === currentPlayerId);
         setIsGM(currentPlayer?.is_gm || false);
-        
+
         setOtherPlayers(gameInfo.players.filter((p: any) => p.id !== currentPlayerId));
-        
+
         // FIX: Ensure currentDate is properly set
         const gameDate = new Date();
         gameDate.setHours(9 + (gameInfo.game.current_day - 1) * 24, 0, 0, 0);
-        
+
+        // Load KPI history from Supabase snapshots
+        let kpiHistory: KPI[] = [];
+        try {
+          const { data: snapshots, error: snapErr } = await supabase
+            .from('game_state_snapshots')
+            .select('day, kpi, state')
+            .eq('game_id', gameId)
+            .order('day', { ascending: true });
+
+          if (!snapErr && snapshots && snapshots.length > 0) {
+            kpiHistory = snapshots.map((snap: any) => {
+              // Prüfe zuerst das kpi-Feld (neu), dann state.kpi (alt)
+              const kpiData = snap.kpi || snap.state?.kpi;
+              return kpiData || company.initialKPI;
+            });
+            console.log(`KPI-Historie geladen: ${kpiHistory.length} Einträge für Tage 1-${kpiHistory.length}`);
+          } else if (snapErr) {
+            console.warn('Fehler beim Laden der KPI-Historie:', snapErr);
+          }
+        } catch (histErr) {
+          console.warn('KPI-Historie konnte nicht geladen werden:', histErr);
+        }
+
         dispatch({
           type: 'INIT',
           payload: {
             day: gameInfo.game.current_day,
             currentDate: gameDate, // FIX: Add currentDate to init
             kpi: gameInfo.game.kpi_values || company.initialKPI,
+            kpiHistory: kpiHistory,  // Laden der Historie aus Supabase
             isOver: gameInfo.game.state === 'finished',
             playerName: playerName,
             playerRole: role,

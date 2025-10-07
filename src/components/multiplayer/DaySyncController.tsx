@@ -59,17 +59,35 @@ function scaleDailyRandoms(daily: any, m: number) {
 /** ── Helper: Invarianten anwenden ────────────────────────────────────────── */
 async function fetchRecentProfitLoss(gameId: string, limit = 5): Promise<number[]> {
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('game_state_snapshots')
-      .select('day, state')
+      .select('day, kpi, state')
       .eq('game_id', gameId)
       .order('day', { ascending: false })
       .limit(limit);
+
+    if (error) {
+      console.warn('Fehler beim Abrufen der P&L-Historie:', error);
+      return [];
+    }
+
     const vals = (data || [])
-      .map(r => (r as any).state?.kpi?.profitLossEUR)
+      .map(r => {
+        // Prüfe zuerst das kpi-Feld (neu), dann state.kpi (alt)
+        const kpiData = (r as any).kpi || (r as any).state?.kpi;
+        return kpiData?.profitLossEUR;
+      })
       .filter((n: any) => typeof n === 'number') as number[];
+
+    if (vals.length === 0) {
+      console.warn(`Keine P&L-Historie für Spiel ${gameId} gefunden`);
+    } else {
+      console.log(`P&L-Historie geladen: ${vals.length} Einträge`);
+    }
+
     return vals;
-  } catch {
+  } catch (e) {
+    console.error('Fehler beim Abrufen der P&L-Historie:', e);
     return [];
   }
 }
@@ -620,25 +638,36 @@ const insolv = evaluateInsolvencyByRules(newKpi);
         console.warn('Tageswechsel wurde ausgeführt, aber Event konnte nicht erstellt werden');
       }
 
-      // UNKRITISCHE OPERATION: Create snapshot for history
+      // KRITISCHE OPERATION: Create snapshot for KPI history tracking
+      // Snapshots sind essentiell für KPI-Historie, Invarianten-Berechnung und Reports
       try {
         const { error: snapshotError } = await supabase
           .from('game_state_snapshots')
           .insert({
             game_id: gameId,
             day: currentDay,
+            kpi: state.kpi,  // Direkt als JSONB-Feld speichern
             state: {
               kpi: state.kpi,
               decisions: decisionCount,
-              timestamp: new Date().toISOString()
-            }
+              timestamp: new Date().toISOString(),
+              kpi_delta: finalDelta,
+              player_decisions: Object.fromEntries(playerDecisions)
+            },
+            decisions: { count: decisionCount, by_role: Object.fromEntries(playerDecisions) },
+            type: 'day_end'
           });
 
         if (snapshotError) {
-          console.warn('Snapshot konnte nicht erstellt werden:', snapshotError);
+          console.error('KRITISCH: Snapshot konnte nicht erstellt werden:', snapshotError);
+          // Warnung, aber kein Fehler werfen, da Spielfortschritt bereits gespeichert
+          console.warn('Tageswechsel erfolgreich, aber Snapshot fehlgeschlagen - KPI-Historie unvollständig');
+        } else {
+          console.log(`Snapshot für Tag ${currentDay} erfolgreich erstellt`);
         }
       } catch (e) {
-        console.warn('Fehler beim Erstellen des Snapshots:', e);
+        console.error('KRITISCHER FEHLER beim Erstellen des Snapshots:', e);
+        // Auch hier nur warnen, da der Tageswechsel selbst erfolgreich war
       }
 
       // UNKRITISCHE OPERATION: Insolvenz/Warnung als Event
