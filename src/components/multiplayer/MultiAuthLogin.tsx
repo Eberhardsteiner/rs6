@@ -66,29 +66,11 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
           .single();
         if (!game) return;
 
-        // 3) Trainer-Player upsert
-        const { data: playerRow } = await supabase
-          .from('players')
-          .upsert({
-            game_id: trainerGameId,
-            user_id: user.id,
-            role: 'TRAINER',
-            name: 'Trainer',
-            is_gm: false,
-            is_active: true,
-            last_seen: new Date().toISOString()
-          }, { onConflict: 'game_id,user_id' })
-          .select()
-          .single();
-
-        // Optional: Mitgliedschaft für RLS ergänzen (nicht kritisch, Fehler werden geloggt)
-        try {
-          await supabase.from('trainer_memberships').upsert({
-            game_id: trainerGameId, user_id: user.id
-          });
-        } catch (e) {
-          console.warn('[TrainerMemberships] bypass upsert failed:', e);
-        }
+       // 3) Nur Trainer-Mitgliedschaft – KEINE players-Zeile anlegen/ändern
+ await supabase.from('trainer_memberships').upsert({
+   game_id: trainerGameId,
+   user_id: user.id
+ });
 
         // 4) LocalStorage vervollständigen
         localStorage.setItem('mp_current_game', trainerGameId);
