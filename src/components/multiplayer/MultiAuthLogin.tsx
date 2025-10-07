@@ -1633,11 +1633,12 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             finalGameId = newGame.id;
           } else {
             // Join existing game
-            const { data: existingGame, error: fetchErr } = await supabase
-              .from('games')
-              .select('id')
-              .eq('id', joinCode)
-              .single();
+            const code = joinCode.trim().toUpperCase();
+ const { data: existingGame, error: fetchErr } = await supabase
+   .from('games')
+   .select('id')
+   .eq('session_code', code)
+   .single();
             if (fetchErr || !existingGame) throw new Error('Spiel nicht gefunden');
             finalGameId = existingGame.id;
           }
