@@ -339,7 +339,7 @@ export default function GameModeSelector({ onSelectMode }: Props) {
       <footer className="gms-footer">
         <div className="gms-footer-inner">
           <div className="gms-footer-copyright">
-            © 2026 UVM-Institut Prof. Dr. Landes & Prof. Dr. Steiner Partnerschaftsgesellschaft
+            © 2026 UVM-Institut Prof. Dr. Landes & Prof. Dr. Steiner Partnerschaftsgesellschaft v40 08 10
           </div>
           <div className="gms-footer-links">
             <button className="gms-footer-link" onClick={() => handleShowModal('privacy')}>
