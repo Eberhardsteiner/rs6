@@ -157,21 +157,14 @@ export class MultiplayerService {
     }
   }
 
-  async signInWithPreset(role: RoleId, username: string, password: string): Promise<void> {
-    // Für Preset-Credentials erstellen wir einen temporären Account
-    // Die Validierung erfolgt in MultiAuthLogin gegen Admin-Settings
+    async signInWithPreset(role: RoleId, username: string, password: string): Promise<void> {
     try {
       const tempEmail = `preset_${role.toLowerCase()}_${Date.now()}@temp.local`;
 
       const { data, error } = await supabase.auth.signUp({
         email: tempEmail,
-        password: password,
-        options: {
-          data: {
-            display_name: username,
-            role: role
-          }
-        }
+        password,
+        options: { data: { display_name: username, role } }
       });
 
       if (error) throw error;
@@ -179,19 +172,23 @@ export class MultiplayerService {
 
       this.userId = data.user.id;
       this.currentPlayerName = username;
-      this.currentRole = role?.toLowerCase() || null;
+      // Client-seitig IMMER UPPERCASE führen (DB-Schreibpfade normalisieren selbst)
+      this.currentRole = (role as string).toUpperCase() as RoleId;
 
       localStorage.setItem('mp_user_id', data.user.id);
       localStorage.setItem('mp_user_name', username);
-      localStorage.setItem('mp_user_role', role);
+      localStorage.setItem('mp_user_role', this.currentRole);
+      // WICHTIG: damit getCurrentRole() stabil funktioniert
+      localStorage.setItem('mp_current_role', this.currentRole);
       localStorage.setItem('mp_temp_email', tempEmail);
 
-      console.log('Preset sign in successful:', this.userId, role);
+      console.log('Preset sign in successful:', this.userId, this.currentRole);
     } catch (error) {
       console.error('Preset sign in error:', error);
       throw error;
     }
   }
+
 
   async signInWithEmail(email: string, password: string): Promise<void> {
     try {
