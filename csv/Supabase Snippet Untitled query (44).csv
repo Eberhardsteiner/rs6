@@ -1,0 +1,6 @@
+indexname,indexdef
+trainer_memberships_game_user_uidx,"CREATE UNIQUE INDEX trainer_memberships_game_user_uidx ON public.trainer_memberships USING btree (game_id, user_id)"
+trainer_memberships_pkey,"CREATE UNIQUE INDEX trainer_memberships_pkey ON public.trainer_memberships USING btree (game_id, user_id)"
+trainer_memberships_game_user_idx,"CREATE INDEX trainer_memberships_game_user_idx ON public.trainer_memberships USING btree (game_id, user_id)"
+idx_trainer_memberships_user,CREATE INDEX idx_trainer_memberships_user ON public.trainer_memberships USING btree (user_id)
+idx_trainer_memberships_game,CREATE INDEX idx_trainer_memberships_game ON public.trainer_memberships USING btree (game_id)
