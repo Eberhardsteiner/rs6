@@ -45,10 +45,6 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   useEffect(() => {
     (async () => {
       const isTrainerMode = localStorage.getItem('mp_trainer_mode') === 'true';
-            // Trainer-Feature-Flag (vom AdminPanel gespiegelt) + Passwort
-      const trainerFeatureEnabled = !!adminSettings?.features?.trainerAccess;
-      const TRAINER_PASSWORD = 'observer101';
-
       const trainerGameId = localStorage.getItem('mp_trainer_game_id');
       if (!isTrainerMode || !trainerGameId) return;
 
@@ -66,7 +62,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
           .from('games')
           .select('id')
           .eq('id', trainerGameId)
-          .single();
+          .maybeSingle();
         if (!game) return;
 
         // 3) Nur Trainer-Mitgliedschaft – KEINE players-Zeile anlegen/ändern
@@ -82,8 +78,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         // 4) LocalStorage vervollständigen
         localStorage.setItem('mp_current_game', trainerGameId);
         localStorage.setItem('mp_current_role', 'TRAINER');
-        // Trainer hat absichtlich keine players-Zeile:
- localStorage.removeItem('mp_player_id');
+        localStorage.removeItem('mp_player_id');
 
         // 5) Weiter in die App
         onSuccess(trainerGameId, 'TRAINER');
@@ -91,7 +86,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         console.error('[Trainer-Bypass] Fehler:', e);
       }
     })();
-  }, []);
+  }, [onSuccess]);
 
   // Authentication fields
   const [email, setEmail] = useState('');
@@ -118,10 +113,6 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   const mpService = MultiplayerService.getInstance();
 
   
-  // Trainer-spezifisch
-  const [trainerPassword, setTrainerPassword] = useState('');
-  const [trainerCreatedGameId, setTrainerCreatedGameId] = useState<string | null>(null);
-  const [trainerJoinId, setTrainerJoinId] = useState<string>('');
 
   
   useEffect(() => {
@@ -279,9 +270,9 @@ const handleGameAction = async () => {
     setLoading(true);
 
     // Trainer-Passwort prüfen (nur bei TRAINER)
+    const TRAINER_PASSWORD = 'observer101';
     if (selectedRole === 'TRAINER') {
-      const TRAINER_PASSWORD = 'observer101';
-      if (trainerPass !== TRAINER_PASSWORD) {
+      if (!trainerPass || trainerPass !== TRAINER_PASSWORD) {
         setLoading(false);
         setError('Falsches Trainer-Passwort');
         return;
@@ -1709,19 +1700,42 @@ useEffect(() => {
 
           if (joinErr) {
             console.error('[TRAINER-JOIN] Failed:', joinErr);
-            throw new Error(`Trainer-Zugang fehlgeschlagen: ${joinErr.message}`);
+
+            // Cleanup localStorage on error
+            localStorage.removeItem('mp_trainer_mode');
+            localStorage.removeItem('mp_trainer_game_id');
+            localStorage.removeItem('mp_current_game');
+            localStorage.removeItem('mp_current_role');
+
+            // Handle specific error types
+            const errMsg = joinErr.message || String(joinErr);
+            if (errMsg.includes('GAME_NOT_FOUND')) {
+              throw new Error('Spiel wurde nicht gefunden');
+            } else if (errMsg.includes('UNAUTHORIZED')) {
+              throw new Error('Nicht autorisiert. Bitte neu anmelden.');
+            } else {
+              throw new Error(`Trainer-Zugang fehlgeschlagen: ${errMsg}`);
+            }
+          }
+
+          if (!joinResult) {
+            throw new Error('Keine Antwort vom Server erhalten');
           }
 
           console.log('[TRAINER-JOIN] Success:', joinResult);
 
+          // Set localStorage only after successful join
+          localStorage.setItem('mp_trainer_mode', 'true');
+          localStorage.setItem('mp_trainer_game_id', finalGameId);
           localStorage.setItem('mp_current_game', finalGameId);
           localStorage.setItem('mp_current_role', 'TRAINER');
-          // Trainer hat absichtlich keine players-Zeile:
           localStorage.removeItem('mp_player_id');
 
           onSuccess(finalGameId, 'TRAINER');
         } catch (e: any) {
+          console.error('[TRAINER-JOIN] Complete error:', e);
           setError(e?.message || 'Fehler beim Trainer-Zugang');
+          setStep('role-auth');
         } finally {
           setLoading(false);
         }
