@@ -378,26 +378,24 @@ export class MultiplayerService {
     }
   }
 
-  async selectRole(role: RoleId): Promise<void> {
+    async selectRole(role: RoleId): Promise<void> {
     if (!this.playerId) throw new Error('Not in game');
 
-    const normalizedRole = role.toLowerCase();
+    const dbRole = String(role).toLowerCase();
     const { error } = await supabase
       .from('players')
-      .update({ role: normalizedRole })
+      .update({ role: dbRole })
       .eq('id', this.playerId);
 
     if (error) {
-      // Spezifische Behandlung für Unique-Constraint-Verletzung
-      if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('idx_players_game_role_unique')) {
-        throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-      }
-      throw error;
+      // ...
     }
 
-    this.currentRole = normalizedRole;
-    localStorage.setItem('mp_current_role', normalizedRole);
+    // Client-seitig konsequent UPPERCASE
+    this.currentRole = (String(role).toUpperCase() as RoleId);
+    localStorage.setItem('mp_current_role', this.currentRole);
   }
+
 
   async setPlayerReady(ready: boolean = true): Promise<void> {
     if (!this.playerId) throw new Error('Not in game');
