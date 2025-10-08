@@ -14,7 +14,6 @@ export default function EnhancedGameLobby(props: GameLobbyProps) {
 
   React.useEffect(() => {
     try {
-      const lsRole = (localStorage.getItem('mp_current_role') || '').toUpperCase();
       const bypass = localStorage.getItem('mp_trainer_mode') === 'true';
       const idFromProps = (props as any)?.game?.id as string | undefined;
       const idFromLs =
@@ -23,13 +22,10 @@ export default function EnhancedGameLobby(props: GameLobbyProps) {
         '';
       const idFromUrl = new URLSearchParams(window.location.search).get('game') || '';
 
-      const trainerMode = bypass || lsRole === 'TRAINER';
+      const trainerMode = bypass && isTrainerAuthenticated();
       setIsTrainer(trainerMode);
+      setIsAuthenticated(trainerMode); // wenn Token gültig, direkt als authentifiziert markieren
       setGameId(idFromProps || idFromLs || idFromUrl || '');
-
-      if (trainerMode) {
-        setIsAuthenticated(isTrainerAuthenticated());
-      }
     } finally {
       setResolved(true);
     }
@@ -38,29 +34,19 @@ export default function EnhancedGameLobby(props: GameLobbyProps) {
   if (!resolved) return null;
 
   if (isTrainer && gameId) {
-    if (!isAuthenticated) {
-      return (
-        <TrainerAuthGate
-          gameId={gameId}
-          onAuthenticated={() => setIsAuthenticated(true)}
-          onCancel={() => {
-            clearTrainerAuth();
-            setIsTrainer(false);
-            window.location.href = '/?multiplayer=1';
-          }}
-        />
-      );
-    }
-
     return (
       <TrainerDashboard
         gameId={gameId}
         onLeave={() => {
           clearTrainerAuth();
+          // Bei Leave auch Flags leeren
+          localStorage.removeItem('mp_trainer_mode');
+          localStorage.removeItem('mp_trainer_game_id');
         }}
       />
     );
   }
 
+  // Kein gültiger Trainer-Token: normale Lobby/Rollenauswahl
   return <GameLobby {...props} />;
 }
