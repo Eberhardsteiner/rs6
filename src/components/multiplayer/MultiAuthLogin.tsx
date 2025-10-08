@@ -69,11 +69,15 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
           .single();
         if (!game) return;
 
-       // 3) Nur Trainer-Mitgliedschaft – KEINE players-Zeile anlegen/ändern
- await supabase.from('trainer_memberships').upsert({
-   game_id: trainerGameId,
-   user_id: user.id
- });
+        // 3) Nur Trainer-Mitgliedschaft – KEINE players-Zeile anlegen/ändern
+        const { error: tmErr } = await supabase.from('trainer_memberships').upsert({
+          game_id: trainerGameId,
+          user_id: user.id
+        });
+        if (tmErr) {
+          console.error('[Trainer-Bypass] DB-Fehler:', tmErr);
+          return;
+        }
 
         // 4) LocalStorage vervollständigen
         localStorage.setItem('mp_current_game', trainerGameId);
@@ -1685,27 +1689,35 @@ useEffect(() => {
             console.log('[TRAINER-CREATE] Game created:', newGame.id, 'Code:', sessionCode);
             finalGameId = newGame.id;
           } else {
-            // Join existing game
-            const code = joinCode.trim().toUpperCase();
- const { data: existingGame, error: fetchErr } = await supabase
-   .from('games')
-   .select('id')
-   .eq('session_code', code)
-   .single();
-            if (fetchErr || !existingGame) throw new Error('Spiel nicht gefunden');
-            finalGameId = existingGame.id;
+            // Join existing game using resolve_join_code RPC
+            const code = joinCode.trim();
+            const { data: resolved, error: resolveErr } = await supabase
+              .rpc('resolve_join_code', { p_join_code: code });
+            if (resolveErr || !resolved || resolved.length === 0) {
+              throw new Error('Spiel nicht gefunden');
+            }
+            finalGameId = resolved[0].game_id;
           }
 
+
+          // Use rpc_trainer_join_game to join as trainer
+          const { data: joinResult, error: joinErr } = await supabase
+            .rpc('rpc_trainer_join_game', {
+              p_game_id: finalGameId,
+              p_trainer_password: trainerPass || null
+            });
+
+          if (joinErr) {
+            console.error('[TRAINER-JOIN] Failed:', joinErr);
+            throw new Error(`Trainer-Zugang fehlgeschlagen: ${joinErr.message}`);
+          }
+
+          console.log('[TRAINER-JOIN] Success:', joinResult);
 
           localStorage.setItem('mp_current_game', finalGameId);
           localStorage.setItem('mp_current_role', 'TRAINER');
           // Trainer hat absichtlich keine players-Zeile:
- localStorage.removeItem('mp_player_id');
-          // Trainer-Mitgliedschaft in separater Tabelle (keine players-Zeile!)
-          const { error: tmErr } = await supabase
-            .from('trainer_memberships')
-            .upsert({ game_id: finalGameId, user_id: user.id });
-          if (tmErr) throw tmErr;
+          localStorage.removeItem('mp_player_id');
 
           onSuccess(finalGameId, 'TRAINER');
         } catch (e: any) {
