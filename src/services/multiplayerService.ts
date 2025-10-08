@@ -280,15 +280,21 @@ export class MultiplayerService {
         throw new Error('Spieler konnte nicht erstellt werden: ' + playerError.message);
       }
 
-      this.gameId = game.id;
+            this.gameId = game.id;
       this.playerId = player.id;
-      
+
+      // Client-Rolle setzen (UPPERCASE)
+      const assignedRole = (this.currentRole ? String(this.currentRole) : 'CEO').toUpperCase() as RoleId;
+      this.currentRole = assignedRole;
+
       // In localStorage speichern
       localStorage.setItem('mp_current_game', game.id);
       localStorage.setItem('mp_player_id', player.id);
+      localStorage.setItem('mp_current_role', this.currentRole as string);
       
       console.log('Game created successfully:', game.id);
       return { gameId: game.id };
+
       
     } catch (error) {
       console.error('Create game failed:', error);
