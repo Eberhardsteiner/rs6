@@ -27,7 +27,9 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   const [authMode, setAuthMode] = useState<'email' | 'name-only' | 'preset-credentials'>(
     adminSettings?.authMode || 'name-only'
   );
-  const [step, setStep] = useState<'game-mode' | 'role-auth' | 'joining'>('game-mode');
+ const [step, setStep] = useState<
+  'game-mode' | 'role-auth' | 'joining' | 'login' | 'register'
+>('game-mode');
 
   
   // Trainer-Feature: über AdminPanelMPM schaltbar
