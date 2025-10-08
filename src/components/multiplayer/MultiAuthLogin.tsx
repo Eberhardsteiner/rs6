@@ -227,46 +227,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
     };
   }, [joinCode, gameMode]);
 
-  // Rolle reservieren (optimistische UI-Updates)
-  const reserveRole = async (role: RoleId, gameId: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return false;
-
-      // Prüfen ob Rolle noch frei ist
-      const { data: existingPlayers, error: existingErr } = await supabase
-        .from('players')
-        .select('id')
-        .eq('game_id', gameId)
-        .eq('role', role);
-
-      if (existingErr) {
-        console.error('Error checking role before reserving:', existingErr);
-        return false;
-      }
-      if ((existingPlayers || []).length > 0) {
-        setError('Diese Rolle wurde gerade von einem anderen Spieler gewählt.');
-        return false;
-      }
-
-      // Rolle reservieren durch Update des eigenen Player-Eintrags
-      const { error } = await supabase
-        .from('players')
-        .update({ role: role })
-        .eq('game_id', gameId)
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error reserving role:', error);
-        return false;
-      }
-
-      return true;
-    } catch (err) {
-      console.error('Error in reserveRole:', err);
-      return false;
-    }
-  };
+  
 
   // Step 1: Choose game mode (create or join)
   const handleGameAction = async () => {
@@ -515,6 +476,32 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
   // Common styles
   const styles = {
+
+  // Beim Schließen Rolle freigeben (TRAINER hat keine players-Zeile -> kein RPC)
+  useEffect(() => {
+    const release = () => {
+      const role = localStorage.getItem('mp_current_role');
+      const pid  = localStorage.getItem('mp_player_id');
+      if (pid && role !== 'TRAINER') {
+        // Best-effort: Browser dürfen Requests abbrechen
+        supabase.rpc('rpc_mark_player_left', { p_player_id: pid });
+      }
+    };
+
+    window.addEventListener('beforeunload', release);
+    window.addEventListener('pagehide', release);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') release();
+    });
+
+    return () => {
+      window.removeEventListener('beforeunload', release);
+      window.removeEventListener('pagehide', release);
+    };
+  }, []);
+
+
+    
     root: {
       minHeight: '100vh',
       background: 'radial-gradient(ellipse at top left, rgba(37,99,235,0.15) 0%, transparent 40%), radial-gradient(ellipse at bottom right, rgba(20,184,166,0.15) 0%, transparent 40%), linear-gradient(180deg, #0a0e1a 0%, #0f1729 50%, #0a0e1a 100%)',
