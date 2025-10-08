@@ -963,7 +963,8 @@ export class MultiplayerService {
   }
 
 
-  static getRoleKpiVisibility(role: RoleId): (keyof KPI)[] {
+    static getRoleKpiVisibility(role: RoleId): (keyof KPI)[] {
+    const key = (String(role || '') as string).toUpperCase() as RoleId;
     const visibility: Record<RoleId, (keyof KPI)[]> = {
       CEO: ['cashEUR', 'profitLossEUR', 'publicPerception', 'bankTrust'],
       CFO: ['cashEUR', 'profitLossEUR', 'bankTrust'],
@@ -971,8 +972,9 @@ export class MultiplayerService {
       HRLEGAL: ['publicPerception', 'workforceEngagement', 'bankTrust'],
       TRAINER: ['cashEUR', 'profitLossEUR', 'customerLoyalty', 'bankTrust', 'workforceEngagement', 'publicPerception']
     };
-    return visibility[role] || [];
+    return visibility[key] || [];
   }
+
 
   async isGameMaster(): Promise<boolean> {
     if (!this.playerId) return false;
