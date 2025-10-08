@@ -149,18 +149,22 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
      // Join-Codes sind jetzt UUIDs: erst per RPC auflösen; wenn nicht gefunden, bleibt es die eingegebene ID.
        gameId = gameIdOrCode.trim();
       try {
-        const { data, error } = await supabase.rpc('join_game', { p_join_code: gameId });
+
+      // Join-Code (Session) auf Game-ID auflösen
+      gameId = gameIdOrCode.trim();
+      try {
+        const { data, error } = await supabase.rpc('resolve_join_code', { p_join_code: gameId });
         if (!error) {
           const rpcId = Array.isArray(data) ? data?.[0]?.game_id : data?.game_id;
-          if (rpcId) {
-            gameId = rpcId;
-          }
+          if (rpcId) gameId = rpcId;
         } else {
-          console.warn('[join_game] RPC warn:', error.message ?? error);
+          console.warn('[resolve_join_code] RPC warn:', error.message ?? error);
         }
       } catch (e) {
-        console.warn('[join_game] RPC exception:', e);
+        console.warn('[resolve_join_code] RPC exception:', e);
       }
+
+        
       if (!gameId) {
         setOccupiedRoles(new Set());
         return;
