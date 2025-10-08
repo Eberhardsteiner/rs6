@@ -505,28 +505,6 @@ const handleGameAction = async () => {
   // Common styles
   const styles = {
 
-  // Beim Schließen Rolle freigeben (TRAINER hat keine players-Zeile -> kein RPC)
-  useEffect(() => {
-    const release = () => {
-      const role = localStorage.getItem('mp_current_role');
-      const pid  = localStorage.getItem('mp_player_id');
-      if (pid && role !== 'TRAINER') {
-        // Best-effort: Browser dürfen Requests abbrechen
-        supabase.rpc('rpc_mark_player_left', { p_player_id: pid });
-      }
-    };
-
-    window.addEventListener('beforeunload', release);
-    window.addEventListener('pagehide', release);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') release();
-    });
-
-    return () => {
-      window.removeEventListener('beforeunload', release);
-      window.removeEventListener('pagehide', release);
-    };
-  }, []);
 
 
     
