@@ -397,7 +397,7 @@ export class MultiplayerService {
   }
 
 
-    async selectRole(role: RoleId): Promise<void> {
+      async selectRole(role: RoleId): Promise<void> {
     if (!this.playerId) throw new Error('Not in game');
 
     const dbRole = String(role).toLowerCase();
@@ -407,13 +407,21 @@ export class MultiplayerService {
       .eq('id', this.playerId);
 
     if (error) {
-      // ...
+      if (
+        error.code === '23505' ||
+        error.message?.includes('duplicate key') ||
+        error.message?.includes('idx_players_game_role_unique')
+      ) {
+        throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+      }
+      throw error;
     }
 
-    // Client-seitig konsequent UPPERCASE
+    // Client-seitig konsequent UPPERCASE halten
     this.currentRole = (String(role).toUpperCase() as RoleId);
     localStorage.setItem('mp_current_role', this.currentRole);
   }
+
 
 
   async setPlayerReady(ready: boolean = true): Promise<void> {
