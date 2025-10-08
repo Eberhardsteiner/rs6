@@ -157,7 +157,7 @@ export class MultiplayerService {
     }
   }
 
-    async signInWithPreset(role: RoleId, username: string, password: string): Promise<void> {
+      async signInWithPreset(role: RoleId, username: string, password: string): Promise<void> {
     try {
       const tempEmail = `preset_${role.toLowerCase()}_${Date.now()}@temp.local`;
 
@@ -172,13 +172,13 @@ export class MultiplayerService {
 
       this.userId = data.user.id;
       this.currentPlayerName = username;
-      // Client-seitig IMMER UPPERCASE führen (DB-Schreibpfade normalisieren selbst)
-      this.currentRole = (role as string).toUpperCase() as RoleId;
+      // Client-seitig IMMER UPPERCASE für stabile Guards/Views
+      this.currentRole = (String(role).toUpperCase() as RoleId);
 
       localStorage.setItem('mp_user_id', data.user.id);
       localStorage.setItem('mp_user_name', username);
       localStorage.setItem('mp_user_role', this.currentRole);
-      // WICHTIG: damit getCurrentRole() stabil funktioniert
+      // WICHTIG: damit getCurrentRole() nach Navigation stabil ist
       localStorage.setItem('mp_current_role', this.currentRole);
       localStorage.setItem('mp_temp_email', tempEmail);
 
@@ -188,6 +188,7 @@ export class MultiplayerService {
       throw error;
     }
   }
+
 
 
   async signInWithEmail(email: string, password: string): Promise<void> {
@@ -309,7 +310,7 @@ export class MultiplayerService {
       if (!user) throw new Error('Nicht authentifiziert');
 
       // Prüfen ob schon im Spiel
-      const { data: existing, error: checkError } = await supabase
+      const { data: existing } = await supabase
         .from('players')
         .select()
         .eq('game_id', gameId)
@@ -318,35 +319,43 @@ export class MultiplayerService {
 
       if (existing) {
         console.log('Already in game, updating...');
-        // Update existing player - NUR mit existierenden Spalten
+        // Update bestehender Player – DB-Role bleibt lowercase
+        const dbRole = (role || existing.role)?.toLowerCase();
         const { error: updateError } = await supabase
           .from('players')
           .update({
-            role: (role || existing.role).toLowerCase(),
+            role: dbRole,
             display_name: playerName || existing.display_name,
             last_seen: new Date().toISOString()
           })
           .eq('id', existing.id);
 
         if (updateError) {
-          // Spezifische Behandlung für Unique-Constraint-Verletzung
-          if (updateError.code === '23505' || updateError.message?.includes('duplicate key') || updateError.message?.includes('idx_players_game_role_unique')) {
+          if (
+            updateError.code === '23505' ||
+            updateError.message?.includes('duplicate key') ||
+            updateError.message?.includes('idx_players_game_role_unique')
+          ) {
             throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
           }
           throw updateError;
         }
-        
+
         this.gameId = gameId;
         this.playerId = existing.id;
-        this.currentRole = (role || existing.role)?.toLowerCase() || null;
+        // Client-Rolle IMMER UPPERCASE für stabile Guards/Views
+        const assignedRole = (role ? String(role) : String(existing.role || 'CEO')).toUpperCase() as RoleId;
+        this.currentRole = assignedRole;
+
       } else {
-        // Neuen Player erstellen - NUR mit existierenden Spalten
+        // Neuen Player erstellen – DB-Role lowercase
+        const dbRole = (role || 'CEO').toLowerCase();
         const { data: player, error } = await supabase
           .from('players')
           .insert({
             game_id: gameId,
             user_id: user.id,
-            role: (role || 'CEO').toLowerCase(),
+            role: dbRole,
             display_name: playerName,
             is_ready: false,
             game_state: {}
@@ -356,33 +365,37 @@ export class MultiplayerService {
 
         if (error) {
           console.error('Join game error:', error);
-
-          // Spezifische Behandlung für Unique-Constraint-Verletzung (Rolle bereits belegt)
-          if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('idx_players_game_role_unique')) {
+          if (
+            error.code === '23505' ||
+            error.message?.includes('duplicate key') ||
+            error.message?.includes('idx_players_game_role_unique')
+          ) {
             throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
           }
-
           throw new Error('Beitritt fehlgeschlagen: ' + error.message);
         }
 
         this.gameId = gameId;
         this.playerId = player.id;
-        this.currentRole = role?.toLowerCase() || null;
+        // Client-Rolle IMMER UPPERCASE
+        const assignedRole = (role ? String(role) : 'CEO').toUpperCase() as RoleId;
+        this.currentRole = assignedRole;
       }
-      
+
       this.currentPlayerName = playerName;
-      
-      // In localStorage speichern
+
+      // In localStorage speichern (IMMER setzen – UPPERCASE)
       localStorage.setItem('mp_current_game', gameId);
       localStorage.setItem('mp_player_id', this.playerId);
-      if (role) localStorage.setItem('mp_current_role', role);
-      
+      localStorage.setItem('mp_current_role', this.currentRole as string);
+
       console.log('Joined game successfully:', gameId);
     } catch (error) {
       console.error('Join game failed:', error);
       throw error;
     }
   }
+
 
     async selectRole(role: RoleId): Promise<void> {
     if (!this.playerId) throw new Error('Not in game');
