@@ -146,9 +146,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
       // Zuerst versuchen wir es als Game-ID
       let gameId = gameIdOrCode;
 
-     // Join-Codes sind jetzt UUIDs: erst per RPC auflösen; wenn nicht gefunden, bleibt es die eingegebene ID.
-       gameId = gameIdOrCode.trim();
-      try {
+     
 
       // Join-Code (Session) auf Game-ID auflösen
       gameId = gameIdOrCode.trim();
