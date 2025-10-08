@@ -10,36 +10,42 @@ const TRAINER_PASSWORD = 'observer101';
 const SESSION_KEY = 'mp_trainer_auth_token';
 const SESSION_DURATION = 2 * 60 * 60 * 1000;
 
-function generateToken(password: string): string {
-  const timestamp = Date.now();
-  const combined = `${password}:${timestamp}`;
+function generateToken(password: string, timestamp?: number): string {
+  const ts = typeof timestamp === 'number' ? timestamp : Date.now();
+  const combined = `${password}:${ts}`;
   let hash = 0;
   for (let i = 0; i < combined.length; i++) {
     const char = combined.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash;
   }
-  return `${Math.abs(hash).toString(36)}:${timestamp}`;
+  return `${Math.abs(hash).toString(36)}:${ts}`;
 }
 
 function validateToken(token: string): boolean {
   try {
     const [hash, timestampStr] = token.split(':');
     const timestamp = parseInt(timestampStr, 10);
-
-    if (isNaN(timestamp)) return false;
+    if (!hash || isNaN(timestamp)) return false;
 
     const age = Date.now() - timestamp;
     if (age > SESSION_DURATION) return false;
 
-    const expectedToken = generateToken(TRAINER_PASSWORD);
-    const [expectedHash] = expectedToken.split(':');
-
+    // Hash mit dem im Token gespeicherten Timestamp prüfen
+    const combined = `${TRAINER_PASSWORD}:${timestamp}`;
+    let h = 0;
+    for (let i = 0; i < combined.length; i++) {
+      const c = combined.charCodeAt(i);
+      h = ((h << 5) - h) + c;
+      h = h & h;
+    }
+    const expectedHash = Math.abs(h).toString(36);
     return hash === expectedHash;
   } catch {
     return false;
   }
 }
+
 
 export function isTrainerAuthenticated(): boolean {
   const token = sessionStorage.getItem(SESSION_KEY);
