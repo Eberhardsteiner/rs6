@@ -487,11 +487,11 @@ setPlayers((playersData || []).filter((p) => p.role !== 'TRAINER'));
       // Entscheidungen mit eingebetteter Spielerinfo
       let decisionsData: any[] = [];
       try {
-        const res = await supabase
-          .from('decisions')
-          .select('*, players(name, role)')
-          .eq('game_id', gameId)
-          .order('created_at', { ascending: false });
+     const res = await supabase
+  .from('decisions')
+  .select('*, players(name:display_name, role)')
+  .eq('game_id', gameId)
+  .order('created_at', { ascending: false });
         if (res.error) throw res.error;
         decisionsData = (res.data || []).map((d: any) => ({
           ...d,
