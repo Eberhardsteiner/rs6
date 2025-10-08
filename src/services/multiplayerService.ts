@@ -455,6 +455,15 @@ export class MultiplayerService {
         players: players || [],
         settings: (async () => {
 
+  async startGame(): Promise<void> {
+    if (!this.gameId) throw new Error('Not in game');
+
+    // Genereller Fix: ausschliesslich über RPC starten
+    await this.setGameStatus(this.gameId, 'running');
+    console.log('Game started via RPC');
+  }
+
+          
           try {
             const { data: admin } = await supabase
               .from('game_admin_settings')
@@ -479,22 +488,7 @@ export class MultiplayerService {
     }
   }
 
-  async startGame(): Promise<void> {
-    if (!this.gameId) throw new Error('Not in game');
-
-    // Update game state to running (set both state and status for consistency)
-    const { error } = await supabase
-      .from('games')
-      .update({
-        state: 'running',
-        status: 'running'
-      })
-      .eq('id', this.gameId);
-
-    if (error) throw error;
-
-    console.log('Game started');
-  }
+  
 
   // ============ REAL-TIME SUBSCRIPTIONS ============
 
