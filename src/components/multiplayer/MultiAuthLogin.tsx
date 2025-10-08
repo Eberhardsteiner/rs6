@@ -95,13 +95,11 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         clearTrainerAuth();
       }
     })();
-  }, [onSuccess]);
-
+ }, [onSuccess]);
+ 
       } catch (e) {
         console.error('[Trainer-Bypass] Fehler:', e);
       }
-    })();
-  }, []);
 
   // Authentication fields
   const [email, setEmail] = useState('');
