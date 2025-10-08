@@ -17,6 +17,17 @@ function generateToken(password: string, timestamp?: number): string {
   return `${hash}:${ts}`;
 }
 
+function computeHashFor(password: string, ts: number): string {
+  const combined = `${password}:${ts}`;
+  let hash = 0;
+  for (let i = 0; i < combined.length; i++) {
+    const char = combined.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+}
+
 function validateToken(token: string): boolean {
   try {
     const [hash, timestampStr] = token.split(':');
@@ -26,13 +37,14 @@ function validateToken(token: string): boolean {
     const age = Date.now() - timestamp;
     if (age > SESSION_DURATION) return false;
 
-    // WICHTIG: mit dem im Token eingebetteten Timestamp prüfen
-    const expectedHash = computeHash(`${TRAINER_PASSWORD}:${timestamp}`);
+    // WICHTIG: Hash mit dem im Token gespeicherten Timestamp prüfen
+    const expectedHash = computeHashFor(TRAINER_PASSWORD, timestamp);
     return hash === expectedHash;
   } catch {
     return false;
   }
 }
+
 
 
 export function isTrainerAuthenticated(): boolean {
