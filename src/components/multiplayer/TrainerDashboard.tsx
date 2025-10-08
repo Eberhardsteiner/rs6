@@ -547,10 +547,11 @@ const copyGameId = useCallback(async () => {
 
       // NEU: Seed und Einstellungen aus game_admin_settings laden (FIX: use maybeSingle)
       const { data: settingsData, error: settingsErr } = await supabase
-        .from('game_admin_settings')
-        .select('seed, settings, features')
-        .eq('game_id', gameId)
-        .maybeSingle();
+  .from('game_admin_settings')
+  .select('seed, settings')
+  .eq('game_id', gameId)
+  .maybeSingle();
+
 
       if (!settingsErr && settingsData) {
         const seed = settingsData.seed;
