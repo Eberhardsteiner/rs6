@@ -1,0 +1,28 @@
+section,grantee,privilege_type,is_grantable
+=== GRANTS ===,anon,INSERT,NO
+=== GRANTS ===,anon,SELECT,NO
+=== GRANTS ===,anon,UPDATE,NO
+=== GRANTS ===,anon,DELETE,NO
+=== GRANTS ===,anon,TRUNCATE,NO
+=== GRANTS ===,anon,REFERENCES,NO
+=== GRANTS ===,anon,TRIGGER,NO
+=== GRANTS ===,authenticated,INSERT,NO
+=== GRANTS ===,authenticated,SELECT,NO
+=== GRANTS ===,authenticated,UPDATE,NO
+=== GRANTS ===,authenticated,DELETE,NO
+=== GRANTS ===,authenticated,TRUNCATE,NO
+=== GRANTS ===,authenticated,REFERENCES,NO
+=== GRANTS ===,authenticated,TRIGGER,NO
+=== GRANTS ===,service_role,INSERT,NO
+=== GRANTS ===,service_role,SELECT,NO
+=== GRANTS ===,service_role,UPDATE,NO
+=== GRANTS ===,service_role,DELETE,NO
+=== GRANTS ===,service_role,TRUNCATE,NO
+=== GRANTS ===,service_role,REFERENCES,NO
+=== GRANTS ===,service_role,TRIGGER,NO
+=== POLICIES ===,tm_select_self,SELECT,(user_id = auth.uid())
+=== POLICIES ===,tm_insert_self,INSERT,null
+=== POLICIES ===,tm_update_self,UPDATE,(user_id = auth.uid())
+=== POLICIES ===,tm_delete_self,DELETE,(user_id = auth.uid())
+=== REALTIME PUBLICATION ===,trainer_memberships,IN_PUBLICATION,public
+=== RLS STATUS ===,trainer_memberships,ENABLED,false
