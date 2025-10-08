@@ -194,10 +194,16 @@ useEffect(() => {
           setPlayers(gameInfo.players);
           
           const playerId = mpService.getCurrentPlayerId();
-          const player = gameInfo.players.find(p => p.id === playerId);
-          if (player) {
-            setCurrentPlayer(player);
-          }
+let player = playerId ? (gameInfo.players.find(p => p.id === playerId) || null) : null;
+
+// Trainer hat keinen eigenen players-Eintrag -> harmlosen Platzhalter setzen,
+// damit die Lobby/EnhancedGameLobby gerendert werden kann (wird dort im Trainer-Zweig nicht benutzt).
+if (!player && currentRole === 'TRAINER') {
+  player = (gameInfo.players[0] as any) || ({ id: 'trainer-placeholder' } as any);
+}
+
+setCurrentPlayer(player as any);
+
 
           setLobbyLoading(false);
 
