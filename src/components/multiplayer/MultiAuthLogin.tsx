@@ -230,32 +230,32 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   }, [joinCode, gameMode]);
 
   
+// Step 1: Choose game mode (create or join)
+const handleGameAction = async () => {
+  setError('');
 
-  // Step 1: Choose game mode (create or join)
-  const handleGameAction = async () => {
-    setError('');
-
-    if (gameMode === 'join') {
-      if (!joinCode.trim()) {
-        setError('Bitte Spiel-Code eingeben');
-        return;
-      }
-
-      // Fetch occupied roles before showing role selection
-      setLoading(true);
-      try {
-        await fetchOccupiedRoles(joinCode.trim());
-        setLoading(false);
-      } catch (e) {
-        setError('Fehler beim Laden der Spieldaten');
-        setLoading(false);
-        return;
-      }
+  if (gameMode === 'join') {
+    if (!joinCode.trim()) {
+      setError('Bitte Spiel-Code eingeben');
+      return;
     }
 
-   // Proceed to role+auth screen
-    setStep('role-auth');
-  };
+    // Fetch occupied roles before showing role selection
+    setLoading(true);
+    try {
+      await fetchOccupiedRoles(joinCode.trim());
+      setLoading(false);
+    } catch (e) {
+      setError('Fehler beim Laden der Spieldaten');
+      setLoading(false);
+      return;
+    }
+  }
+
+  // Proceed to role+auth (neuer Flow)
+  setStep('role-auth');
+};
+
 
   // Step 2: Create or join game with selected role (using new robust RPC)
   const handleFinalJoin = async () => {
