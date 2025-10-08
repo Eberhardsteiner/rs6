@@ -203,8 +203,9 @@ useEffect(() => {
 
           // WICHTIG: Wenn das Spiel bereits läuft, direkt beitreten
           // Dies ermöglicht Nachzüglern (z.B. CEO tritt bei, nachdem CFO bereits spielt)
+          // AUCH für Trainer - handleActualGameStart prüft intern die Rolle
           if (gameInfo.game.state === 'running' || gameInfo.game.status === 'running') {
-            console.log('[MultiplayerApp] Game already running, auto-joining...');
+            console.log('[MultiplayerApp] Game already running, auto-joining... (Rolle:', currentRole, ')');
             handleActualGameStart();
           }
         } catch (err) {
@@ -222,9 +223,10 @@ useEffect(() => {
       mpService.subscribeToGameUpdates(
         (game) => {
           setGameData(game);
-          // FIX: Automatisch zum Spiel wechseln wenn es startet (auch für TRAINER)
+          // FIX: Automatisch zum Spiel wechseln wenn es startet
+          // WICHTIG: Auch für TRAINER, aber handleActualGameStart prüft intern die Rolle
           if ((game.state === 'running') || (game.status === 'running')) {
-            console.log('[MultiplayerApp] Game state changed to running, transitioning...');
+            console.log('[MultiplayerApp] Game state changed to running, transitioning... (Rolle:', currentRole, ')');
             handleActualGameStart();
           }
         },
@@ -267,6 +269,7 @@ useEffect(() => {
       // FIX: Für TRAINER - prüfe ob Spiel bereits läuft, falls nicht: nur Observer
       // Trainer soll das Spiel NICHT automatisch starten, aber laufende Spiele beobachten
       if (role === 'TRAINER') {
+        console.log('[MultiplayerApp] TRAINER-Rolle erkannt - Aktiviere Observer-Modus');
         try {
           const { data: gameData } = await supabase
             .from('games')
@@ -277,9 +280,17 @@ useEffect(() => {
           // Wenn Spiel noch nicht läuft, passiert nichts (Trainer wartet)
           // Wenn Spiel bereits läuft, ist nextPhase = 'playing' bereits korrekt
           console.log('[MultiplayerApp] Trainer logged in, game state:', gameData?.state || 'unknown');
+
+          // WICHTIG: Trainer-Flag setzen, um versehentliche Spieleraktionen zu verhindern
+          (globalThis as any).__isTrainerMode = true;
+          localStorage.setItem('mp_trainer_mode', 'true');
         } catch (err) {
           console.warn('[MultiplayerApp] Could not check game state for trainer:', err);
         }
+      } else {
+        // Sicherstellen, dass Trainer-Flags für normale Spieler deaktiviert sind
+        (globalThis as any).__isTrainerMode = false;
+        localStorage.removeItem('mp_trainer_mode');
       }
       
     } catch (err: any) {
@@ -288,17 +299,27 @@ useEffect(() => {
   };
 
   const handleActualGameStart = async () => {
+    // WICHTIG: Trainer darf das Spiel NICHT starten oder Datenbankänderungen vornehmen
+    // Trainer sind nur Beobachter und bleiben im Observer-Modus
+    if (currentRole === 'TRAINER') {
+      console.log('[MultiplayerApp] Trainer erkannt - überspringe handleActualGameStart, bleibe im Observer-Modus');
+      // Setze nur lokale Phase, aber KEINE Datenbankaktualisierung
+      setGamePhase('playing');
+      localStorage.setItem('mp_game_phase', 'playing');
+      return; // Frühzeitiger Return für Trainer
+    }
+
     // Move from lobby to playing
     setGamePhase('playing');
     localStorage.setItem('mp_game_phase', 'playing');
-    
+
     // Fix: Update game state in Supabase for ALL players, not just GM
     // This ensures that late-joining players can see the game is running
     if (currentGameId) {
       try {
         await supabase
           .from('games')
-          .update({ 
+          .update({
             state: 'running',
             status: 'running'
           })
