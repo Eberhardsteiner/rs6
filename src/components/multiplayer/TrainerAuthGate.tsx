@@ -77,28 +77,32 @@ export default function TrainerAuthGate({ gameId, onAuthenticated, onCancel }: T
     }
   }, [onAuthenticated]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-    await new Promise(resolve => setTimeout(resolve, 300));
+      if (password !== TRAINER_PASSWORD) {
+        setError('Falsches Passwort. Bitte versuchen Sie es erneut.');
+        return;
+      }
 
-    if (password !== TRAINER_PASSWORD) {
-      setError('Falsches Passwort. Bitte versuchen Sie es erneut.');
+      const token = generateToken(password);
+      sessionStorage.setItem(SESSION_KEY, token);
+      localStorage.setItem('mp_trainer_mode', 'true');
+      localStorage.setItem('mp_trainer_game_id', gameId);
+
+      onAuthenticated();
+    } catch (ex: any) {
+      console.error('[TrainerAuthGate] Submit error:', ex);
+      setError(ex?.message || 'Unerwarteter Fehler bei der Prüfung.');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const token = generateToken(password);
-    sessionStorage.setItem(SESSION_KEY, token);
-
-    localStorage.setItem('mp_trainer_mode', 'true');
-    localStorage.setItem('mp_trainer_game_id', gameId);
-
-    setLoading(false);
-    onAuthenticated();
   };
+
 
   const handleCancel = () => {
     clearTrainerAuth();
