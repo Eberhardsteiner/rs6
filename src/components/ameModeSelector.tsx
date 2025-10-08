@@ -218,7 +218,7 @@ export default function GameModeSelector({ onSelectMode }: Props) {
       <header className="gms-header">
         <div className="gms-header-inner">
           <img src="https://uvm-akademie.de/logo.png" alt="UVM Akademie Logo" className="gms-logo" />
-          <h1 className="gms-header-text">Rollenspiel - Crisis Management v40 08 10</h1>
+          <h1 className="gms-header-text">Rollenspiel - Crisis Management</h1>
         </div>
       </header>
 
