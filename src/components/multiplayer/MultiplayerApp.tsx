@@ -260,7 +260,9 @@ useEffect(() => {
        // Save to localStorage
       localStorage.setItem('mp_current_game', gameId);
       localStorage.setItem('mp_current_role', role);
-      const nextPhase = role === 'TRAINER' ? 'playing' : 'lobby';
+      // WICHTIG: Trainer startet auch in der Lobby, nicht direkt in 'playing'
+      // Das TrainerDashboard wird in EnhancedGameLobby gezeigt
+      const nextPhase = 'lobby';
       localStorage.setItem('mp_game_phase', nextPhase);
 
       // Phase setzen
@@ -299,10 +301,10 @@ useEffect(() => {
   };
 
   const handleActualGameStart = async () => {
-    // WICHTIG: Trainer darf das Spiel NICHT starten oder Datenbankänderungen vornehmen
-    // Trainer sind nur Beobachter und bleiben im Observer-Modus
+    // WICHTIG: Trainer können das Spiel beobachten, aber starten es nicht
+    // Trainer wechseln zu 'playing' Phase, um das laufende Spiel zu beobachten
     if (currentRole === 'TRAINER') {
-      console.log('[MultiplayerApp] Trainer erkannt - überspringe handleActualGameStart, bleibe im Observer-Modus');
+      console.log('[MultiplayerApp] Trainer wechselt zu Playing-Phase (Observer-Modus)');
       // Setze nur lokale Phase, aber KEINE Datenbankaktualisierung
       setGamePhase('playing');
       localStorage.setItem('mp_game_phase', 'playing');
