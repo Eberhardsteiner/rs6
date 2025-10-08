@@ -2012,32 +2012,19 @@ useEffect(() => {
             </>
           )}
 
-          {/* Trainer: Password input + continue button */}
+          {/* Trainer: Direct continue button */}
           {selectedRole === 'TRAINER' && (
-            <>
-              <input
-                type="password"
-                placeholder="Trainer-Passwort"
-                value={trainerPass}
-                onChange={(e) => setTrainerPass(e.target.value)}
-                style={{
-                  ...styles.input,
-                  marginBottom: '20px'
-                }}
-              />
-              <button
-                onClick={handleContinue}
-                disabled={loading || !trainerPass.trim()}
-                style={{
-                  ...styles.button,
-                  width: '100%',
-                  opacity: (!trainerPass.trim() || loading) ? 0.5 : 1,
-                  cursor: (!trainerPass.trim() || loading) ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {loading ? 'Wird geladen...' : (gameMode === 'create' ? 'Spiel als Trainer erstellen' : 'Als Trainer beitreten')}
-              </button>
-            </>
+            <button
+              onClick={handleContinue}
+              disabled={loading}
+              style={{
+                ...styles.button,
+                width: '100%',
+                opacity: loading ? 0.5 : 1
+              }}
+            >
+              {loading ? 'Wird geladen...' : (gameMode === 'create' ? 'Spiel als Trainer erstellen' : 'Als Trainer beitreten')}
+            </button>
           )}
 
           {error && (
