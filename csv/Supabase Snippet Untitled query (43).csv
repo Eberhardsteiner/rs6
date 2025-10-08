@@ -1,7 +1,0 @@
-schemaname,tablename
-public,games
-public,players
-public,decisions
-public,game_admin_settings
-public,messages
-public,events
