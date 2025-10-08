@@ -476,30 +476,35 @@ const handleGameAction = async () => {
     }
   }, [occupiedRoles, selectedRole]);
 
-  // Beim Schließen/Tab-Wechsel "verlassen" markieren (nur Spielerrollen, nicht TRAINER)
-  useEffect(() => {
-    const onUnload = () => {
-      const role = localStorage.getItem('mp_current_role');
-      const pid  = localStorage.getItem('mp_player_id');
-      if (role && role !== 'TRAINER' && pid) {
-        // Fire-and-forget; Fehler ignorieren, da Unload-Phase
-        supabase.rpc('rpc_mark_player_left', { p_player_id: pid }).catch(() => {});
-      }
-    };
+ // Beim Schließen/Tab-Wechsel "verlassen" markieren (nur Spielerrollen, nicht TRAINER)
+useEffect(() => {
+  const onUnload = () => {
+    const role = localStorage.getItem('mp_current_role');
+    const pid  = localStorage.getItem('mp_player_id');
+    if (role && role !== 'TRAINER' && pid) {
+      // Fire-and-forget; Fehler in der Unload-Phase ignorieren
+      supabase.rpc('rpc_mark_player_left', { p_player_id: pid }).catch(() => {});
+    }
+  };
 
-    // Browser-Schließen/Reload
-    window.addEventListener('beforeunload', onUnload);
-    // Tab-Verlust (besser als nur beforeunload)
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') onUnload();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
+  // Browser-Schließen/Reload
+  window.addEventListener('beforeunload', onUnload);
+  // Mobile/Safari: pagehide feuert zuverlässiger beim Verlassen/Back
+  window.addEventListener('pagehide', onUnload);
 
-    return () => {
-      window.removeEventListener('beforeunload', onUnload);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, []);
+  // Tab-Hintergrund/Verlust
+  const onVisibility = () => {
+    if (document.visibilityState === 'hidden') onUnload();
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+
+  return () => {
+    window.removeEventListener('beforeunload', onUnload);
+    window.removeEventListener('pagehide', onUnload);
+    document.removeEventListener('visibilitychange', onVisibility);
+  };
+}, []);
+
 
   
   // Common styles
