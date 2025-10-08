@@ -536,8 +536,25 @@ useEffect(() => {
     );
   }
 
+  
   // LOBBY PHASE - Show Lobby
-  if (multiplayerMode && gamePhase === 'lobby' && !lobbyLoading && gameData && currentPlayer) {
+if (multiplayerMode && gamePhase === 'lobby' && !lobbyLoading && gameData) {
+  // Trainer: hat bewusst keinen players-Datensatz -> EnhancedGameLobby soll trotzdem rendern
+  if (currentRole === 'TRAINER') {
+    // Typ-Placebo, EnhancedGameLobby nutzt ihn im Trainer-Zweig nicht
+    const placeholder: Player = (currentPlayer as any) || (players[0] as any) || ({ id: 'trainer-placeholder' } as any);
+    return (
+      <EnhancedGameLobby
+        game={gameData}
+        players={players}
+        currentPlayer={placeholder}
+        onGameStart={handleActualGameStart}
+      />
+    );
+  }
+
+  // Normale Spieler benötigen einen echten currentPlayer
+  if (currentPlayer) {
     return (
       <EnhancedGameLobby
         game={gameData}
@@ -547,6 +564,8 @@ useEffect(() => {
       />
     );
   }
+}
+
 
   // PLAYING PHASE
   if (multiplayerMode && gamePhase === 'playing' && currentRole && currentGameId) {
