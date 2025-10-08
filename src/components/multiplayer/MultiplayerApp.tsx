@@ -222,10 +222,11 @@ useEffect(() => {
       mpService.subscribeToGameUpdates(
         (game) => {
           setGameData(game);
-                   if ((game.state === 'running') || (game.status === 'running')) {
+          // FIX: Automatisch zum Spiel wechseln wenn es startet (auch für TRAINER)
+          if ((game.state === 'running') || (game.status === 'running')) {
+            console.log('[MultiplayerApp] Game state changed to running, transitioning...');
             handleActualGameStart();
           }
-
         },
         (updatedPlayers) => {
           setPlayers(updatedPlayers);
@@ -262,6 +263,24 @@ useEffect(() => {
 
       // Phase setzen
       setGamePhase(nextPhase);
+
+      // FIX: Für TRAINER - prüfe ob Spiel bereits läuft, falls nicht: nur Observer
+      // Trainer soll das Spiel NICHT automatisch starten, aber laufende Spiele beobachten
+      if (role === 'TRAINER') {
+        try {
+          const { data: gameData } = await supabase
+            .from('games')
+            .select('state, status')
+            .eq('id', gameId)
+            .maybeSingle();
+
+          // Wenn Spiel noch nicht läuft, passiert nichts (Trainer wartet)
+          // Wenn Spiel bereits läuft, ist nextPhase = 'playing' bereits korrekt
+          console.log('[MultiplayerApp] Trainer logged in, game state:', gameData?.state || 'unknown');
+        } catch (err) {
+          console.warn('[MultiplayerApp] Could not check game state for trainer:', err);
+        }
+      }
       
     } catch (err: any) {
       setError(err.message || 'Fehler beim Beitreten');

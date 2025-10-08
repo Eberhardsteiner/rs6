@@ -3526,13 +3526,96 @@ return (
   </div> 
 );
 }
+/** Error Boundary für Trainer-Dashboard */
+class TrainerErrorBoundary extends React.Component<
+  { children: React.ReactNode; onLeave: () => void },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('[TrainerErrorBoundary] Fehler im Trainer-Dashboard:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          padding: 40,
+          textAlign: 'center',
+          background: '#fef2f2',
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{
+            maxWidth: 600,
+            background: 'white',
+            padding: 32,
+            borderRadius: 12,
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+            <h2 style={{ margin: '0 0 12px', color: '#991b1b' }}>
+              Fehler im Trainer-Dashboard
+            </h2>
+            <p style={{ margin: '0 0 24px', color: '#6b7280' }}>
+              {this.state.error?.message || 'Ein unerwarteter Fehler ist aufgetreten.'}
+            </p>
+            <button
+              onClick={this.props.onLeave}
+              style={{
+                padding: '12px 24px',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: 16
+              }}
+            >
+              Zurück zur Anmeldung
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 /** Wrapper ohne Hooks: trennt Trainer-Ansicht (verhindert Hook-Reihenfolgewechsel) */
 export default function MultiplayerGameView(props: MultiplayerGameViewProps) {
   if (props.role === 'TRAINER') {
     return (
-      <React.Suspense fallback={<div>Lade Trainer-Dashboard...</div>}>
-        <TrainerDashboard gameId={props.gameId} onLeave={props.onLeave} />
-      </React.Suspense>
+      <TrainerErrorBoundary onLeave={props.onLeave}>
+        <React.Suspense fallback={
+          <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#f8fafc'
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <div style={{ fontSize: 18, color: '#6b7280' }}>Lade Trainer-Dashboard...</div>
+            </div>
+          </div>
+        }>
+          <TrainerDashboard gameId={props.gameId} onLeave={props.onLeave} />
+        </React.Suspense>
+      </TrainerErrorBoundary>
     );
   }
   return <MultiplayerGameViewInner {...props} />;

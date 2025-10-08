@@ -519,13 +519,22 @@ const copyGameId = useCallback(async () => {
       }, {});
       console.log('[TrainerDashboard] Entscheidungen nach Tag:', byDay);
 
-      // Spielstand
+      // Spielstand (FIX: use maybeSingle to avoid errors when game doesn't exist yet)
       const { data: gameData, error: gErr } = await supabase
         .from('games')
-        .select('current_day, kpi_values')
+        .select('current_day, kpi_values, state, status')
         .eq('id', gameId)
-        .single();
-      if (gErr) throw gErr;
+        .maybeSingle();
+
+      if (gErr) {
+        console.error('[TrainerDashboard] Fehler beim Laden des Spiels:', gErr);
+        throw gErr;
+      }
+
+      if (!gameData) {
+        console.error('[TrainerDashboard] Spiel nicht gefunden:', gameId);
+        throw new Error('Spiel nicht gefunden. Möglicherweise wurde es gelöscht oder Sie haben keinen Zugriff.');
+      }
 
       console.log('[TrainerDashboard] Geladene Spielstanddaten:', gameData);
 
@@ -536,12 +545,12 @@ const copyGameId = useCallback(async () => {
       console.log('[TrainerDashboard] Aktueller Tag aus DB:', dbDay);
       setCurrentDay(dbDay);
 
-      // NEU: Seed und Einstellungen aus game_admin_settings laden
+      // NEU: Seed und Einstellungen aus game_admin_settings laden (FIX: use maybeSingle)
       const { data: settingsData, error: settingsErr } = await supabase
         .from('game_admin_settings')
         .select('seed, settings, features')
         .eq('game_id', gameId)
-        .single();
+        .maybeSingle();
 
       if (!settingsErr && settingsData) {
         const seed = settingsData.seed;
@@ -557,6 +566,11 @@ const copyGameId = useCallback(async () => {
         }
       } else {
         console.warn('[TrainerDashboard] Keine game_admin_settings gefunden oder Fehler:', settingsErr);
+        // Fallback: Generate a seed if none exists
+        const fallbackSeed = Math.floor(Math.random() * 1000000);
+        setGameSeed(fallbackSeed);
+        (globalThis as any).__gameSeed = fallbackSeed;
+        console.log('[TrainerDashboard] Verwende Fallback-Seed:', fallbackSeed);
       }
 
       // Validierung und Initialisierung der KPI-Werte
