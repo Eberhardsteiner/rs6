@@ -3,12 +3,12 @@
 
   ## Critical Issues Fixed
   1. **Missing Grants**: Add INSERT, UPDATE, DELETE grants for authenticated role
-  2. **Realtime Publication**: Add trainer_memberships to supabase_realtime publication
+  2. **Realtime Publication**: Add trainer_memberships to supabase_realtime publication (IDEMPOTENT)
   3. **Redundant Policies**: Remove duplicate RLS policies (tm_ins_self, tm_sel_self, tm_select_own)
-  
+
   ## Changes Applied
   - Grant full DML permissions (INSERT, UPDATE, DELETE) to authenticated role on trainer_memberships
-  - Add trainer_memberships to Realtime publication for real-time updates
+  - Add trainer_memberships to Realtime publication for real-time updates (only if not already added)
   - Remove redundant policies, keep only: tm_insert_self, tm_select_self, tm_update_self, tm_delete_self
   
   ## Security Notes
@@ -20,8 +20,18 @@
 -- 1. Grant missing permissions to authenticated role
 GRANT INSERT, UPDATE, DELETE ON public.trainer_memberships TO authenticated;
 
--- 2. Add to Realtime publication for live updates
-ALTER PUBLICATION supabase_realtime ADD TABLE public.trainer_memberships;
+-- 2. Add to Realtime publication for live updates (IDEMPOTENT)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+    AND schemaname = 'public'
+    AND tablename = 'trainer_memberships'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.trainer_memberships;
+  END IF;
+END $$;
 
 -- 3. Remove redundant policies
 DROP POLICY IF EXISTS tm_ins_self ON public.trainer_memberships;
