@@ -39,16 +39,18 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
 
   
-  // Check for trainer bypass (ensure session + DB upsert)
+    // Check for trainer bypass (nur bei gültigem Token)
   useEffect(() => {
     (async () => {
       const isTrainerMode = localStorage.getItem('mp_trainer_mode') === 'true';
-            // Trainer-Feature-Flag (vom AdminPanel gespiegelt) + Passwort
-      const trainerFeatureEnabled = !!adminSettings?.features?.trainerAccess;
-      const TRAINER_PASSWORD = 'observer101';
-
       const trainerGameId = localStorage.getItem('mp_trainer_game_id');
-      if (!isTrainerMode || !trainerGameId) return;
+      // Nur fortfahren, wenn Flags + gültiges Token vorhanden sind
+      if (!isTrainerMode || !trainerGameId || !isTrainerAuthenticated()) {
+        // Stale Flags aufräumen, damit Rollenauswahl wieder sichtbar ist
+        localStorage.removeItem('mp_trainer_mode');
+        localStorage.removeItem('mp_trainer_game_id');
+        return;
+      }
 
       try {
         // 1) Auth sicherstellen
@@ -64,40 +66,37 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
           .from('games')
           .select('id')
           .eq('id', trainerGameId)
-          .single();
-        if (!game) return;
+          .maybeSingle();
+        if (!game) {
+          clearTrainerAuth();
+          return;
+        }
 
-        // 3) Trainer-Player upsert
-        const { data: playerRow } = await supabase
-          .from('players')
-          .upsert({
-            game_id: trainerGameId,
-            user_id: user.id,
-            role: 'TRAINER',
-            name: 'Trainer',
-            is_gm: false,
-            is_active: true,
-            last_seen: new Date().toISOString()
-          }, { onConflict: 'game_id,user_id' })
-          .select()
-          .single();
-
-        // Optional: Mitgliedschaft für RLS ergänzen (nicht kritisch, Fehler werden geloggt)
-        try {
-          await supabase.from('trainer_memberships').upsert({
-            game_id: trainerGameId, user_id: user.id
-          });
-        } catch (e) {
-          console.warn('[TrainerMemberships] bypass upsert failed:', e);
+        // 3) Trainer-Mitgliedschaft sicherstellen
+        const { error: tmErr } = await supabase.from('trainer_memberships').upsert({
+          game_id: trainerGameId,
+          user_id: user.id
+        });
+        if (tmErr) {
+          console.error('[Trainer-Bypass] DB-Fehler:', tmErr);
+          clearTrainerAuth();
+          return;
         }
 
         // 4) LocalStorage vervollständigen
         localStorage.setItem('mp_current_game', trainerGameId);
         localStorage.setItem('mp_current_role', 'TRAINER');
-        if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
+        localStorage.removeItem('mp_player_id');
 
         // 5) Weiter in die App
         onSuccess(trainerGameId, 'TRAINER');
+      } catch (e) {
+        console.error('[Trainer-Bypass] Fehler:', e);
+        clearTrainerAuth();
+      }
+    })();
+  }, [onSuccess]);
+
       } catch (e) {
         console.error('[Trainer-Bypass] Fehler:', e);
       }
