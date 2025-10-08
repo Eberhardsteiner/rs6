@@ -90,11 +90,12 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
         // 5) Weiter in die App
         onSuccess(trainerGameId, 'TRAINER');
-     }, [onSuccess]);
- 
       } catch (e) {
         console.error('[Trainer-Bypass] Fehler:', e);
+        clearTrainerAuth();
       }
+    })();
+  }, [onSuccess]);
 
   // Authentication fields
   const [email, setEmail] = useState('');
