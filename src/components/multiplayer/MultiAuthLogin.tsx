@@ -158,7 +158,9 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
       // Use the service method to get occupied roles (excludes current user's role)
       const occupied = await mpService.getOccupiedRoles(gameId);
-      setOccupiedRoles(occupied);
+      // Normalisieren auf UPPERCASE, damit UI-Vergleich zuverlässig ist
+      const normalized = new Set(Array.from(occupied).map(r => String(r).toUpperCase() as RoleId));
+      setOccupiedRoles(normalized);
       setCurrentGameId(gameId);
 
       console.log('Occupied roles fetched:', Array.from(occupied));
