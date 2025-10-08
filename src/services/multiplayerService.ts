@@ -455,13 +455,7 @@ export class MultiplayerService {
         players: players || [],
         settings: (async () => {
 
-  async startGame(): Promise<void> {
-    if (!this.gameId) throw new Error('Not in game');
-
-    // Genereller Fix: ausschliesslich über RPC starten
-    await this.setGameStatus(this.gameId, 'running');
-    console.log('Game started via RPC');
-  }
+  
 
           
           try {
