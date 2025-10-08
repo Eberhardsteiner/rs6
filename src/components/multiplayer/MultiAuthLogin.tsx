@@ -120,7 +120,8 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const mpService = MultiplayerService.getInstance();
-
+// Trainer-Passwort (muss mit TrainerAuthGate übereinstimmen)
+  const TRAINER_PASSWORD = 'observer101';
   
   // Trainer-spezifisch
   const [trainerPassword, setTrainerPassword] = useState('');
