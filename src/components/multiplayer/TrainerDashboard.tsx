@@ -475,12 +475,14 @@ const copyGameId = useCallback(async () => {
       setIsLoadingKpis(true);
 
       // Spieler laden (Trainer ausblenden)
-      const { data: playersData, error: pErr } = await supabase
-        .from('players')
-        .select('id, name, role')
-        .eq('game_id', gameId);
-      if (pErr) throw pErr;
-      setPlayers((playersData || []).filter((p) => p.role !== 'TRAINER'));
+     // Spieler laden (Trainer ausblenden) – display_name korrekt aliasen
+const { data: playersData, error: pErr } = await supabase
+  .from('players')
+  .select('id, name:display_name, role')
+  .eq('game_id', gameId);
+if (pErr) throw pErr;
+setPlayers((playersData || []).filter((p) => p.role !== 'TRAINER'));
+
 
       // Entscheidungen mit eingebetteter Spielerinfo
       let decisionsData: any[] = [];
