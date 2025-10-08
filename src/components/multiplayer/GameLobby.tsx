@@ -416,7 +416,8 @@ export default function GameLobby({
     const info = roleInfo[role];
 
     // Prüfen ob Spieler aktiv (kürzlich aktiv oder Spiel läuft)
-    const isGameRunning = game.state === 'running' || game.status === 'running';
+       const isGameRunning = game.state === 'running';
+
     const isActive = player && isGameRunning && player.last_seen &&
       (new Date().getTime() - new Date(player.last_seen).getTime()) < 120000; // Aktiv innerhalb 2 Minuten
 
