@@ -2,6 +2,7 @@
 import { supabase, type Game, type Player, type GameAdminSettings } from './supabaseClient';
 import { makeRng } from '@/core/utils/prng';
 import type { GameState, KPI, RoleId, DayNewsItem } from '@/core/models/domain';
+import { DEFAULT_KPI_VALUES, validateAndClampKpi, generateSessionCode } from './kpiDefaults';
 
 
 // Error types for robust error handling
@@ -227,38 +228,40 @@ export class MultiplayerService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Nicht authentifiziert');
 
-      // Generiere 6-stelligen Session-Code
-      const sessionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      // Generiere sicheren 6-stelligen Session-Code
+      const sessionCode = generateSessionCode();
+      console.log('[MP-Service] Creating game with code:', sessionCode);
 
-      // Game erstellen mit initialen KPI-Werten
+      // Game erstellen mit standardisierten KPI-Werten
       const { data: game, error: gameError } = await supabase
         .from('games')
         .insert({
           session_code: sessionCode,
           host_id: user.id,
-          state: 'waiting',
+          state: 'lobby',
           status: 'waiting',
           current_day: 1,
-          difficulty: 'medium',
+          difficulty: params.settings?.difficulty || 'medium',
           game_mode: params.settings?.gameMode || 'standard',
           scenario_data: params.settings || {},
           theme: 'default',
-          kpi_values: {
-            cashEUR: 100000,
-            profitLossEUR: 0,
-            customerLoyalty: 50,
-            bankTrust: 50,
-            workforceEngagement: 50,
-            publicPerception: 50
-          }
+          max_players: params.max_players || 4,
+          kpi_values: DEFAULT_KPI_VALUES
         })
         .select()
         .single();
 
       if (gameError) {
-        console.error('Game creation error:', gameError);
+        console.error('[MP-Service] Game creation error:', {
+          error: gameError,
+          message: gameError.message,
+          details: gameError.details,
+          hint: gameError.hint
+        });
         throw new Error('Spiel konnte nicht erstellt werden: ' + gameError.message);
       }
+
+      console.log('[MP-Service] Game created successfully:', game.id);
 
       // Als Host beitreten - NUR mit existierenden Spalten
       const { data: player, error: playerError } = await supabase
@@ -986,16 +989,9 @@ export class MultiplayerService {
     return data?.is_gm || false;
   }
 
-  /** Begrenzungen und Rundungen für KPI-Werte (wie im DaySync) */
-  private clampKpi(k: KPI): KPI {
-    return {
-      cashEUR: Math.round(Number(k.cashEUR) || 0),
-      profitLossEUR: Math.round(Number(k.profitLossEUR) || 0),
-      customerLoyalty: Math.max(0, Math.min(100, Math.round(Number(k.customerLoyalty) || 0))),
-      bankTrust: Math.max(0, Math.min(100, Math.round(Number(k.bankTrust) || 0))),
-      workforceEngagement: Math.max(0, Math.min(100, Math.round(Number(k.workforceEngagement) || 0))),
-      publicPerception: Math.max(0, Math.min(100, Math.round(Number(k.publicPerception) || 0))),
-    };
+  /** Begrenzungen und Rundungen für KPI-Werte (delegiert an kpiDefaults) */
+  private clampKpi(k: Partial<KPI>): KPI {
+    return validateAndClampKpi(k);
   }
 
   /**
@@ -1018,14 +1014,7 @@ export class MultiplayerService {
       .single();
     if (selErr) throw selErr;
 
-    const prev: KPI = {
-      cashEUR: Number((game as any)?.kpi_values?.cashEUR) || 0,
-      profitLossEUR: Number((game as any)?.kpi_values?.profitLossEUR) || 0,
-      customerLoyalty: Number((game as any)?.kpi_values?.customerLoyalty) || 0,
-      bankTrust: Number((game as any)?.kpi_values?.bankTrust) || 0,
-      workforceEngagement: Number((game as any)?.kpi_values?.workforceEngagement) || 0,
-      publicPerception: Number((game as any)?.kpi_values?.publicPerception) || 0
-    };
+    const prev: KPI = validateAndClampKpi((game as any)?.kpi_values || {});
 
     let next: KPI = { ...prev };
     if (action === 'set') {
@@ -1113,14 +1102,7 @@ export class MultiplayerService {
     if (selErr) throw selErr;
 
     const prevDay = Number((game as any)?.current_day) || 1;
-    const kpi: KPI = {
-      cashEUR: Number((game as any)?.kpi_values?.cashEUR) || 0,
-      profitLossEUR: Number((game as any)?.kpi_values?.profitLossEUR) || 0,
-      customerLoyalty: Number((game as any)?.kpi_values?.customerLoyalty) || 0,
-      bankTrust: Number((game as any)?.kpi_values?.bankTrust) || 0,
-      workforceEngagement: Number((game as any)?.kpi_values?.workforceEngagement) || 0,
-      publicPerception: Number((game as any)?.kpi_values?.publicPerception) || 0,
-    };
+    const kpi: KPI = validateAndClampKpi((game as any)?.kpi_values || {});
 
     // Tag begrenzen (1..14)
     const nextDay = Math.max(1, Math.min(14, Math.round(newDay)));
@@ -1191,14 +1173,7 @@ export class MultiplayerService {
     if (selErr) throw selErr;
 
     const prevDay = Number((game as any)?.current_day) || 1;
-    const kpi: KPI = {
-      cashEUR: Number((game as any)?.kpi_values?.cashEUR) || 0,
-      profitLossEUR: Number((game as any)?.kpi_values?.profitLossEUR) || 0,
-      customerLoyalty: Number((game as any)?.kpi_values?.customerLoyalty) || 0,
-      bankTrust: Number((game as any)?.kpi_values?.bankTrust) || 0,
-      workforceEngagement: Number((game as any)?.kpi_values?.workforceEngagement) || 0,
-      publicPerception: Number((game as any)?.kpi_values?.publicPerception) || 0,
-    };
+    const kpi: KPI = validateAndClampKpi((game as any)?.kpi_values || {});
     const nextDay = Math.max(1, Math.min(14, prevDay + 1));
 
     // Persistieren

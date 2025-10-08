@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MultiplayerService } from '@/services/multiplayerService';
 import { supabase } from '@/services/supabaseClient';
 import type { RoleId } from '@/core/models/domain';
+import { DEFAULT_KPI_VALUES, generateSessionCode } from '@/services/kpiDefaults';
 import '@/styles/onboarding.css';
 
 interface MultiAuthLoginProps {
@@ -291,33 +292,66 @@ const handleGameAction = async () => {
 
       if (gameMode === 'create') {
         // Create new game
-        const { gameId } = await mpService.createGame({
-          name: `${playerName}'s Spiel`,
-          max_players: 4,
-          settings: {
-            authMode: authMode,
-            seed: Math.floor(Math.random() * 1000000)
-          }
-        });
-        finalGameId = gameId;
+        console.log('[handleFinalJoin] Creating game for:', playerName);
+        try {
+          const { gameId } = await mpService.createGame({
+            name: `${playerName}'s Spiel`,
+            max_players: 4,
+            settings: {
+              authMode: authMode,
+              seed: Math.floor(Math.random() * 1000000)
+            }
+          });
+          finalGameId = gameId;
+          console.log('[handleFinalJoin] Game created:', finalGameId);
+        } catch (createErr: any) {
+          console.error('[handleFinalJoin] Game creation failed:', createErr);
+          throw new Error(`Spiel konnte nicht erstellt werden: ${createErr.message}`);
+        }
+
+        // Wait a bit to ensure DB commit
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Use new robust claimRoleAndJoin method
-        await mpService.claimRoleAndJoin(finalGameId, selectedRole, playerName);
+        console.log('[handleFinalJoin] Claiming role:', selectedRole);
+        try {
+          await mpService.claimRoleAndJoin(finalGameId, selectedRole, playerName);
+          console.log('[handleFinalJoin] Role claimed successfully');
+        } catch (claimErr: any) {
+          console.error('[handleFinalJoin] Role claim failed:', claimErr);
+          throw new Error(`Rolle konnte nicht beansprucht werden: ${claimErr.message}`);
+        }
 
       } else if (gameMode === 'join') {
         // Join existing game
+        console.log('[handleFinalJoin] Joining game with code:', joinCode);
         if (!joinCode) {
           throw new Error('Bitte Spiel-Code eingeben');
         }
 
         // Game-ID bestimmen
         const gid = currentGameId || (await (async () => {
-          const { data: g } = await supabase.from('games').select('id').eq('session_code', joinCode).single();
-          return g?.id || joinCode; // Fallback
+          const { data: g, error } = await supabase.from('games').select('id').eq('session_code', joinCode.toUpperCase()).maybeSingle();
+          if (error) {
+            console.error('[handleFinalJoin] Game lookup failed:', error);
+            throw new Error('Spiel konnte nicht gefunden werden');
+          }
+          if (!g?.id) {
+            throw new Error('Spiel mit diesem Code existiert nicht');
+          }
+          return g.id;
         })());
 
+        console.log('[handleFinalJoin] Found game ID:', gid);
+
         // Use new robust claimRoleAndJoin method with error handling
-        await mpService.claimRoleAndJoin(gid, selectedRole, playerName);
+        try {
+          await mpService.claimRoleAndJoin(gid, selectedRole, playerName);
+          console.log('[handleFinalJoin] Successfully joined game');
+        } catch (joinErr: any) {
+          console.error('[handleFinalJoin] Join failed:', joinErr);
+          throw new Error(`Beitritt fehlgeschlagen: ${joinErr.message}`);
+        }
         finalGameId = gid;
       }
 
@@ -346,11 +380,19 @@ const handleGameAction = async () => {
       }
 
       // Success - call parent callback
+      console.log('[handleFinalJoin] Success! Calling onSuccess callback');
       onSuccess(finalGameId, selectedRole);
 
     } catch (err: any) {
-      // Handle MPError types
-      const errorMessage = err?.message || err?.toString() || 'Fehler beim Spielbeitritt';
+      // Handle MPError types with detailed logging
+      console.error('[handleFinalJoin] Complete error:', {
+        error: err,
+        message: err?.message,
+        stack: err?.stack,
+        code: err?.code
+      });
+
+      const errorMessage = err?.message || err?.toString() || 'Ein unbekannter Fehler ist aufgetreten';
       setError(errorMessage);
       setStep('role-auth');  // Go back to role selection on error
       setLoading(false);
@@ -1614,22 +1656,33 @@ useEffect(() => {
           let finalGameId: string;
 
           if (gameMode === 'create') {
-            // Create new game
+            // Create new game with proper KPI initialization
+            console.log('[TRAINER-CREATE] Creating new game...');
+            const sessionCode = generateSessionCode();
             const { data: newGame, error: createErr } = await supabase
               .from('games')
               .insert({
                 name: 'Trainer Game',
                 created_by: user.id,
                 host_id: user.id,
-                session_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+                session_code: sessionCode,
                 status: 'waiting',
+                state: 'lobby',
                 current_day: 1,
                 difficulty: 'medium',
-                game_mode: 'standard'
+                game_mode: 'standard',
+                max_players: 5,
+                scenario_data: {},
+                theme: 'default',
+                kpi_values: DEFAULT_KPI_VALUES
               })
               .select()
               .single();
-            if (createErr) throw createErr;
+            if (createErr) {
+              console.error('[TRAINER-CREATE] Game creation failed:', createErr);
+              throw new Error(`Spiel konnte nicht erstellt werden: ${createErr.message}`);
+            }
+            console.log('[TRAINER-CREATE] Game created:', newGame.id, 'Code:', sessionCode);
             finalGameId = newGame.id;
           } else {
             // Join existing game
@@ -1702,31 +1755,51 @@ useEffect(() => {
         let finalGameId: string;
 
         if (gameMode === 'create') {
-          // Create new game with initial KPI values
+          // Create new game with proper KPI initialization
+          console.log('[GAME-CREATE] Creating new game for player:', playerName);
+          const sessionCode = generateSessionCode();
+
           const { data: newGame, error: createErr } = await supabase
             .from('games')
             .insert({
               name: `${playerName}'s Game`,
               created_by: user.id,
               host_id: user.id,
-              session_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+              session_code: sessionCode,
               status: 'waiting',
+              state: 'lobby',
               current_day: 1,
               difficulty: 'medium',
               game_mode: 'standard',
-              kpi_values: {
-                cashEUR: 100000,
-                profitLossEUR: 0,
-                customerLoyalty: 50,
-                bankTrust: 50,
-                workforceEngagement: 50,
-                publicPerception: 50
-              }
+              max_players: 4,
+              scenario_data: {},
+              theme: 'default',
+              kpi_values: DEFAULT_KPI_VALUES
             })
             .select()
             .single();
-          if (createErr) throw createErr;
+
+          if (createErr) {
+            console.error('[GAME-CREATE] Game creation failed:', {
+              error: createErr,
+              message: createErr.message,
+              details: createErr.details,
+              hint: createErr.hint,
+              code: createErr.code
+            });
+            throw new Error(`Spiel konnte nicht erstellt werden: ${createErr.message}`);
+          }
+
+          console.log('[GAME-CREATE] Game created successfully:', {
+            id: newGame.id,
+            sessionCode: sessionCode,
+            kpi: newGame.kpi_values
+          });
+
           finalGameId = newGame.id;
+
+          // Wait a bit to ensure DB commit
+          await new Promise(resolve => setTimeout(resolve, 100));
                } else {
           // Join existing game (per session_code, case-insensitive)
           const code = joinCode.trim().toUpperCase();
@@ -1741,11 +1814,21 @@ useEffect(() => {
 
 
                 // Rolle atomar per RPC beanspruchen (verhindert Race Conditions)
+        console.log('[GAME-JOIN] Claiming role:', selectedRole, 'for game:', finalGameId);
         let playerRow: any;
         try {
           const res = await mpService.claimRoleAndJoin(finalGameId, selectedRole, playerName);
           playerRow = Array.isArray(res) ? res[0] : res;
+          console.log('[GAME-JOIN] Role claimed successfully:', playerRow?.id);
         } catch (rpcErr: any) {
+          console.error('[GAME-JOIN] RPC claimRoleAndJoin failed:', {
+            error: rpcErr,
+            message: rpcErr?.message,
+            code: rpcErr?.code,
+            details: rpcErr?.details,
+            originalError: rpcErr?.originalError
+          });
+
           const msg = String(rpcErr?.message || rpcErr || '');
           if (msg.includes('ROLE_TAKEN')) {
             throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
@@ -1753,7 +1836,13 @@ useEffect(() => {
           if (msg.includes('ROLE_NOT_PLAYER')) {
             throw new Error('TRAINER wird nicht über die Spieler-RPC belegt.');
           }
-          throw rpcErr;
+          if (msg.includes('GAME_NOT_FOUND')) {
+            throw new Error('Spiel wurde nicht gefunden. Bitte überprüfe die Game-ID.');
+          }
+
+          // Generic error with details
+          const errorMsg = rpcErr?.message || 'Unbekannter Fehler beim Beitreten';
+          throw new Error(`Fehler beim Spielbeitritt: ${errorMsg}`);
         }
 
 
@@ -1763,7 +1852,15 @@ useEffect(() => {
 
         onSuccess(finalGameId, selectedRole);
       } catch (e: any) {
-        setError(e?.message || 'Fehler beim Beitreten');
+        console.error('[handleAuth] Complete error:', {
+          error: e,
+          message: e?.message,
+          stack: e?.stack,
+          name: e?.name
+        });
+
+        const errorMessage = e?.message || 'Ein unbekannter Fehler ist aufgetreten';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
