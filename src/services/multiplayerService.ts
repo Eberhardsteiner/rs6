@@ -955,9 +955,13 @@ export class MultiplayerService {
     return this.playerId || localStorage.getItem('mp_player_id');
   }
 
-  getCurrentRole(): RoleId | null {
-    return this.currentRole || (localStorage.getItem('mp_current_role') as RoleId);
+   getCurrentRole(): RoleId | null {
+    const inMem = this.currentRole ? (String(this.currentRole).toUpperCase() as RoleId) : null;
+    if (inMem) return inMem;
+    const fromLS = localStorage.getItem('mp_current_role') || localStorage.getItem('mp_user_role');
+    return fromLS ? (String(fromLS).toUpperCase() as RoleId) : null;
   }
+
 
   static getRoleKpiVisibility(role: RoleId): (keyof KPI)[] {
     const visibility: Record<RoleId, (keyof KPI)[]> = {
