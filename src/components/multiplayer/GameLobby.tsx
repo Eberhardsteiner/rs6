@@ -872,7 +872,7 @@ export default function GameLobby({
           </div>
 
           {/* Active Players Indicator */}
-          {(game.state === 'running' || game.status === 'running') && (() => {
+           {(game.state === 'running') && (() => {
             const isGameRunning = true;
             const activePlayers = players.filter(p =>
               p.last_seen &&
