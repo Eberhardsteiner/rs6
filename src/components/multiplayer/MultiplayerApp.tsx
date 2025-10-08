@@ -238,34 +238,44 @@ useEffect(() => {
     }
   }, [gamePhase, currentGameId]);
 
-  const handleLoginSuccess = async (gameId: string, role: RoleId) => {
-    try {
-      const playerName = localStorage.getItem('mp_user_name') || 'Spieler';
-      
-      setMultiplayerMode(true);  // <-- DAS FEHLT!
-      setCurrentRole(role);
-      setCurrentGameId(gameId);
-      setCurrentPlayerName(playerName);
-      
-      // Set global variables
-      (globalThis as any).__multiplayerMode = true;
-      (globalThis as any).__currentRole = role;
-      (globalThis as any).__gameId = gameId;
-      (globalThis as any).__visibleKpis = MultiplayerService.getRoleKpiVisibility(role);
-      
-       // Save to localStorage
-      localStorage.setItem('mp_current_game', gameId);
-      localStorage.setItem('mp_current_role', role);
-      const nextPhase = role === 'TRAINER' ? 'playing' : 'lobby';
-      localStorage.setItem('mp_game_phase', nextPhase);
+const handleLoginSuccess = async (gameId: string, role: RoleId) => {
+  try {
+    const playerName = localStorage.getItem('mp_user_name') || 'Spieler';
 
-      // Phase setzen
-      setGamePhase(nextPhase);
-      
-    } catch (err: any) {
-      setError(err.message || 'Fehler beim Beitreten');
+    setMultiplayerMode(true);
+    setCurrentRole(role);
+    setCurrentGameId(gameId);
+    setCurrentPlayerName(playerName);
+
+    // Globals
+    (globalThis as any).__multiplayerMode = true;
+    (globalThis as any).__currentRole = role;
+    (globalThis as any).__gameId = gameId;
+    (globalThis as any).__visibleKpis = MultiplayerService.getRoleKpiVisibility(role);
+
+    // Persist common
+    localStorage.setItem('mp_current_game', gameId);
+    localStorage.setItem('mp_current_role', role);
+
+    // ►► Trainer soll SOFORT ins Dashboard: Phase 'playing' statt 'lobby'
+    const nextPhase = (role === 'TRAINER') ? 'playing' : 'lobby';
+    localStorage.setItem('mp_game_phase', nextPhase);
+    setGamePhase(nextPhase);
+
+    if (role === 'TRAINER') {
+      console.log('[MultiplayerApp] TRAINER – direktes Dashboard (Observer)');
+      // Trainer-Flag aktivieren, keine Spielstart-Updates auslösen
+      (globalThis as any).__isTrainerMode = true;
+      localStorage.setItem('mp_trainer_mode', 'true');
+    } else {
+      (globalThis as any).__isTrainerMode = false;
+      localStorage.removeItem('mp_trainer_mode');
     }
-  };
+  } catch (err: any) {
+    setError(err.message || 'Fehler beim Beitreten');
+  }
+};
+
 
   const handleActualGameStart = async () => {
     // Move from lobby to playing
