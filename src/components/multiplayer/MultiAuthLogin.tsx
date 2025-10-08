@@ -1724,17 +1724,21 @@ useEffect(() => {
 
           console.log('[TRAINER-JOIN] Success:', joinResult);
 
-          // Generate and store session token for TrainerAuthGate bypass
-          const timestamp = Date.now();
-          const combined = `${trainerPass}:${timestamp}`;
-          let hash = 0;
-          for (let i = 0; i < combined.length; i++) {
-            const char = combined.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-          }
-          const token = `${Math.abs(hash).toString(36)}:${timestamp}`;
-          sessionStorage.setItem('mp_trainer_auth_token', token);
+          // Generate and store session token for TrainerAuthGate bypass (konsistent zu TrainerAuthGate)
+{
+  const TRAINER_PASSWORD = 'observer101';
+  const ts = Date.now();
+  const combined = `${TRAINER_PASSWORD}:${ts}`;
+  let h = 0;
+  for (let i = 0; i < combined.length; i++) {
+    const c = combined.charCodeAt(i);
+    h = ((h << 5) - h) + c;
+    h = h & h;
+  }
+  const token = `${Math.abs(h).toString(36)}:${ts}`;
+  sessionStorage.setItem('mp_trainer_auth_token', token);
+}
+
 
           // Set localStorage only after successful join
           localStorage.setItem('mp_trainer_mode', 'true');
