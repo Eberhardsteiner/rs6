@@ -3,6 +3,7 @@ import { MultiplayerService } from '@/services/multiplayerService';
 import { supabase } from '@/services/supabaseClient';
 import type { RoleId } from '@/core/models/domain';
 import '@/styles/onboarding.css';
+import { isTrainerAuthenticated, clearTrainerAuth } from './TrainerAuthGate';
 
 interface MultiAuthLoginProps {
   onSuccess: (gameId: string, role: RoleId) => void;
