@@ -1635,6 +1635,11 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
           localStorage.setItem('mp_current_role', 'TRAINER');
           // Trainer hat absichtlich keine players-Zeile:
  localStorage.removeItem('mp_player_id');
+          // Trainer-Mitgliedschaft in separater Tabelle (keine players-Zeile!)
+          const { error: tmErr } = await supabase
+            .from('trainer_memberships')
+            .upsert({ game_id: finalGameId, user_id: user.id });
+          if (tmErr) throw tmErr;
 
           onSuccess(finalGameId, 'TRAINER');
         } catch (e: any) {
