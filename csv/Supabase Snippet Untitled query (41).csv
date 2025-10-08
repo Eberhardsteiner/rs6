@@ -1,0 +1,155 @@
+routine_name,routine_type,return_type,routine_definition
+rpc_claim_role_and_join,FUNCTION,USER-DEFINED,"
+DECLARE
+  v_user_id UUID;
+  v_game_status TEXT;
+  v_player players;
+  v_current_role TEXT;
+BEGIN
+  -- Get authenticated user
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'UNAUTHORIZED: Not authenticated';
+  END IF;
+
+  -- Check if game exists and get status
+  SELECT status INTO v_game_status
+  FROM games
+  WHERE id = p_game_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'GAME_NOT_FOUND: Game does not exist';
+  END IF;
+
+  IF v_game_status = 'ended' THEN
+    RAISE EXCEPTION 'GAME_ENDED: Game has already ended';
+  END IF;
+
+  -- Check if player already exists in this game (and hasn't left)
+  SELECT * INTO v_player
+  FROM players
+  WHERE game_id = p_game_id
+    AND user_id = v_user_id
+    AND left_at IS NULL;
+
+  IF FOUND THEN
+    -- Player exists, check if role change is requested
+    v_current_role := v_player.role;
+
+    IF v_current_role != p_desired_role THEN
+      -- Check if desired role is available (not TRAINER, not taken by someone else)
+      IF p_desired_role != 'TRAINER' THEN
+        IF EXISTS (
+          SELECT 1 FROM players
+          WHERE game_id = p_game_id
+            AND role = p_desired_role
+            AND user_id != v_user_id
+            AND left_at IS NULL
+        ) THEN
+          RAISE EXCEPTION 'ROLE_TAKEN: Role % is already taken', p_desired_role;
+        END IF;
+      END IF;
+
+      -- Update role and status
+      UPDATE players
+      SET
+        role = p_desired_role,
+        status = CASE WHEN v_game_status = 'running' THEN 'in_game' ELSE 'lobby' END,
+        display_name = COALESCE(p_player_name, display_name, name, 'Spieler'),
+        last_seen = now(),
+        is_active = true
+      WHERE id = v_player.id
+      RETURNING * INTO v_player;
+    ELSE
+      -- Same role, just update last_seen and status
+      UPDATE players
+      SET
+        status = CASE WHEN v_game_status = 'running' THEN 'in_game' ELSE 'lobby' END,
+        last_seen = now(),
+        is_active = true
+      WHERE id = v_player.id
+      RETURNING * INTO v_player;
+    END IF;
+  ELSE
+    -- New player, check role availability (except TRAINER)
+    IF p_desired_role != 'TRAINER' THEN
+      IF EXISTS (
+        SELECT 1 FROM players
+        WHERE game_id = p_game_id
+          AND role = p_desired_role
+          AND left_at IS NULL
+      ) THEN
+        RAISE EXCEPTION 'ROLE_TAKEN: Role % is already taken', p_desired_role;
+      END IF;
+    END IF;
+
+    -- Insert new player
+    INSERT INTO players (
+      game_id,
+      user_id,
+      role,
+      name,
+      display_name,
+      status,
+      is_ready,
+      is_active,
+      game_state,
+      last_seen
+    ) VALUES (
+      p_game_id,
+      v_user_id,
+      p_desired_role,
+      COALESCE(p_player_name, 'Spieler'),
+      COALESCE(p_player_name, 'Spieler'),
+      CASE WHEN v_game_status = 'running' THEN 'in_game' ELSE 'lobby' END,
+      false,
+      true,
+      '{}'::jsonb,
+      now()
+    )
+    RETURNING * INTO v_player;
+  END IF;
+
+  RETURN v_player;
+EXCEPTION
+  WHEN unique_violation THEN
+    RAISE EXCEPTION 'ROLE_TAKEN: Role % is already taken', p_desired_role;
+END;
+"
+rpc_mark_player_left,FUNCTION,void,"
+begin
+  update public.players
+     set left_at   = coalesce(left_at, now()),
+         is_active = false,
+         updated_at = now()
+   where id = p_player_id
+     and user_id = auth.uid();
+
+  if not found then
+    raise exception 'UNAUTHORIZED';
+  end if;
+end
+"
+rpc_set_game_status,FUNCTION,void,"
+begin
+  if auth.uid() is null then
+    raise exception 'UNAUTHORIZED';
+  end if;
+
+  if not exists (
+    select 1
+    from public.games g
+    where g.id = p_game_id
+      and (g.host_id = auth.uid()
+           or exists (select 1 from public.trainer_memberships t where t.game_id = g.id and t.user_id = auth.uid()))
+  ) then
+    raise exception 'UNAUTHORIZED';
+  end if;
+
+  update public.games
+     set status = p_new_status,
+         state  = case when p_new_status in ('running','finished') then p_new_status else state end,
+         updated_at = now()
+   where id = p_game_id;
+end
+"
