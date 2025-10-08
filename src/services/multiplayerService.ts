@@ -922,7 +922,7 @@ export class MultiplayerService {
   /**
    * Get occupied roles for a game (for UI role selection)
    */
-  async getOccupiedRoles(gameId: string): Promise<Set<RoleId>> {
+    async getOccupiedRoles(gameId: string): Promise<Set<RoleId>> {
     try {
       const { data, error } = await supabase
         .from('players')
@@ -939,7 +939,7 @@ export class MultiplayerService {
       (data || []).forEach((player: any) => {
         // Don't mark role as occupied if it's the current user's role
         if (player.role && player.user_id !== currentUserId) {
-          occupied.add(player.role as RoleId);
+          occupied.add(String(player.role).toUpperCase() as RoleId); // ⇐ Normalisierung auf UPPERCASE
         }
       });
 
@@ -949,6 +949,7 @@ export class MultiplayerService {
       return new Set();
     }
   }
+
 
   getCurrentGameId(): string | null {
     return this.gameId || localStorage.getItem('mp_current_game');
