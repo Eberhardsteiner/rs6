@@ -1735,27 +1735,22 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         }
 
 
-        // Upsert player
-        const { data: playerRow, error: upErr } = await supabase
-          .from('players')
-          .upsert({
-            game_id: finalGameId,
-            user_id: user.id,
-            role: selectedRole,
-            name: playerName,
-            is_gm: false,
-            is_active: true,
-            last_seen: new Date().toISOString()
-          }, { onConflict: 'game_id,user_id' })
-          .select()
-          .single();
-
-        if (upErr) {
-          if (upErr.code === '23505' && upErr.message?.includes('idx_players_game_role_unique')) {
+                // Rolle atomar per RPC beanspruchen (verhindert Race Conditions)
+        let playerRow: any;
+        try {
+          const res = await mpService.claimRoleAndJoin(finalGameId, selectedRole, playerName);
+          playerRow = Array.isArray(res) ? res[0] : res;
+        } catch (rpcErr: any) {
+          const msg = String(rpcErr?.message || rpcErr || '');
+          if (msg.includes('ROLE_TAKEN')) {
             throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
           }
-          throw upErr;
+          if (msg.includes('ROLE_NOT_PLAYER')) {
+            throw new Error('TRAINER wird nicht über die Spieler-RPC belegt.');
+          }
+          throw rpcErr;
         }
+
 
         localStorage.setItem('mp_current_game', finalGameId);
         localStorage.setItem('mp_current_role', selectedRole);
