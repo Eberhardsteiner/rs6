@@ -380,7 +380,8 @@ export default function TrainerDashboard({
   const [broadcastAll, setBroadcastAll] = useState('');
   const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
-  
+    const [randomNewsByDay, setRandomNewsByDay] = useState<Record<number, DayNewsItem[]>>({});
+
 
   const [blocksForDay, setBlocksForDay] = useState<DecisionBlock[]>([]);
   const [dailyRandoms, setDailyRandoms] = useState<{
