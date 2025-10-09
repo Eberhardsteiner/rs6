@@ -1263,7 +1263,8 @@ try {
                   fontWeight: 700,
                   cursor: 'pointer'
                 }}
-                title="Sendet den Hinweis in die Tabelle trainer_hints"
+                title="Sendet eine Chat‑Nachricht (messages): Ankündigung an alle oder Systemnachricht an gewählte Rolle"
+
 
               >
                 An alle senden
