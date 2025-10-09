@@ -1338,7 +1338,8 @@ try {
                       fontWeight: 700,
                       cursor: 'pointer'
                     }}
-                    title="Sendet den Hinweis in die Tabelle trainer_hints"
+                    title="Sendet eine Systemnachricht (messages) an die Rolle des Spielers"
+
                   >
                     Senden
                   </button>
