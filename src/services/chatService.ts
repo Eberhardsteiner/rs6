@@ -12,7 +12,7 @@ export interface ChatMessage {
   metadata?: {
     sender_name?: string;
 
-  /**
+  /** NEU
    * Direktnachrichten-Ziel (optional).
    * Wird von der DB-Policy geschützt; fehlt bei normalen/rollenbasierten Nachrichten.
    */
