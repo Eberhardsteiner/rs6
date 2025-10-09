@@ -376,11 +376,25 @@ export default function TrainerDashboard({
   const [hintDrafts, setHintDrafts] = useState<Record<string, string>>({});
   const [isLoadingKpis, setIsLoadingKpis] = useState(true);
 
-  // --- Broadcast/Anzeige-Daten ---
+    // --- Broadcast/Anzeige-Daten ---
   const [broadcastAll, setBroadcastAll] = useState('');
   const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
-    const [randomNewsByDay, setRandomNewsByDay] = useState<Record<number, DayNewsItem[]>>({});
+  const playedTitlesRef = React.useRef<string[]>([]); // Duplikatvermeidung über Tage
+
+  // Rollensicht für Zufalls-News (Trainer) – identisch zur Spielersicht
+  const [selectedRole, setSelectedRole] = useState<RoleId | 'ALL'>('ALL');
+
+  // Abgeleitete Liste entsprechend ausgewählter Rolle (robust: Rollenfeld optional)
+  const randomNewsForRole = useMemo(() => {
+    const list = Array.isArray(randomNewsForDay) ? randomNewsForDay : [];
+    if (selectedRole === 'ALL') return list;
+    return list.filter((n: any) => {
+      const rs = Array.isArray((n as any)?.roles) ? (n as any).roles as string[] : null;
+      return !rs || rs.includes(selectedRole);
+    });
+  }, [randomNewsForDay, selectedRole]);
+
 
 
   const [blocksForDay, setBlocksForDay] = useState<DecisionBlock[]>([]);
@@ -462,38 +476,56 @@ const copyGameId = useCallback(async () => {
       setError('');
       setIsLoadingKpis(true);
 
-      // Spieler laden (Trainer ausblenden)
+           // Spieler laden (Trainer ausblenden) – display_name statt name
       const { data: playersData, error: pErr } = await supabase
         .from('players')
-        .select('id, name, role')
+        .select('id, display_name, role')
         .eq('game_id', gameId);
       if (pErr) throw pErr;
-      setPlayers((playersData || []).filter((p) => p.role !== 'TRAINER'));
+
+      // Normalisieren: in der UI wird player.name erwartet
+      const normalizedPlayers = (playersData || [])
+        .filter((p: any) => p.role !== 'TRAINER')
+        .map((p: any) => ({ ...p, name: p.display_name || p.name || '' }));
+
+      setPlayers(normalizedPlayers);
+
 
       // Entscheidungen mit eingebetteter Spielerinfo
       let decisionsData: any[] = [];
       try {
-        const res = await supabase
+               const res = await supabase
           .from('decisions')
-          .select('*, players(name, role)')
+          .select('*, players(display_name, role)')
           .eq('game_id', gameId)
           .order('created_at', { ascending: false });
         if (res.error) throw res.error;
-        decisionsData = (res.data || []).map((d: any) => ({
-          ...d,
-          player: d.players || d.player || null
-        }));
+
+        decisionsData = (res.data || []).map((d: any) => {
+          const pl = d.players || d.player || null;
+          return {
+            ...d,
+            player: pl ? { name: pl.display_name || pl.name || '', role: pl.role } : null
+          };
+        });
+
       } catch {
         // Fallback ohne Join
-        const { data: d2, error: e2 } = await supabase
+                const { data: d2, error: e2 } = await supabase
           .from('decisions')
           .select('*')
           .eq('game_id', gameId)
           .order('created_at', { ascending: false });
         if (e2) throw e2;
+
+        // Map mit normalisiertem Namen
         const map = new Map<string, any>();
-        (playersData || []).forEach((p) => map.set(p.id, p));
+        (playersData || []).forEach((p: any) => {
+          map.set(p.id, { name: p.display_name || p.name || '', role: p.role });
+        });
+
         decisionsData = (d2 || []).map((d) => ({ ...d, player: map.get(d.player_id) || null }));
+
       }
       setDecisions(decisionsData as any);
 
@@ -527,7 +559,10 @@ const copyGameId = useCallback(async () => {
         // Globale Variablen synchronisieren (wie im MultiplayerGameView)
         (globalThis as any).__gameSeed = seed;
 
-        
+        // Shared played titles aus globalThis übernehmen (falls vorhanden)
+        if ((globalThis as any).__playedNewsTitles && Array.isArray((globalThis as any).__playedNewsTitles)) {
+          playedTitlesRef.current = [...(globalThis as any).__playedNewsTitles];
+        }
       } else {
         console.warn('[TrainerDashboard] Keine game_admin_settings gefunden oder Fehler:', settingsErr);
       }
@@ -616,80 +651,9 @@ const copyGameId = useCallback(async () => {
     setDeadlineTs(readDayDeadlineTs(currentDay));
   }, [currentDay]);
 
-    // VORKALKULATION: Zufallsnews für alle 14 Tage deterministisch (Seed, RNG-Offsets, Difficulty, Intensität)
-  const buildRandomNewsMap = useCallback((seed: number | null) => {
-    try {
-      const g: any = globalThis as any;
-      const useRandomNews = !!g.__randomNews;
-      const result: Record<number, DayNewsItem[]> = {};
+  
 
-      // Wenn RandomNews aus sind oder kein Seed vorhanden -> leere Listen
-      if (!useRandomNews || typeof seed !== 'number' || !Number.isFinite(seed)) {
-        for (let day = 1; day <= 14; day++) result[day] = [];
-        setRandomNewsByDay(result);
-        return;
-      }
-
-      const prevRng = (globalThis as any).__rng;
-      const playedLocal: string[] = []; // Duplikatvermeidung über Tage (nur lokal für die Vorkalkulation)
-
-      for (let day = 1; day <= 14; day++) {
-        const daySpecificSeed = seed + day * 1000;            // identisch zu Multiplayer
-        (globalThis as any).__rng = makeRng(daySpecificSeed + 500); // RNG-Offset für News (wie Multiplayer)
-
-        // Admin-Eventintensität -> Generator-Intensität
-        const useIntensity = !!g.__featureEventIntensity;
-        const arr = Array.isArray(g.__eventIntensityByDay) ? g.__eventIntensityByDay : [];
-        const intensityStr = mapIntensity(useIntensity ? (Number(arr[day - 1]) || 1) : 1);
-
-        // Schwierigkeit aus AdminPanelMPM (easy/normal/hard)
-        const diff = (g.__mpDifficulty || g.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
-
-        // Items aus dem Pool deterministisch ziehen
-        const items = generateRandomNewsForDay(undefined, {
-          enabled: true,
-          intensity: intensityStr,
-          difficulty: diff,
-          day,
-          alreadyPlayed: playedLocal
-        });
-
-        // In DayNewsItem-Form für die UI mappen (Severity-Angleichung)
-        const dayNews = (items as any[]).map((n: any) => ({
-          id: n.id,
-          title: n.title,
-          text: n.text,
-          source: n.category,
-          severity: mapSeverityForUi(n.severity),
-          impact: n.impact,
-          roles: (n as any).roles ?? null
-        }));
-
-        result[day] = dayNews;
-
-        // Titel sofort blocken (tagesübergreifende Deduplizierung wie im Multiplayer)
-        playedLocal.push(...(items as any[]).map(n => n.title));
-      }
-
-      (globalThis as any).__rng = prevRng; // RNG wiederherstellen
-      setRandomNewsByDay(result);
-    } catch (e) {
-      console.warn('[Trainer] buildRandomNewsMap failed', e);
-      setRandomNewsByDay({});
-    }
-  }, []);
-
-  // Builder beim Seed-Update (oder erstmalig) aufrufen
-  useEffect(() => {
-    const g: any = globalThis as any;
-    const s = (typeof gameSeed === 'number' && Number.isFinite(gameSeed))
-      ? gameSeed
-      : (typeof g.__gameSeed === 'number' ? g.__gameSeed : null);
-    buildRandomNewsMap(s);
-  }, [gameSeed, buildRandomNewsMap]);
-
-
-    // News/Blöcke/Randoms für aktuellen Tag vorbereiten (RandomNews aus Vorkalkulation)
+  // News/Blöcke/Randoms für aktuellen Tag vorbereiten
   useEffect(() => {
     const d = currentDay || 1;
 
@@ -699,66 +663,124 @@ const copyGameId = useCallback(async () => {
     setBlocksForDay(blocks);
     setNewsForDay(news);
 
-    // Anhänge aus Overrides, News & Blöcken + Data/ZIP (tageweise)
+// Anhänge aus Overrides, News & Blöcken + Data/ZIP (tageweise)
+try {
+  const overrideAtt   = readScenarioOverride('attachments', d) || [];
+  const fromOverrides = Array.isArray(overrideAtt) ? overrideAtt.flatMap(extractAttachmentsFromAny) : [];
+  const fromNews      = (news   || []).flatMap(extractAttachmentsFromAny);
+  const fromBlocks    = (blocks || []).flatMap(extractAttachmentsFromAny);
+
+  // Data/ZIP: anhand der Schlüssel/Metadaten in attachmentContents dem Tag d zuordnen
+  let fromDataset: Attachment[] = [];
+  try {
+    const allKeys = Object.keys((attachmentContents as any) || {});
+    const keysForDay = allKeys.filter((key) => {
+      const meta: any = (attachmentContents as any)[key] || {};
+      if (typeof meta.day === 'number') return meta.day === d; // 1. harte day-Meta
+      // 2. Heuristik: "day01", "d01", "D1", "Tag 1" im Key oder im Titel
+      const inKey   = key.match(/(?:^|[_-])(?:d|day)\s*0?(\d{1,2})(?:[_-]|$)/i);
+      const inTitle = typeof meta.title === 'string' ? meta.title.match(/(?:Tag|Day)\s*0?(\d{1,2})/i) : null;
+      const num = inKey ? Number(inKey[1]) : (inTitle ? Number(inTitle[1]) : NaN);
+      return num === d;
+    });
+    fromDataset = keysForDay.map((k, i) => normalizeAttachment(k, i)).filter(Boolean) as Attachment[];
+  } catch { /* dataset optional */ }
+
+  setAttachmentsForDay(
+    dedupeAttachments([...fromOverrides, ...fromNews, ...fromBlocks, ...fromDataset])
+  );
+} catch {
+  setAttachmentsForDay([]);
+}
+
+    
+
+ // Deterministische Randoms (Seed, Event-Intensität)
+  try {
+    let seed: number | null = null;
     try {
-      const overrideAtt   = readScenarioOverride('attachments', d) || [];
-      const fromOverrides = Array.isArray(overrideAtt) ? overrideAtt.flatMap(extractAttachmentsFromAny) : [];
-      const fromNews      = (news   || []).flatMap(extractAttachmentsFromAny);
-      const fromBlocks    = (blocks || []).flatMap(extractAttachmentsFromAny);
-
-      // Data/ZIP: anhand der Schlüssel/Metadaten in attachmentContents dem Tag d zuordnen
-      let fromDataset: Attachment[] = [];
-      try {
-        const allKeys = Object.keys((attachmentContents as any) || {});
-        const keysForDay = allKeys.filter((key) => {
-          const meta: any = (attachmentContents as any)[key] || {};
-          if (typeof meta.day === 'number') return meta.day === d; // 1. harte day-Meta
-          // 2. Heuristik: "day01", "d01", "D1", "Tag 1" im Key oder im Titel
-          const inKey   = key.match(/(?:^|[_-])(?:d|day)\s*0?(\d{1,2})(?:[_-]|$)/i);
-          const inTitle = typeof meta.title === 'string' ? meta.title.match(/(?:Tag|Day)\s*0?(\d{1,2})/i) : null;
-          const num = inKey ? Number(inKey[1]) : (inTitle ? Number(inTitle[1]) : NaN);
-          return num === d;
-        });
-        fromDataset = keysForDay.map((k, i) => normalizeAttachment(k, i)).filter(Boolean) as Attachment[];
-      } catch { /* dataset optional */ }
-
-      setAttachmentsForDay(
-        dedupeAttachments([...fromOverrides, ...fromNews, ...fromBlocks, ...fromDataset])
-      );
-    } catch {
-      setAttachmentsForDay([]);
-    }
-
-    // Deterministische Randoms (Seed, Event-Intensität) – nur für die Tages-Randomwerte
-    try {
-      let seed: number | null = null;
-      try {
-        const g: any = globalThis as any;
-        if (typeof g.__gameSeed === 'number') seed = g.__gameSeed;
-        else {
-          const raw = localStorage.getItem('admin:seed');
-          if (raw != null) seed = Number(raw);
-        }
-      } catch (e) { /* seed-Read optional */ }
-
-      const baseCash = gameKpis?.cashEUR ?? 100000;
-      if (typeof seed === 'number' && Number.isFinite(seed)) {
-        const rng = makeRng(seed + d * 1000);
-        (globalThis as any).__rng = rng;
+      const g: any = globalThis as any;
+      if (typeof g.__gameSeed === 'number') seed = g.__gameSeed;
+      else {
+        const raw = localStorage.getItem('admin:seed');
+        if (raw != null) seed = Number(raw);
       }
-      const rv = generateDailyRandomValues(baseCash);
-      setDailyRandoms(rv as any);
-    } catch (e) {
-      console.warn('[Trainer] Randoms konnten nicht berechnet werden:', e);
-      setDailyRandoms(null);
+    } catch (e) { /* seed-Read optional */ }
+
+    const baseCash = gameKpis?.cashEUR ?? 100000;
+    if (typeof seed === 'number' && Number.isFinite(seed)) {
+      const rng = makeRng(seed + d * 1000);
+      (globalThis as any).__rng = rng;
+    }
+    const rv = generateDailyRandomValues(baseCash);
+    setDailyRandoms(rv as any);
+
+    // Zufalls‑News optional – aus newsPool via SP‑Generator, inkl. KPI‑Impact
+    const g2: any = globalThis as any;
+    const useRandomNews = !!g2.__randomNews;
+    let dayRandomNews: DayNewsItem[] = [];
+
+    if (useRandomNews) {
+      // KRITISCH: Seed muss aus game_admin_settings kommen (bereits in gameSeed State geladen)
+      const s = (typeof seed === 'number' && Number.isFinite(seed)) ? seed : (gameSeed || Math.floor(Math.random() * 1e9));
+      const prevRng = (globalThis as any).__rng;
+
+      // Admin‑Intensität → Generator‑Intensität
+      const useIntensity = !!g2.__featureEventIntensity;
+      const arr = Array.isArray(g2.__eventIntensityByDay) ? g2.__eventIntensityByDay : [];
+      const intensityStr = mapIntensity(useIntensity ? (Number(arr[d - 1]) || 1) : 1);
+      const diff = (g2.__mpDifficulty || g2.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
+
+      // EXAKT wie MultiplayerGameView: Seed + Tag * 1000 + 500
+      const daySpecificSeed = s + d * 1000;
+
+      // Synchronisiere mit globalThis.__playedNewsTitles (gemeinsame Duplikatvermeidung)
+      const played: string[] = (globalThis as any).__playedNewsTitles || [];
+      const seen = new Set([...played, ...playedTitlesRef.current]);
+
+      // RNG für News deterministisch setzen (EXAKT wie MultiplayerGameView)
+      (globalThis as any).__rng = makeRng(daySpecificSeed + 500);
+
+      // Pool-basierte News erzeugen (EXAKT wie MultiplayerGameView)
+      const items = generateRandomNewsForDay(undefined, {
+        enabled: true,
+        intensity: intensityStr,
+        difficulty: diff,
+        day: d,
+        alreadyPlayed: Array.from(seen)
+      });
+
+      // RNG wiederherstellen
+      (globalThis as any).__rng = prevRng;
+
+      // In DayNewsItem-Form bringen (EXAKT wie MultiplayerGameView)
+      dayRandomNews = (items as any[]).map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        text: n.text,
+        source: n.category,
+        severity: mapSeverityForUi(n.severity),
+        impact: n.impact,
+        roles: (n as any).roles ?? null
+      }));
+
+      // Gespielte Titel synchronisieren (KRITISCH für Duplikatvermeidung)
+      const newTitles = (items as any[]).map(n => n.title);
+      playedTitlesRef.current.push(...newTitles);
+
+     
     }
 
-    // PRECOMPUTED RandomNews aus Map (Variante A)
-    const dayRandoms = (randomNewsByDay && Array.isArray((randomNewsByDay as any)[d])) ? (randomNewsByDay as any)[d] : [];
-    setRandomNewsForDay(dayRandoms as any);
+    // Einmalig am Ende setzen (leer, falls useRandomNews=false)
+    setRandomNewsForDay(dayRandomNews as any);
+  } catch (e) {
+    console.warn('[Trainer] Randoms/RandomNews konnten nicht berechnet werden:', e);
+    setDailyRandoms(null);
+    setRandomNewsForDay([]);
+  }
 
-  }, [currentDay, gameKpis, randomNewsByDay]);
-
+      
+  }, [currentDay, gameKpis]);
 
 
   
@@ -1252,7 +1274,8 @@ const copyGameId = useCallback(async () => {
                 // Zufalls‑News (gesamt) inkl. Rollen & KPI-Δ
 { text: `Zufalls-News (rollenbasiert${ (globalThis as any).__roleBasedRandomNews ? ' – Rollensicht AKTIV' : ' – Rollensicht INAKTIV' })`,
   style: 'h3', margin: [0, 12, 0, 4] },
-{ ul: (randomNewsForDay || []).map(n => {
+{ ul: ((selectedRole === 'ALL' ? randomNewsForDay : randomNewsForRole) || []).map(n => {
+
     const k = (n as any).impact ? formatKpiShort((n as any).impact) : '—';
     const rl = rolesLabel((n as any).roles);
     return `${n.title} (${n.severity}) • Rollen: ${rl} • KPI Δ: ${k}`;
@@ -1395,13 +1418,31 @@ const copyGameId = useCallback(async () => {
         </div>
 
                 {/* Zufalls‑News (deterministisch aus Seed/Intensität) */}
-        <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
           <h3 style={{ margin: '0 0 10px 0' }}>🎲 Zufalls‑News (Tag {currentDay})</h3>
+
+          {/* Rollensicht – entspricht der Spielersicht */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '4px 0 10px 0' }}>
+            <label style={{ fontSize: 12, color: '#6b7280' }}>Rollensicht:</label>
+            <select
+              value={selectedRole}
+              onChange={e => setSelectedRole(e.target.value as any)}
+              style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e5e7eb' }}
+            >
+              <option value="ALL">Alle</option>
+              <option value="CEO">CEO</option>
+              <option value="CFO">CFO</option>
+              <option value="OPS">OPS</option>
+              <option value="HRLEGAL">HR/Legal</option>
+            </select>
+          </div>
+
           {randomNewsForDay.length === 0 ? (
             <div style={{ color: '#6b7280' }}>Keine Zufalls‑News erzeugt.</div>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {randomNewsForDay.map((n) => (
+              {randomNewsForRole.map((n) => (
+
                 <li key={n.id || n.title} style={{ marginBottom: 8 }}>
                   <div style={{ fontWeight: 600 }}>{n.title}</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
