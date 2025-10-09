@@ -1049,30 +1049,50 @@ try {
 
   // Broadcast an alle Spieler
   const sendBroadcastToAll = useCallback(async () => {
-    const msg = (broadcastAll || '').trim();
-    if (!msg) return;
-    try {
-      const { data: { user }, error: authErr } = await supabase.auth.getUser();
-      if (authErr) throw authErr;
-      if (!user) throw new Error('Nicht angemeldet.');
+  const msg = (broadcastAll || '').trim();
+  if (!msg) return;
+  try {
+    const target = broadcastTargetRole;
 
-      const rows = (players || []).map((p) => ({
+    // Entweder globale Ankündigung ...
+    if (target === 'ALL') {
+      const row = {
         game_id: gameId,
-        player_id: p.id, // explizit pro Spieler (statt NULL)
-        sender_uid: user.id,
-        message: msg,
-        sent_at: new Date().toISOString()
-      }));
-
-      const { error: insErr } = await supabase.from('trainer_hints').insert(rows);
-      if (insErr) throw insErr;
-
-      setBroadcastAll('');
-    } catch (e: any) {
-      console.error('[TrainerHint] broadcast failed', e);
-      setError(e?.message || 'Broadcast konnte nicht gesendet werden.');
+        player_id: null,
+        content: msg,
+        message_type: 'announcement',
+        metadata: {
+          sender_name: 'Trainer',
+          timestamp: new Date().toISOString()
+        }
+      };
+      const { error } = await supabase.from('messages').insert(row);
+      if (error) throw error;
+    } else {
+      // ... oder Systemnachricht an eine Rolle
+      const row = {
+        game_id: gameId,
+        player_id: null,
+        content: msg,
+        message_type: 'system',
+        metadata: {
+          is_private: true,
+          target_role: target,
+          sender_name: 'Trainer',
+          timestamp: new Date().toISOString()
+        }
+      };
+      const { error } = await supabase.from('messages').insert(row);
+      if (error) throw error;
     }
-  }, [broadcastAll, gameId, players]);
+
+    setBroadcastAll('');
+  } catch (e: any) {
+    console.error('[TrainerHint] broadcast failed', e);
+    setError(e?.message || 'Broadcast konnte nicht gesendet werden.');
+  }
+}, [broadcastAll, gameId, broadcastTargetRole]);
+
 
   return (
     <div style={{ padding: 20, background: '#f8fafc', minHeight: '100vh' }}>
