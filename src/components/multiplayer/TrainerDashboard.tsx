@@ -495,6 +495,39 @@ export default function TrainerDashboard({
   const playersRef = React.useRef<any[]>([]);
   useEffect(() => { playersRef.current = Array.isArray(players) ? players : []; }, [players]);
 
+  // Falls beim Eintreffen von decisions die Spieler-Metadaten (name/role) noch fehlen:
+  // Rehydrieren wir sie nach, sobald players verfügbar/aktualisiert sind.
+  useEffect(() => {
+    if (!Array.isArray(players) || players.length === 0) return;
+
+    const pMap = new Map<string, any>(players.map(p => [p.id, p]));
+    let changed = false;
+
+    setDecisions(prev => {
+      const next = prev.map(d => {
+        // Bereits angereichert? Dann nichts tun
+        if (d?.player?.role) return d;
+
+        // Spieler zum Decision-Owner nachschlagen
+        const owner = pMap.get(d.player_id);
+        if (!owner) return d;
+
+        changed = true;
+        return {
+          ...d,
+          player: {
+            name: owner.name || owner.display_name || '',
+            role: owner.role as RoleId
+          }
+        };
+      });
+
+      // Nur wenn tatsächlich etwas ergänzt wurde, neuen State setzen
+      return changed ? next : prev;
+    });
+  }, [players]);
+
+  
   // Entscheidung in den lokalen State einpflegen/aktualisieren (defensiv)
   const upsertDecisionInState = useCallback((row: any) => {
     if (!row || !row.id) return; // ungültiger Payload -> ignorieren
