@@ -490,31 +490,7 @@ export default function TrainerDashboard({
     }));
   }, [players]);
 
-  // MEMO: Ersetzt Voll-Reload
-  // Falls beim Eintreffen von decisions die Spieler-Metadaten noch fehlen:
-  // Rehydrieren wir sie nach, sobald players verfügbar sind.
-  useEffect(() => {
-    if (!Array.isArray(players) || players.length === 0) return;
-    const pMap = new Map<string, any>(players.map(p => [p.id, p]));
-    let changed = false;
-    setDecisions(prev => {
-      const next = prev.map(d => {
-        if (d?.player?.role) return d; // bereits angereichert
-        const owner = pMap.get(d.player_id);
-        if (!owner) return d;
-        changed = true;
-        return {
-          ...d,
-          player: { name: owner.name || owner.display_name || '', role: owner.role as RoleId }
-        };
-      });
-      return changed ? next : prev;
-    });
-  }, [players]);
-
-  const removeDecisionFromState = useCallback((id: string) => {
-    setDecisions(prev => prev.filter(d => d.id !== id));
-  }, []);
+  
 
 
   // Rollensicht für Zufalls-News (Trainer) – identisch zur Spielersicht
