@@ -1805,53 +1805,11 @@ try {
 
 
         
-        <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
+       <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
           <h3 style={{ margin: '0 0 10px 0' }}>📈 Tages‑Randoms</h3>
-          {dailyRandoms ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <tbody>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Cash</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {(dailyRandoms.cashEUR ?? 0).toLocaleString('de-DE')} €
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Gewinn/Verlust</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {(dailyRandoms.profitLossEUR ?? 0).toLocaleString('de-DE')} €
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Kundentreue</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {Math.round(dailyRandoms.customerLoyalty ?? 0)}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Bankvertrauen</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {Math.round(dailyRandoms.bankTrust ?? 0)}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Workforce</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {Math.round(dailyRandoms.workforceEngagement ?? 0)}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: 6, color: '#6b7280' }}>Δ Public</td>
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>
-                    {Math.round(dailyRandoms.publicPerception ?? 0)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          ) : (
-            <div style={{ color: '#6b7280' }}>Keine Δ‑Werte berechnet.</div>
-          )}
+          <RandomValuesDisplay randomValues={dailyRandoms || undefined} day={currentDay} />
         </div>
+
 
         {/* Entscheidungsblöcke des Tages – jetzt mit Optionen & KPI-Auswirkung */}
         <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
