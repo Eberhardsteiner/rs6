@@ -1530,14 +1530,15 @@ try {
                     { text: 'Tages-Randoms', style: 'h3', margin: [0, 12, 0, 4] },
                     {
                       ul: [
-                        `Cash Δ: ${Math.round(dailyRandoms?.cashEUR || 0).toLocaleString('de-DE')} €`,
-                        `P&L Δ: ${Math.round(dailyRandoms?.profitLossEUR || 0).toLocaleString('de-DE')} €`,
-                        `Kunden Δ: ${Math.round(dailyRandoms?.customerLoyalty || 0)}`,
-                        `Bank Δ: ${Math.round(dailyRandoms?.bankTrust || 0)}`,
-                        `Belegschaft Δ: ${Math.round(dailyRandoms?.workforceEngagement || 0)}`,
-                        `Öffentlichkeit Δ: ${Math.round(dailyRandoms?.publicPerception || 0)}`
+                        `Cash Zufluss: ${Math.round(dailyRandoms?.cashInflow || 0).toLocaleString('de-DE')} €`,
+                        `Cash Abfluss: ${Math.round(dailyRandoms?.cashOutflow || 0).toLocaleString('de-DE')} €`,
+                        `Cash Netto: ${Math.round(dailyRandoms?.cashNet || 0).toLocaleString('de-DE')} €`,
+                        `P&L Zufluss: ${Math.round(dailyRandoms?.plInflow || 0).toLocaleString('de-DE')} €`,
+                        `P&L Abfluss: ${Math.round(dailyRandoms?.plOutflow || 0).toLocaleString('de-DE')} €`,
+                        `P&L Netto: ${Math.round(dailyRandoms?.plNet || 0).toLocaleString('de-DE')} €`
                       ]
                     },
+
 
                     { text: 'Entscheidungsblöcke & Optionen (Tag aktuell)', style: 'h3', margin: [0, 12, 0, 4] },
                     {
