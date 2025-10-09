@@ -880,6 +880,30 @@ const copyGameId = useCallback(async () => {
         }
       );
 
+
+        // CFO: Kreditaufnahmen live (nur INSERT)
+    channel
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'game_credit_history', filter: `game_id=eq.${gameId}` },
+        (payload: any) => {
+          try {
+            const r = (payload && (payload as any).new) ? (payload as any).new : null;
+            if (!r) return;
+            setCreditDraws(prev => [...prev, {
+              id: (r as any).id as string | undefined,
+              day: Number((r as any).day) || 0,
+              amount: Number((r as any).amount) || 0,
+              created_at: (r as any).created_at || new Date().toISOString(),
+              role: (r as any).role || undefined
+            }]);
+          } catch {
+            try { loadAllData(); } catch {}
+          }
+        }
+      );
+
+
     // games/players: Voll-Reload (beeinflussen mehrere Sichten)
     channel
       .on(
