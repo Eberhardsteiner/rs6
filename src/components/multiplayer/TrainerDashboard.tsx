@@ -1394,7 +1394,7 @@ try {
             <div style={{ color: '#6b7280' }}>Keine Zufalls‑News erzeugt.</div>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {randomNewsForDay.map((n) => (
+              {randomNewsForRole.map((n) => (
                 <li key={n.id || n.title} style={{ marginBottom: 8 }}>
                   <div style={{ fontWeight: 600 }}>{n.title}</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
