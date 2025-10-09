@@ -709,7 +709,11 @@ const copyGameId = useCallback(async () => {
 
       setPlayers(normalizedPlayers);
 
+      // Kredit-Historie (falls Tabelle existiert) laden – robust, kein Hard-Error
+      try { await loadCreditHistorySafe(); } catch {}
 
+
+      
       // Entscheidungen mit eingebetteter Spielerinfo
       let decisionsData: any[] = [];
       try {
