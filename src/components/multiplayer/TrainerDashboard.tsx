@@ -395,6 +395,30 @@ export default function TrainerDashboard({
   const [isLoadingKpis, setIsLoadingKpis] = useState(true);
 
   // --- Broadcast/Anzeige-Daten ---
+
+    const [players, setPlayers] = useState<any[]>([]);
+  const [currentDay, setCurrentDay] = useState(1);
+  const [gameKpis, setGameKpis] = useState<KPI | null>(null);
+  const [error, setError] = useState<string>('');
+  const [hintDrafts, setHintDrafts] = useState<Record<string, string>>({});
+  const [isLoadingKpis, setIsLoadingKpis] = useState(true);
+
+  // Aggregation der KPI-Impacts pro Rolle vorbereiten (stabil, performant)
+  const aggByRole = useMemo(() => aggregateImpactByRole(decisions), [decisions]);
+  const aggRows = useMemo(
+    () => ROLES.map(r => ({ r, ...aggByRole[r] })).sort((a, b) => b.points - a.points),
+    [aggByRole]
+  );
+
+  // --- Broadcast/Anzeige-Daten ---
+  const [broadcastAll, setBroadcastAll] = useState('');
+  const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
+  const [attachments, setAttachments] = useState<{ title: string; content: string } | null>(null);
+  const [blocksForDay, setBlocksForDay] = useState<DecisionBlock[]>([]);
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+
+
+  
   const [broadcastAll, setBroadcastAll] = useState('');
   const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
