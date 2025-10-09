@@ -612,16 +612,53 @@ const copyGameId = useCallback(async () => {
     }
   }, [gameId]);
 
-  // Live-Subscription
+   // Live-Subscription (robust & ereignisspezifisch)
   useEffect(() => {
+    // Initial laden
     loadAllData();
-    const ch = supabase
-      .channel(`trainer-${gameId}`)
+
+    const channel = supabase.channel(`trainer-${gameId}`);
+
+    // decisions: schnelle, inkrementelle Aktualisierung ohne Voll-Reload
+    channel
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'decisions', filter: `game_id=eq.${gameId}` },
-        () => loadAllData()
+        { event: 'INSERT', schema: 'public', table: 'decisions', filter: `game_id=eq.${gameId}` },
+        (payload: any) => {
+          try {
+            if (payload?.new) upsertDecisionInState(payload.new);
+          } catch {
+            // Fallback (fehlerfrei): kompletter Reload
+            loadAllData();
+          }
+        }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'decisions', filter: `game_id=eq.${gameId}` },
+        (payload: any) => {
+          try {
+            if (payload?.new) upsertDecisionInState(payload.new);
+          } catch {
+            loadAllData();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'decisions', filter: `game_id=eq.${gameId}` },
+        (payload: any) => {
+          try {
+            const id = payload?.old?.id as string | undefined;
+            if (id) removeDecisionFromState(id);
+          } catch {
+            loadAllData();
+          }
+        }
+      );
+
+    // games/players: Voll-Reload (beeinflussen mehrere Sichten)
+    channel
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
@@ -631,13 +668,20 @@ const copyGameId = useCallback(async () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${gameId}` },
         () => loadAllData()
-      )
-      .subscribe();
+      );
+
+    const subscription = channel.subscribe((status) => {
+      // Defensive: Bei Fehlern trotzdem Daten konsistent halten
+      if (status === 'CHANNEL_ERROR') {
+        try { loadAllData(); } catch {}
+      }
+    });
 
     return () => {
-      try { supabase.removeChannel(ch); } catch {}
+      try { supabase.removeChannel(channel); } catch {}
     };
-  }, [gameId, loadAllData]);
+  }, [gameId, loadAllData, upsertDecisionInState, removeDecisionFromState]);
+
 
 // Countdown-Ticker (1 Hz)
   useEffect(() => {
