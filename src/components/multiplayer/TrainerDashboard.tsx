@@ -1373,7 +1373,7 @@ try {
           <button
             onClick={async () => {
               try {
-                const agg = aggregateImpactByRole(decisions);
+                const agg = aggregateImpactByRole(decisions, blockRoleById);
                 const rows = ROLES.map(r => ({ r, ...agg[r] })).sort((a, b) => b.points - a.points);
 
                 // Daten für PDF: Blöcke & Optionen (kompakt formatiert)
