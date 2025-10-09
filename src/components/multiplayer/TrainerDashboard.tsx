@@ -1233,6 +1233,42 @@ const sendBroadcastToAll = useCallback(async () => {
           {/* Status-Lampen */}
           <DecisionStatusBar decisionsToday={decisionsToday as any} players={players} />
 
+          {/* CFO – Kreditaufnahmen (live) */}
+          <div style={{ marginTop: 12, padding: 10, background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: '#7c2d12', fontWeight: 700, marginBottom: 6 }}>🏦 CFO · Kreditaufnahmen</div>
+            <div style={{ fontSize: 13, marginBottom: 4 }}>
+              Heute (Tag {currentDay}): <strong>€{Math.round(totalCreditToday).toLocaleString('de-DE')}</strong>
+              {totalCreditToday > 0 ? <span style={{ marginLeft: 6, fontSize: 12, color: '#065f46' }}>• live</span> : <span style={{ marginLeft: 6, fontSize: 12, color: '#6b7280' }}>– keine</span>}
+            </div>
+            <div style={{ fontSize: 12, color: '#374151', marginBottom: 6 }}>
+              Bisher gesamt: €{Math.round(totalCreditAllTime).toLocaleString('de-DE')}
+            </div>
+            {creditDraws && creditDraws.length > 0 && (
+              <div style={{ maxHeight: 140, overflowY: 'auto', background: 'white', border: '1px solid #fde68a', borderRadius: 6 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead style={{ position: 'sticky', top: 0, background: '#fef3c7' }}>
+                    <tr>
+                      <th style={{ textAlign: 'left', padding: 6 }}>Tag</th>
+                      <th style={{ textAlign: 'right', padding: 6 }}>Betrag</th>
+                      <th style={{ textAlign: 'left', padding: 6 }}>Zeit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {creditDraws.slice().sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((r, idx) => (
+                      <tr key={(r.id || idx) + '-' + r.created_at} style={{ borderTop: '1px solid #fde68a' }}>
+                        <td style={{ padding: 6 }}>Tag {r.day || '—'}</td>
+                        <td style={{ padding: 6, textAlign: 'right' }}>€{Math.round(Number(r.amount) || 0).toLocaleString('de-DE')}</td>
+                        <td style={{ padding: 6 }}>{new Date(r.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+
+          
           {error && <div style={{ marginTop: 6, color: '#fee2e2' }}>⚠ {error}</div>}
         </div>
 
