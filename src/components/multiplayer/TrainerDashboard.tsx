@@ -88,6 +88,8 @@ function readScenarioOverride(kind: 'blocks' | 'news' | 'attachments', day: numb
 
 // KPI-Impact je Rolle (für „Punktstände“)
 function aggregateImpactByRole(list: Decision[]) {
+  // Ziel: robuste Summenbildung pro Rolle, selbst wenn player-Join fehlt
+  // oder kpi_delta-Zahlen als String aus JSON kommen.
   const acc: Record<
     RoleId,
     {
@@ -101,16 +103,26 @@ function aggregateImpactByRole(list: Decision[]) {
     HRLEGAL: { cashEUR: 0, profitLossEUR: 0, customerLoyalty: 0, bankTrust: 0, workforceEngagement: 0, publicPerception: 0 }
   };
 
+  const num = (v: any) => {
+    const n = typeof v === 'string' ? parseFloat(v) : (typeof v === 'number' ? v : 0);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   for (const d of list) {
-    const r = d.player?.role as RoleId | undefined;
-    if (!r || !acc[r] || !d.kpi_delta) continue;
-    const k = d.kpi_delta as any;
-    acc[r].cashEUR             += Number(k.cashEUR || 0);
-    acc[r].profitLossEUR       += Number(k.profitLossEUR || 0);
-    acc[r].customerLoyalty     += Number(k.customerLoyalty || 0);
-    acc[r].bankTrust           += Number(k.bankTrust || 0);
-    acc[r].workforceEngagement += Number(k.workforceEngagement || 0);
-    acc[r].publicPerception    += Number(k.publicPerception || 0);
+    // Fallback: Wenn Join auf players fehlt, rolle aus decision_metadata nehmen
+    const r: RoleId | undefined =
+      (d.player?.role as RoleId | undefined) ||
+      ((d as any)?.decision_metadata?.role as RoleId | undefined);
+
+    if (!r || !(r in acc)) continue;
+
+    const k: any = d.kpi_delta ?? {};
+    acc[r].cashEUR             += num(k.cashEUR);
+    acc[r].profitLossEUR       += num(k.profitLossEUR);
+    acc[r].customerLoyalty     += num(k.customerLoyalty);
+    acc[r].bankTrust           += num(k.bankTrust);
+    acc[r].workforceEngagement += num(k.workforceEngagement);
+    acc[r].publicPerception    += num(k.publicPerception);
   }
 
   // Gewichte aus AdminPanel (Standard 25/25/25/25)
@@ -133,6 +145,7 @@ function aggregateImpactByRole(list: Decision[]) {
 
   return withPoints;
 }
+
 
 /* ──────────────────────────────────────────────────────────────────────────
    Hilfsfunktionen: Optionen & KPI-Delta robust aus Szenario-Blöcken lesen
