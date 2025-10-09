@@ -1245,7 +1245,8 @@ try {
                 // Zufalls‑News (gesamt) inkl. Rollen & KPI-Δ
 { text: `Zufalls-News (rollenbasiert${ (globalThis as any).__roleBasedRandomNews ? ' – Rollensicht AKTIV' : ' – Rollensicht INAKTIV' })`,
   style: 'h3', margin: [0, 12, 0, 4] },
-{ ul: (randomNewsForDay || []).map(n => {
+{ ul: ((selectedRole === 'ALL' ? randomNewsForDay : randomNewsForRole) || []).map(n => {
+
     const k = (n as any).impact ? formatKpiShort((n as any).impact) : '—';
     const rl = rolesLabel((n as any).roles);
     return `${n.title} (${n.severity}) • Rollen: ${rl} • KPI Δ: ${k}`;
