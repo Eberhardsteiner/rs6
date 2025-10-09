@@ -1300,7 +1300,7 @@ const sendBroadcastToAll = useCallback(async () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
         {/* Spieler-Übersicht + Hint-Eingabe */}
         <div style={{ background: 'white', padding: 16, borderRadius: 8 }}>
-          <h3>Spieler-Status</h3>
+          <h3>Nachrichten an Spieler</h3>
 
           {/* Broadcast an alle Spieler (einmalig, nicht innerhalb des .map) */}
           <div
