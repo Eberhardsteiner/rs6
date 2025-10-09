@@ -376,14 +376,11 @@ export default function TrainerDashboard({
   const [hintDrafts, setHintDrafts] = useState<Record<string, string>>({});
   const [isLoadingKpis, setIsLoadingKpis] = useState(true);
 
-    // --- Broadcast/Anzeige-Daten ---
+  // --- Broadcast/Anzeige-Daten ---
   const [broadcastAll, setBroadcastAll] = useState('');
   const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
   const playedTitlesRef = React.useRef<string[]>([]); // Duplikatvermeidung über Tage
-
-
-
 
   const [blocksForDay, setBlocksForDay] = useState<DecisionBlock[]>([]);
   const [dailyRandoms, setDailyRandoms] = useState<{
@@ -464,56 +461,38 @@ const copyGameId = useCallback(async () => {
       setError('');
       setIsLoadingKpis(true);
 
-           // Spieler laden (Trainer ausblenden) – display_name statt name
+      // Spieler laden (Trainer ausblenden)
       const { data: playersData, error: pErr } = await supabase
         .from('players')
-        .select('id, display_name, role')
+        .select('id, name, role')
         .eq('game_id', gameId);
       if (pErr) throw pErr;
-
-      // Normalisieren: in der UI wird player.name erwartet
-      const normalizedPlayers = (playersData || [])
-        .filter((p: any) => p.role !== 'TRAINER')
-        .map((p: any) => ({ ...p, name: p.display_name || p.name || '' }));
-
-      setPlayers(normalizedPlayers);
-
+      setPlayers((playersData || []).filter((p) => p.role !== 'TRAINER'));
 
       // Entscheidungen mit eingebetteter Spielerinfo
       let decisionsData: any[] = [];
       try {
-               const res = await supabase
+        const res = await supabase
           .from('decisions')
-          .select('*, players(display_name, role)')
+          .select('*, players(name, role)')
           .eq('game_id', gameId)
           .order('created_at', { ascending: false });
         if (res.error) throw res.error;
-
-        decisionsData = (res.data || []).map((d: any) => {
-          const pl = d.players || d.player || null;
-          return {
-            ...d,
-            player: pl ? { name: pl.display_name || pl.name || '', role: pl.role } : null
-          };
-        });
-
+        decisionsData = (res.data || []).map((d: any) => ({
+          ...d,
+          player: d.players || d.player || null
+        }));
       } catch {
         // Fallback ohne Join
-                const { data: d2, error: e2 } = await supabase
+        const { data: d2, error: e2 } = await supabase
           .from('decisions')
           .select('*')
           .eq('game_id', gameId)
           .order('created_at', { ascending: false });
         if (e2) throw e2;
-
-        // Map mit normalisiertem Namen
         const map = new Map<string, any>();
-        (playersData || []).forEach((p: any) => {
-          map.set(p.id, { name: p.display_name || p.name || '', role: p.role });
-        });
-
+        (playersData || []).forEach((p) => map.set(p.id, p));
         decisionsData = (d2 || []).map((d) => ({ ...d, player: map.get(d.player_id) || null }));
-
       }
       setDecisions(decisionsData as any);
 
@@ -756,7 +735,11 @@ try {
       const newTitles = (items as any[]).map(n => n.title);
       playedTitlesRef.current.push(...newTitles);
 
-     
+      // WICHTIG: Auch in globalThis.__playedNewsTitles speichern für Spieler-Synchronisation
+      if (!(globalThis as any).__playedNewsTitles) {
+        (globalThis as any).__playedNewsTitles = [];
+      }
+      (globalThis as any).__playedNewsTitles.push(...newTitles);
     }
 
     // Einmalig am Ende setzen (leer, falls useRandomNews=false)
@@ -1262,8 +1245,7 @@ try {
                 // Zufalls‑News (gesamt) inkl. Rollen & KPI-Δ
 { text: `Zufalls-News (rollenbasiert${ (globalThis as any).__roleBasedRandomNews ? ' – Rollensicht AKTIV' : ' – Rollensicht INAKTIV' })`,
   style: 'h3', margin: [0, 12, 0, 4] },
-{ ul: ((selectedRole === 'ALL' ? randomNewsForDay : randomNewsForRole) || []).map(n => {
-
+{ ul: (randomNewsForDay || []).map(n => {
     const k = (n as any).impact ? formatKpiShort((n as any).impact) : '—';
     const rl = rolesLabel((n as any).roles);
     return `${n.title} (${n.severity}) • Rollen: ${rl} • KPI Δ: ${k}`;
@@ -1406,31 +1388,13 @@ try {
         </div>
 
                 {/* Zufalls‑News (deterministisch aus Seed/Intensität) */}
-                <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
+        <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
           <h3 style={{ margin: '0 0 10px 0' }}>🎲 Zufalls‑News (Tag {currentDay})</h3>
-
-          {/* Rollensicht – entspricht der Spielersicht */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '4px 0 10px 0' }}>
-            <label style={{ fontSize: 12, color: '#6b7280' }}>Rollensicht:</label>
-            <select
-              value={selectedRole}
-              onChange={e => setSelectedRole(e.target.value as any)}
-              style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e5e7eb' }}
-            >
-              <option value="ALL">Alle</option>
-              <option value="CEO">CEO</option>
-              <option value="CFO">CFO</option>
-              <option value="OPS">OPS</option>
-              <option value="HRLEGAL">HR/Legal</option>
-            </select>
-          </div>
-
           {randomNewsForDay.length === 0 ? (
             <div style={{ color: '#6b7280' }}>Keine Zufalls‑News erzeugt.</div>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {randomNewsForRole.map((n) => (
-
+              {randomNewsForDay.map((n) => (
                 <li key={n.id || n.title} style={{ marginBottom: 8 }}>
                   <div style={{ fontWeight: 600 }}>{n.title}</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
