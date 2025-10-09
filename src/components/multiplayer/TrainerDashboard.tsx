@@ -479,6 +479,8 @@ export default function TrainerDashboard({
   const [isLoadingKpis, setIsLoadingKpis] = useState(true);
 
     // --- Broadcast/Anzeige-Daten ---
+    const [broadcastTargetRole, setBroadcastTargetRole] = useState<'ALL' | RoleId>('ALL');
+
   const [broadcastAll, setBroadcastAll] = useState('');
   const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
