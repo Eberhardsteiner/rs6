@@ -1333,7 +1333,7 @@ try {
       <div style={{ marginTop: 20, background: 'white', padding: 16, borderRadius: 8 }}>
         <h3>Punktstände (Summe KPI-Impact je Rolle)</h3>
         {(() => {
-          const agg = aggregateImpactByRole(decisions);
+          const agg = aggregateImpactByRole(decisions, blockRoleById);
           const rows = ROLES.map(r => ({ r, ...agg[r] })).sort((a, b) => b.points - a.points);
           return (
             <div style={{ overflowX: 'auto' }}>
