@@ -82,7 +82,11 @@ function readScenarioOverride(kind: 'blocks' | 'news' | 'attachments', day: numb
 }
 
 // KPI-Impact je Rolle (für „Punktstände“)
-function aggregateImpactByRole(list: Decision[]) {
+// Robust: nutzt Spieler‑Rolle ODER – falls noch nicht vorhanden – die Block‑Rolle
+function aggregateImpactByRole(
+  list: Decision[],
+  blockRoleById?: Map<string, RoleId>
+) {
   const acc: Record<
     RoleId,
     {
@@ -97,15 +101,24 @@ function aggregateImpactByRole(list: Decision[]) {
   };
 
   for (const d of list) {
-    const r = d.player?.role as RoleId | undefined;
+    // 1) Primär: Spieler‑Rolle aus der Entscheidung (falls schon bekannt)
+    let r = (d.player?.role as RoleId | undefined);
+
+    // 2) Fallback: Rolle aus dem Block (sofort live zählbar, ohne Join)
+    if (!r && blockRoleById) {
+      const cand = blockRoleById.get(String(d.block_id)) as RoleId | undefined;
+      if (cand) r = cand;
+    }
+
     if (!r || !acc[r] || !d.kpi_delta) continue;
+
     const k = d.kpi_delta as any;
-    acc[r].cashEUR             += Number(k.cashEUR || 0);
-    acc[r].profitLossEUR       += Number(k.profitLossEUR || 0);
-    acc[r].customerLoyalty     += Number(k.customerLoyalty || 0);
-    acc[r].bankTrust           += Number(k.bankTrust || 0);
-    acc[r].workforceEngagement += Number(k.workforceEngagement || 0);
-    acc[r].publicPerception    += Number(k.publicPerception || 0);
+    acc[r].cashEUR             += Number(k?.cashEUR ?? 0) || 0;
+    acc[r].profitLossEUR       += Number(k?.profitLossEUR ?? 0) || 0;
+    acc[r].customerLoyalty     += Number(k?.customerLoyalty ?? 0) || 0;
+    acc[r].bankTrust           += Number(k?.bankTrust ?? 0) || 0;
+    acc[r].workforceEngagement += Number(k?.workforceEngagement ?? 0) || 0;
+    acc[r].publicPerception    += Number(k?.publicPerception ?? 0) || 0;
   }
 
   // Gewichte aus AdminPanel (Standard 25/25/25/25)
@@ -117,10 +130,10 @@ function aggregateImpactByRole(list: Decision[]) {
     ROLES.map(r => {
       const x = acc[r];
       const points = Math.round(
-        x.customerLoyalty     * (W.customerLoyalty     || 0) +
-        x.bankTrust           * (W.bankTrust           || 0) +
-        x.workforceEngagement * (W.workforceEngagement || 0) +
-        x.publicPerception    * (W.publicPerception    || 0)
+        (x.customerLoyalty     * (W.customerLoyalty     || 0)) +
+        (x.bankTrust           * (W.bankTrust           || 0)) +
+        (x.workforceEngagement * (W.workforceEngagement || 0)) +
+        (x.publicPerception    * (W.publicPerception    || 0))
       );
       return [r, { ...x, points }];
     })
@@ -128,6 +141,7 @@ function aggregateImpactByRole(list: Decision[]) {
 
   return withPoints;
 }
+
 
 /* ──────────────────────────────────────────────────────────────────────────
    Hilfsfunktionen: Optionen & KPI-Delta robust aus Szenario-Blöcken lesen
