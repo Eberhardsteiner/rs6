@@ -267,6 +267,99 @@ export class ChatService {
     });
   }
 
+  /** NEU
+   * Auflösung eines Spielers im aktuellen Spiel:
+   * - Falls query eine UUID ist -> exakte ID-Suche.
+   * - Sonst ILIKE-Suche über display_name ODER name (erstes Ergebnis).
+   * Gibt { id, display_name|name, role } zurück oder null.
+   */
+  async resolvePlayer(query: string): Promise<{ id: string; display_name?: string | null; name?: string | null; role: RoleId } | null> {
+    if (!this.gameId) return null;
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(query);
+
+    if (isUuid) {
+      const { data, error } = await supabase
+        .from('players')
+        .select('id, display_name, name, role')
+        .eq('game_id', this.gameId)
+        .eq('id', query)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('resolvePlayer by id failed:', error.message);
+        return null;
+      }
+      return data ?? null;
+    }
+
+    // Name/Displayname-Suche (erstes Match)
+    const { data, error } = await supabase
+      .from('players')
+      .select('id, display_name, name, role')
+      .eq('game_id', this.gameId)
+      .or(`display_name.ilike.%${query}%,name.ilike.%${query}%`)
+      .limit(1);
+
+    if (error) {
+      console.warn('resolvePlayer by name failed:', error.message);
+      return null;
+    }
+
+    return (data && data.length > 0) ? data[0] : null;
+  }
+
+  /**
+   * Direktnachricht an einen konkreten Spieler (per player_id).
+   * Setzt target_player_id und is_private=true.
+   */
+  async sendDirectMessage(content: string, targetPlayerId: string): Promise<ChatMessage> {
+    if (!this.gameId || !this.playerId) {
+      throw new Error('Not in a game');
+    }
+
+    // Metadaten des Senders für Anzeige
+    const { data: player } = await supabase
+      .from('players')
+      .select('name, role')
+      .eq('id', this.playerId)
+      .single();
+
+    const message = {
+      game_id: this.gameId,
+      player_id: this.playerId,          // Sender ist ein Spieler
+      target_player_id: targetPlayerId,  // Direktadressat
+      content,
+      message_type: 'chat' as const,
+      metadata: {
+        is_private: true,
+        sender_name: player?.name || 'Unknown',
+        sender_role: player?.role || undefined,
+        timestamp: new Date().toISOString(),
+        color: '#0ea5e9'
+      }
+    };
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert(message)
+      .select(`
+        *,
+        player:players(
+          name,
+          role
+        )
+      `)
+      .single();
+
+    if (error) throw error;
+
+    this.messageCache.set(data.id, data);
+    return data;
+  }
+
+
+  
   // === Message Formatting ===
   static formatMessage(message: ChatMessage): {
     displayName: string;
