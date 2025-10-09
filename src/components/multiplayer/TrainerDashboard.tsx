@@ -1009,32 +1009,43 @@ try {
 
   
   const sendTrainerHint = useCallback(
-    async (playerId: string) => {
-      const msg = (hintDrafts[playerId] || '').trim();
-      if (!msg) return;
-      try {
-        const { data: { user }, error: authErr } = await supabase.auth.getUser();
-        if (authErr) throw authErr;
-        if (!user) throw new Error('Nicht angemeldet.');
-
-        // Spalte: sender_uid
-        const { error: insErr } = await supabase.from('trainer_hints').insert({
-          game_id: gameId,
-          player_id: playerId,
-          sender_uid: user.id,
-          message: msg,
-          sent_at: new Date().toISOString()
-        });
-        if (insErr) throw insErr;
-
-        setHintDrafts((prev) => ({ ...prev, [playerId]: '' }));
-      } catch (e: any) {
-        console.error('[TrainerHint] insert failed', e);
-        setError(e?.message || 'Hinweis konnte nicht gesendet werden.');
+  async (playerId: string) => {
+    const msg = (hintDrafts[playerId] || '').trim();
+    if (!msg) return;
+    try {
+      // Rolle des adressierten Spielers ermitteln
+      const p = (players || []).find((x: any) => x?.id === playerId);
+      const role = (p?.role || '').toUpperCase() as RoleId | '';
+      if (!role || !['CEO','CFO','OPS','HRLEGAL'].includes(role)) {
+        throw new Error('Rolle des Spielers unbekannt oder ungültig.');
       }
-    },
-    [gameId, hintDrafts]
-  );
+
+      // Systemnachricht nur an die Zielrolle (keine Auth erforderlich)
+      const row = {
+        game_id: gameId,
+        player_id: null,
+        content: msg,
+        message_type: 'system',
+        metadata: {
+          is_private: true,
+          target_role: role,
+          sender_name: 'Trainer',
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      const { error: insErr } = await supabase.from('messages').insert(row);
+      if (insErr) throw insErr;
+
+      setHintDrafts((prev) => ({ ...prev, [playerId]: '' }));
+    } catch (e: any) {
+      console.error('[TrainerHint] insert failed', e);
+      setError(e?.message || 'Hinweis konnte nicht gesendet werden.');
+    }
+  },
+  [gameId, hintDrafts, players]
+);
+
 
   // Broadcast an alle Spieler
   const sendBroadcastToAll = useCallback(async () => {
