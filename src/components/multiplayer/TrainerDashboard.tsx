@@ -380,7 +380,7 @@ export default function TrainerDashboard({
   const [broadcastAll, setBroadcastAll] = useState('');
   const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
-  const playedTitlesRef = React.useRef<string[]>([]); // Duplikatvermeidung über Tage
+  
 
   const [blocksForDay, setBlocksForDay] = useState<DecisionBlock[]>([]);
   const [dailyRandoms, setDailyRandoms] = useState<{
@@ -526,10 +526,7 @@ const copyGameId = useCallback(async () => {
         // Globale Variablen synchronisieren (wie im MultiplayerGameView)
         (globalThis as any).__gameSeed = seed;
 
-        // Shared played titles aus globalThis übernehmen (falls vorhanden)
-        if ((globalThis as any).__playedNewsTitles && Array.isArray((globalThis as any).__playedNewsTitles)) {
-          playedTitlesRef.current = [...(globalThis as any).__playedNewsTitles];
-        }
+        
       } else {
         console.warn('[TrainerDashboard] Keine game_admin_settings gefunden oder Fehler:', settingsErr);
       }
