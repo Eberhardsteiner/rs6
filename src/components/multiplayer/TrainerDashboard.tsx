@@ -620,7 +620,7 @@ const copyGameId = useCallback(async () => {
 
   
 
-  // News/Blöcke/Randoms für aktuellen Tag vorbereiten
+    // News/Blöcke/Randoms für aktuellen Tag vorbereiten (RandomNews aus Vorkalkulation)
   useEffect(() => {
     const d = currentDay || 1;
 
@@ -630,128 +630,66 @@ const copyGameId = useCallback(async () => {
     setBlocksForDay(blocks);
     setNewsForDay(news);
 
-// Anhänge aus Overrides, News & Blöcken + Data/ZIP (tageweise)
-try {
-  const overrideAtt   = readScenarioOverride('attachments', d) || [];
-  const fromOverrides = Array.isArray(overrideAtt) ? overrideAtt.flatMap(extractAttachmentsFromAny) : [];
-  const fromNews      = (news   || []).flatMap(extractAttachmentsFromAny);
-  const fromBlocks    = (blocks || []).flatMap(extractAttachmentsFromAny);
-
-  // Data/ZIP: anhand der Schlüssel/Metadaten in attachmentContents dem Tag d zuordnen
-  let fromDataset: Attachment[] = [];
-  try {
-    const allKeys = Object.keys((attachmentContents as any) || {});
-    const keysForDay = allKeys.filter((key) => {
-      const meta: any = (attachmentContents as any)[key] || {};
-      if (typeof meta.day === 'number') return meta.day === d; // 1. harte day-Meta
-      // 2. Heuristik: "day01", "d01", "D1", "Tag 1" im Key oder im Titel
-      const inKey   = key.match(/(?:^|[_-])(?:d|day)\s*0?(\d{1,2})(?:[_-]|$)/i);
-      const inTitle = typeof meta.title === 'string' ? meta.title.match(/(?:Tag|Day)\s*0?(\d{1,2})/i) : null;
-      const num = inKey ? Number(inKey[1]) : (inTitle ? Number(inTitle[1]) : NaN);
-      return num === d;
-    });
-    fromDataset = keysForDay.map((k, i) => normalizeAttachment(k, i)).filter(Boolean) as Attachment[];
-  } catch { /* dataset optional */ }
-
-  setAttachmentsForDay(
-    dedupeAttachments([...fromOverrides, ...fromNews, ...fromBlocks, ...fromDataset])
-  );
-} catch {
-  setAttachmentsForDay([]);
-}
-
-    
-
- // Deterministische Randoms (Seed, Event-Intensität)
-  try {
-    let seed: number | null = null;
+    // Anhänge aus Overrides, News & Blöcken + Data/ZIP (tageweise)
     try {
-      const g: any = globalThis as any;
-      if (typeof g.__gameSeed === 'number') seed = g.__gameSeed;
-      else {
-        const raw = localStorage.getItem('admin:seed');
-        if (raw != null) seed = Number(raw);
-      }
-    } catch (e) { /* seed-Read optional */ }
+      const overrideAtt   = readScenarioOverride('attachments', d) || [];
+      const fromOverrides = Array.isArray(overrideAtt) ? overrideAtt.flatMap(extractAttachmentsFromAny) : [];
+      const fromNews      = (news   || []).flatMap(extractAttachmentsFromAny);
+      const fromBlocks    = (blocks || []).flatMap(extractAttachmentsFromAny);
 
-    const baseCash = gameKpis?.cashEUR ?? 100000;
-    if (typeof seed === 'number' && Number.isFinite(seed)) {
-      const rng = makeRng(seed + d * 1000);
-      (globalThis as any).__rng = rng;
-    }
-    const rv = generateDailyRandomValues(baseCash);
-    setDailyRandoms(rv as any);
+      // Data/ZIP: anhand der Schlüssel/Metadaten in attachmentContents dem Tag d zuordnen
+      let fromDataset: Attachment[] = [];
+      try {
+        const allKeys = Object.keys((attachmentContents as any) || {});
+        const keysForDay = allKeys.filter((key) => {
+          const meta: any = (attachmentContents as any)[key] || {};
+          if (typeof meta.day === 'number') return meta.day === d; // 1. harte day-Meta
+          // 2. Heuristik: "day01", "d01", "D1", "Tag 1" im Key oder im Titel
+          const inKey   = key.match(/(?:^|[_-])(?:d|day)\s*0?(\d{1,2})(?:[_-]|$)/i);
+          const inTitle = typeof meta.title === 'string' ? meta.title.match(/(?:Tag|Day)\s*0?(\d{1,2})/i) : null;
+          const num = inKey ? Number(inKey[1]) : (inTitle ? Number(inTitle[1]) : NaN);
+          return num === d;
+        });
+        fromDataset = keysForDay.map((k, i) => normalizeAttachment(k, i)).filter(Boolean) as Attachment[];
+      } catch { /* dataset optional */ }
 
-    // Zufalls‑News optional – aus newsPool via SP‑Generator, inkl. KPI‑Impact
-    const g2: any = globalThis as any;
-    const useRandomNews = !!g2.__randomNews;
-    let dayRandomNews: DayNewsItem[] = [];
-
-    if (useRandomNews) {
-      // KRITISCH: Seed muss aus game_admin_settings kommen (bereits in gameSeed State geladen)
-      const s = (typeof seed === 'number' && Number.isFinite(seed)) ? seed : (gameSeed || Math.floor(Math.random() * 1e9));
-      const prevRng = (globalThis as any).__rng;
-
-      // Admin‑Intensität → Generator‑Intensität
-      const useIntensity = !!g2.__featureEventIntensity;
-      const arr = Array.isArray(g2.__eventIntensityByDay) ? g2.__eventIntensityByDay : [];
-      const intensityStr = mapIntensity(useIntensity ? (Number(arr[d - 1]) || 1) : 1);
-      const diff = (g2.__mpDifficulty || g2.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
-
-      // EXAKT wie MultiplayerGameView: Seed + Tag * 1000 + 500
-      const daySpecificSeed = s + d * 1000;
-
-      // Synchronisiere mit globalThis.__playedNewsTitles (gemeinsame Duplikatvermeidung)
-      const played: string[] = (globalThis as any).__playedNewsTitles || [];
-      const seen = new Set([...played, ...playedTitlesRef.current]);
-
-      // RNG für News deterministisch setzen (EXAKT wie MultiplayerGameView)
-      (globalThis as any).__rng = makeRng(daySpecificSeed + 500);
-
-      // Pool-basierte News erzeugen (EXAKT wie MultiplayerGameView)
-      const items = generateRandomNewsForDay(undefined, {
-        enabled: true,
-        intensity: intensityStr,
-        difficulty: diff,
-        day: d,
-        alreadyPlayed: Array.from(seen)
-      });
-
-      // RNG wiederherstellen
-      (globalThis as any).__rng = prevRng;
-
-      // In DayNewsItem-Form bringen (EXAKT wie MultiplayerGameView)
-      dayRandomNews = (items as any[]).map((n: any) => ({
-        id: n.id,
-        title: n.title,
-        text: n.text,
-        source: n.category,
-        severity: mapSeverityForUi(n.severity),
-        impact: n.impact,
-        roles: (n as any).roles ?? null
-      }));
-
-      // Gespielte Titel synchronisieren (KRITISCH für Duplikatvermeidung)
-      const newTitles = (items as any[]).map(n => n.title);
-      playedTitlesRef.current.push(...newTitles);
-
-      // WICHTIG: Auch in globalThis.__playedNewsTitles speichern für Spieler-Synchronisation
-      if (!(globalThis as any).__playedNewsTitles) {
-        (globalThis as any).__playedNewsTitles = [];
-      }
-      (globalThis as any).__playedNewsTitles.push(...newTitles);
+      setAttachmentsForDay(
+        dedupeAttachments([...fromOverrides, ...fromNews, ...fromBlocks, ...fromDataset])
+      );
+    } catch {
+      setAttachmentsForDay([]);
     }
 
-    // Einmalig am Ende setzen (leer, falls useRandomNews=false)
-    setRandomNewsForDay(dayRandomNews as any);
-  } catch (e) {
-    console.warn('[Trainer] Randoms/RandomNews konnten nicht berechnet werden:', e);
-    setDailyRandoms(null);
-    setRandomNewsForDay([]);
-  }
+    // Deterministische Randoms (Seed, Event-Intensität) – nur für die Tages-Randomwerte
+    try {
+      let seed: number | null = null;
+      try {
+        const g: any = globalThis as any;
+        if (typeof g.__gameSeed === 'number') seed = g.__gameSeed;
+        else {
+          const raw = localStorage.getItem('admin:seed');
+          if (raw != null) seed = Number(raw);
+        }
+      } catch (e) { /* seed-Read optional */ }
 
-      
-  }, [currentDay, gameKpis]);
+      const baseCash = gameKpis?.cashEUR ?? 100000;
+      if (typeof seed === 'number' && Number.isFinite(seed)) {
+        const rng = makeRng(seed + d * 1000);
+        (globalThis as any).__rng = rng;
+      }
+      const rv = generateDailyRandomValues(baseCash);
+      setDailyRandoms(rv as any);
+    } catch (e) {
+      console.warn('[Trainer] Randoms konnten nicht berechnet werden:', e);
+      setDailyRandoms(null);
+    }
+
+    // PRECOMPUTED RandomNews aus Map (Variante A)
+    const dayRandoms = (randomNewsByDay && Array.isArray((randomNewsByDay as any)[d])) ? (randomNewsByDay as any)[d] : [];
+    setRandomNewsForDay(dayRandoms as any);
+
+  }, [currentDay, gameKpis, randomNewsByDay]);
+
 
 
   
