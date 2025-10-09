@@ -161,39 +161,125 @@ const DECISION_CONFIRM_KEYS = [
   'DECISION_DONE','CONFIRM_DECISIONS','DECISIONS_SUBMIT','DAY_DONE','END_TURN','DECISION_MADE'
 ];
 
-function DecisionStatusBar({ decisionsToday }: { decisionsToday: Array<any> }) {
-  type R = 'CFO'|'HRLEGAL'|'OPS';
-  const ok = (role: R) => {
-    return (decisionsToday || []).some(d => {
-      if ((d?.player?.role || '').toUpperCase() !== role) return false;
-      const blk = (d?.block_id || '').toString().toUpperCase();
-      const metaType = (d?.decision_metadata?.type || d?.metadata?.type || '').toString().toLowerCase();
-      return DECISION_CONFIRM_KEYS.some(k => blk.includes(k)) ||
-             ['decision_confirmed','decisions_submit','done','confirm'].includes(metaType);
-    });
+function DecisionStatusBar({ decisionsToday, players }: { decisionsToday: Array<any>; players: Array<any> }) {
+  type R = 'CEO'|'CFO'|'HRLEGAL'|'OPS';
+  type PlayerStatus = 'left' | 'present' | 'lobby' | 'decided';
+
+  const getPlayerStatus = (role: R): PlayerStatus => {
+    try {
+      const player = (players || []).find((p: any) =>
+        (p?.role || '').toUpperCase() === role
+      );
+
+      if (!player) return 'left';
+
+      const hasDecided = (decisionsToday || []).some(d => {
+        if ((d?.player?.role || '').toUpperCase() !== role) return false;
+        const blk = (d?.block_id || '').toString().toUpperCase();
+        const metaType = (d?.decision_metadata?.type || d?.metadata?.type || '').toString().toLowerCase();
+        return DECISION_CONFIRM_KEYS.some(k => blk.includes(k)) ||
+               ['decision_confirmed','decisions_submit','done','confirm'].includes(metaType);
+      });
+
+      if (hasDecided) return 'decided';
+
+      const lastSeen = player?.last_seen;
+      if (!lastSeen) return 'lobby';
+
+      const lastSeenMs = new Date(lastSeen).getTime();
+      const nowMs = Date.now();
+      const inactiveMs = nowMs - lastSeenMs;
+      const INACTIVE_THRESHOLD = 5 * 60 * 1000;
+
+      if (inactiveMs > INACTIVE_THRESHOLD) return 'left';
+
+      const isReady = player?.is_ready;
+      if (isReady === false) return 'lobby';
+
+      return 'present';
+    } catch (err) {
+      console.error(`[DecisionStatusBar] Error getting status for ${role}:`, err);
+      return 'left';
+    }
   };
 
-  const Lamp = ({active, label}: {active: boolean; label: string}) => (
-    <span title={active ? `${label}: Entscheidung bestätigt` : `${label}: noch ausstehend`}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px',
-        borderRadius: 999, border: '1px solid rgba(255,255,255,0.35)',
-        background: active ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.08)'
-      }}>
-      <span style={{
-        width: 10, height: 10, borderRadius: '50%',
-        background: active ? '#10b981' : 'rgba(255,255,255,0.5)',
-        boxShadow: active ? '0 0 8px #10b981' : 'none'
-      }} />
-      <span style={{ fontSize: 12, fontWeight: 700 }}>{label}</span>
-    </span>
-  );
+  const Lamp = ({status, label}: {status: PlayerStatus; label: string}) => {
+    const getConfig = (s: PlayerStatus) => {
+      switch (s) {
+        case 'decided':
+          return {
+            color: '#10b981',
+            bg: 'rgba(16,185,129,0.2)',
+            shadow: '0 0 8px #10b981',
+            title: `${label}: Entscheidung bestätigt`,
+            animate: false
+          };
+        case 'present':
+          return {
+            color: '#f59e0b',
+            bg: 'rgba(245,158,11,0.2)',
+            shadow: '0 0 6px rgba(245,158,11,0.5)',
+            title: `${label}: Anwesend`,
+            animate: false
+          };
+        case 'lobby':
+          return {
+            color: '#f59e0b',
+            bg: 'rgba(245,158,11,0.15)',
+            shadow: 'none',
+            title: `${label}: In der Lobby`,
+            animate: true
+          };
+        case 'left':
+        default:
+          return {
+            color: '#ef4444',
+            bg: 'rgba(239,68,68,0.15)',
+            shadow: 'none',
+            title: `${label}: Spiel verlassen/inaktiv`,
+            animate: false
+          };
+      }
+    };
+
+    const config = getConfig(status);
+
+    return (
+      <span
+        title={config.title}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px',
+          borderRadius: 999, border: '1px solid rgba(255,255,255,0.35)',
+          background: config.bg
+        }}
+      >
+        <span
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            background: config.color,
+            boxShadow: config.shadow,
+            animation: config.animate ? 'pulse-orange 2s ease-in-out infinite' : 'none'
+          }}
+        />
+        <span style={{ fontSize: 12, fontWeight: 700 }}>{label}</span>
+        <style>{`
+          @keyframes pulse-orange {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+          }
+        `}</style>
+      </span>
+    );
+  };
 
   return (
     <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-      <Lamp active={ok('CFO')} label="CFO" />
-      <Lamp active={ok('OPS')} label="OPS" />
-      <Lamp active={ok('HRLEGAL')} label="HRLEGAL" />
+      <Lamp status={getPlayerStatus('CEO')} label="CEO" />
+      <Lamp status={getPlayerStatus('CFO')} label="CFO" />
+      <Lamp status={getPlayerStatus('OPS')} label="OPS" />
+      <Lamp status={getPlayerStatus('HRLEGAL')} label="HRLEGAL" />
     </div>
   );
 }
@@ -965,7 +1051,7 @@ try {
           )}
 
           {/* Status-Lampen */}
-          <DecisionStatusBar decisionsToday={decisionsToday as any} />
+          <DecisionStatusBar decisionsToday={decisionsToday as any} players={players} />
 
           {error && <div style={{ marginTop: 6, color: '#fee2e2' }}>⚠ {error}</div>}
         </div>
