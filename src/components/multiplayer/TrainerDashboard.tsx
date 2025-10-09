@@ -735,11 +735,7 @@ try {
       const newTitles = (items as any[]).map(n => n.title);
       playedTitlesRef.current.push(...newTitles);
 
-      // WICHTIG: Auch in globalThis.__playedNewsTitles speichern für Spieler-Synchronisation
-      if (!(globalThis as any).__playedNewsTitles) {
-        (globalThis as any).__playedNewsTitles = [];
-      }
-      (globalThis as any).__playedNewsTitles.push(...newTitles);
+     
     }
 
     // Einmalig am Ende setzen (leer, falls useRandomNews=false)
