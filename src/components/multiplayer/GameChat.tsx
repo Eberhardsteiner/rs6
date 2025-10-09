@@ -211,6 +211,31 @@ const handleMouseDown = useCallback((e: React.MouseEvent) => {
           );
         }
         break;
+
+      case '/dm':
+        // NEU Direktnachricht an einzelnen Spieler: /dm <Name|UUID> <Text>
+        {
+          const [target, ...msgParts] = args.split(' ');
+          if (!target || msgParts.length === 0) {
+            await chatService.sendSystemMessage('Nutzung: /dm <Name|UUID> <Text>');
+            break;
+          }
+          const resolved = await chatService.resolvePlayer(target);
+          if (!resolved?.id) {
+            await chatService.sendSystemMessage(`Empfänger nicht gefunden: "${target}"`);
+            break;
+          }
+          try {
+            await chatService.sendDirectMessage(msgParts.join(' '), resolved.id);
+          } catch (e: any) {
+            console.error('sendDirectMessage failed', e);
+            await chatService.sendSystemMessage('Direktnachricht konnte nicht gesendet werden.');
+          }
+        }
+        break;
+
+
+        
         
       case '/export':
         await handleExportChat();
