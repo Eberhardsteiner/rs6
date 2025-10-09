@@ -379,6 +379,22 @@ export default function TrainerDashboard({
   // --- Broadcast/Anzeige-Daten ---
   const [broadcastAll, setBroadcastAll] = useState('');
   const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
+
+    // Rollensicht für Zufalls-News (Trainer) – identisch zur Spielersicht
+  const [selectedRole, setSelectedRole] = useState<RoleId | 'ALL'>('ALL');
+  const randomNewsForRole = useMemo(() => {
+    if (selectedRole === 'ALL') return randomNewsForDay;
+    return (randomNewsForDay as any[]).filter((n: any) => {
+      const rs: string[] | null = n?.roles ?? null;
+      return !rs || rs.includes(selectedRole);
+    });
+  }, [randomNewsForDay, selectedRole]);
+
+
+
+
+
+  
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
   const playedTitlesRef = React.useRef<string[]>([]); // Duplikatvermeidung über Tage
 
