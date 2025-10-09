@@ -1130,44 +1130,41 @@ try {
       </div>
 
       {/* Punktstände (aggregierter KPI-Impact je Rolle) */}
-      <div style={{ marginTop: 20, background: 'white', padding: 16, borderRadius: 8 }}>
-        <h3>Punktstände (Summe KPI-Impact je Rolle)</h3>
-        {(() => {
-          const agg = aggregateImpactByRole(decisions);
-          const rows = ROLES.map(r => ({ r, ...agg[r] })).sort((a, b) => b.points - a.points);
-          return (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead style={{ background: '#f3f4f6' }}>
-                  <tr>
-                    <th style={{ textAlign: 'left', padding: 8 }}>Rolle</th>
-                    <th style={{ textAlign: 'right', padding: 8 }}>Cash Δ</th>
-                    <th style={{ textAlign: 'right', padding: 8 }}>P&L Δ</th>
-                    <th style={{ textAlign: 'right', padding: 8 }}>Kunden</th>
-                    <th style={{ textAlign: 'right', padding: 8 }}>Bank</th>
-                    <th style={{ textAlign: 'right', padding: 8 }}>Belegschaft</th>
-                    <th style={{ textAlign: 'right', padding: 8 }}>Öffentlichkeit</th>
-                    <th style={{ textAlign: 'right', padding: 8 }}>Punkte (gewichtet)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(row => (
-                    <tr key={row.r} style={{ borderTop: '1px solid #e5e7eb' }}>
-                      <td style={{ padding: 8 }}>{row.r}</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.cashEUR).toLocaleString('de-DE')} €</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.profitLossEUR).toLocaleString('de-DE')} €</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.customerLoyalty)}</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.bankTrust)}</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.workforceEngagement)}</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.publicPerception)}</td>
-                      <td style={{ padding: 8, textAlign: 'right', fontWeight: 700 }}>{row.points.toLocaleString('de-DE')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          );
-        })()}
+      {/* Punktstände (aggregierter KPI-Impact je Rolle) */}
+<div style={{ marginTop: 20, background: 'white', padding: 16, borderRadius: 8 }}>
+  <h3>Punktstände (Summe KPI-Impact je Rolle)</h3>
+  <div style={{ overflowX: 'auto' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <thead style={{ background: '#f3f4f6' }}>
+        <tr>
+          <th style={{ textAlign: 'left', padding: 8 }}>Rolle</th>
+          <th style={{ textAlign: 'right', padding: 8 }}>Cash Δ</th>
+          <th style={{ textAlign: 'right', padding: 8 }}>P&L Δ</th>
+          <th style={{ textAlign: 'right', padding: 8 }}>Kunden</th>
+          <th style={{ textAlign: 'right', padding: 8 }}>Bank</th>
+          <th style={{ textAlign: 'right', padding: 8 }}>Belegschaft</th>
+          <th style={{ textAlign: 'right', padding: 8 }}>Öffentlichkeit</th>
+          <th style={{ textAlign: 'right', padding: 8 }}>Punkte (gewichtet)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {aggRows.map(row => (
+          <tr key={row.r} style={{ borderTop: '1px solid #e5e7eb' }}>
+            <td style={{ padding: 8 }}>{row.r}</td>
+            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.cashEUR).toLocaleString('de-DE')} €</td>
+            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.profitLossEUR).toLocaleString('de-DE')} €</td>
+            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.customerLoyalty)}</td>
+            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.bankTrust)}</td>
+            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.workforceEngagement)}</td>
+            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.publicPerception)}</td>
+            <td style={{ padding: 8, textAlign: 'right', fontWeight: 700 }}>{row.points.toLocaleString('de-DE')}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 
         <div style={{ marginTop: 12 }}>
           <button
