@@ -81,12 +81,7 @@ function readScenarioOverride(kind: 'blocks' | 'news' | 'attachments', day: numb
   return null;
 }
 
-// oben in TrainerDashboard.tsx
-const [liveFeed, setLiveFeed] = useState<Decision[]>([]); // reine Timeline (neueste zuerst)
-const [roleFilter, setRoleFilter] = useState<RoleId | 'ALL'>('ALL');
 
-type DecisionByKey = Record<string, Decision>; // key: `${day}::${block_id}::${player_id}`
-const [latestByBlockAndPlayer, setLatestByBlockAndPlayer] = useState<DecisionByKey>({});
 
 
 const [selectedRole, setSelectedRole] = useState<RoleId | 'ALL'>('ALL');
