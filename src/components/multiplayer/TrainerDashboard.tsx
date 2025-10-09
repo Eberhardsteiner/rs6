@@ -1008,22 +1008,28 @@ try {
 
 
   
-  const sendTrainerHint = useCallback(
+ const sendTrainerHint = useCallback(
   async (playerId: string) => {
-    const msg = (hintDrafts[playerId] || '').trim();
-    if (!msg) return;
+    const raw = hintDrafts[playerId];
+    const msg = (raw ?? '').trim();
+    if (!msg) {
+      setError('Hinweis ist leer.');
+      return;
+    }
+
     try {
       // Rolle des adressierten Spielers ermitteln
       const p = (players || []).find((x: any) => x?.id === playerId);
       const role = (p?.role || '').toUpperCase() as RoleId | '';
-      if (!role || !['CEO','CFO','OPS','HRLEGAL'].includes(role)) {
+      const allowedRoles: RoleId[] = ['CEO', 'CFO', 'OPS', 'HRLEGAL'];
+      if (!role || !allowedRoles.includes(role)) {
         throw new Error('Rolle des Spielers unbekannt oder ungültig.');
       }
 
-      // Systemnachricht nur an die Zielrolle (keine Auth erforderlich)
+      // RLS-konformes Insert: player_id MUSS NULL, message_type MUSS 'system' sein
       const row = {
         game_id: gameId,
-        player_id: null,
+        player_id: null as unknown as null, // explizit NULL (nicht undefined/''/0)
         content: msg,
         message_type: 'system',
         metadata: {
@@ -1034,8 +1040,8 @@ try {
         }
       };
 
-      const { error: insErr } = await supabase.from('messages').insert(row);
-      if (insErr) throw insErr;
+      const { error } = await supabase.from('messages').insert(row); // kein .select() ⇒ kein zusätzlicher SELECT durch RLS
+      if (error) throw error;
 
       setHintDrafts((prev) => ({ ...prev, [playerId]: '' }));
     } catch (e: any) {
@@ -1045,6 +1051,7 @@ try {
   },
   [gameId, hintDrafts, players]
 );
+
 
 
   // Broadcast an alle Spieler
