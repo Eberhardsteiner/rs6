@@ -457,3 +457,70 @@ body * {
 .tooltip .tip {
   /* Diese behalten ihre speziellen Farben */
 }
+
+/* =========================
+   Full-Width Section
+   - Container für Elemente, die über die gesamte Viewport-Breite gehen sollen
+   ========================= */
+.full-width-section {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  padding: 16px;
+  background: #f9fafb;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* =========================
+   Decision Blocks Container (Full Width)
+   - Spezielles Layout für Entscheidungsblöcke über volle Breite
+   ========================= */
+.decision-blocks-container {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.decision-blocks-container .card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* =========================
+   Tabs für volle Breite
+   ========================= */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tab:hover {
+  background: #f2f2f2;
+  transform: translateY(-1px);
+}
+
+.tab.active {
+  border-color: #0ea5e9;
+  color: #0b69a3;
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+  font-weight: 600;
+}

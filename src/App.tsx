@@ -837,15 +837,15 @@ export default function App({ onBackToHome }: AppProps) {
                 </>
               );
             }
-            
+
             let displayText = '';
             if (typeof expandedText === 'function') {
               try {
-                displayText = expandedText({ 
-                  day: state.day, 
-                  kpi: state.kpi, 
+                displayText = expandedText({
+                  day: state.day,
+                  kpi: state.kpi,
                   log: state.log,
-                  meta: state.engineMeta 
+                  meta: state.engineMeta
                 });
               } catch (error) {
                 console.warn('Error calling expandedText function:', error);
@@ -856,14 +856,14 @@ export default function App({ onBackToHome }: AppProps) {
             } else {
               displayText = beat.summary;
             }
-            
+
             return (
               <p style={{ marginBottom: 12, lineHeight: '1.6', color: '#374151' }}>
                 {displayText}
               </p>
             );
           })()}
-          
+
           {beat.pressure && <p style={{ marginBottom: 12 }}><strong>Druck:</strong> {beat.pressure}</p>}
           {beat.twist && <p style={{ marginBottom: 12 }}><strong>Wendung:</strong> {beat.twist}</p>}
 
@@ -929,33 +929,37 @@ export default function App({ onBackToHome }: AppProps) {
         </div>
       )}
 
-      <div className="card">
-        <h3>Entscheidungen</h3>
-        <div className="tabs" style={{marginBottom:12}}>
-          {myRolesView.map(r => (
-            <button
-              key={r}
-              className={`tab ${activeRoleTab===r?'active':''}`}
-              onClick={()=>setActiveRoleTab(r)}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
-        <div className="col" style={{gap:12}}>
-          {myRolesView.map(r => (
-            <div key={r} style={{display: activeRoleTab && activeRoleTab!==r ? 'none' : 'block'}}>
-              <DecisionList
-                blocks={blocks.filter(b => b.role===r)}
-                day={state.day}
-                role={r}
-                onChoose={onChoose}
-                onCustom={onCustom}
-                selectedByBlock={todaysSelections}
-                onOpenAttachment={handleOpenAttachment}
-              />
+      <div className="full-width-section">
+        <div className="decision-blocks-container">
+          <div className="card">
+            <h3>Entscheidungen aller Rollen</h3>
+            <div className="tabs">
+              {myRolesView.map(r => (
+                <button
+                  key={r}
+                  className={`tab ${activeRoleTab===r?'active':''}`}
+                  onClick={()=>setActiveRoleTab(r)}
+                >
+                  {r}
+                </button>
+              ))}
             </div>
-          ))}
+            <div className="col" style={{gap:12}}>
+              {myRolesView.map(r => (
+                <div key={r} style={{display: activeRoleTab && activeRoleTab!==r ? 'none' : 'block'}}>
+                  <DecisionList
+                    blocks={blocks.filter(b => b.role===r)}
+                    day={state.day}
+                    role={r}
+                    onChoose={onChoose}
+                    onCustom={onCustom}
+                    selectedByBlock={todaysSelections}
+                    onOpenAttachment={handleOpenAttachment}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

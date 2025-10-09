@@ -17,28 +17,24 @@ export default function DecisionList({
 }: Props) {
   if (!blocks.length) {
     return (
-      <div className="card">
-        <h3>Entscheidungen</h3>
+      <div style={{ padding: '16px', textAlign: 'center' }}>
         <p style={{ color:'var(--muted)' }}>Für heute liegen keine Entscheidungen an.</p>
       </div>
     );
   }
 
   return (
-    <div className="card">
-      <h3>Entscheidungen</h3>
-      <div className="col" style={{ gap: 12 }}>
-        {blocks.map((b) => (
-          <DecisionBlock
-            key={b.id}
-            block={b}
-            selected={selectedByBlock?.get(b.id) || undefined}
-            onChoose={(optId, customText) => onChoose(b, optId, customText)}
-            onCustom={(text) => onCustom(b, text)}
-            onOpenAttachment={onOpenAttachment}
-          />
-        ))}
-      </div>
+    <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
+      {blocks.map((b) => (
+        <DecisionBlock
+          key={b.id}
+          block={b}
+          selected={selectedByBlock?.get(b.id) || undefined}
+          onChoose={(optId, customText) => onChoose(b, optId, customText)}
+          onCustom={(text) => onCustom(b, text)}
+          onOpenAttachment={onOpenAttachment}
+        />
+      ))}
     </div>
   );
 }
