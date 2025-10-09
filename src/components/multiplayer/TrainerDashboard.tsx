@@ -1760,7 +1760,7 @@ const sendBroadcastToAll = useCallback(async () => {
       {/* ──────────────────────────────────────────────────────────────────── */}
       {/* News, Zufalls‑News, Tages‑Randoms & Entscheidungsblöcke             */}
       {/* ──────────────────────────────────────────────────────────────────── */}
-      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '2fr', gap: 16 }}>
         {/* Szenario‑News des Tages */}
         <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
           <h3 style={{ margin: '0 0 10px 0' }}>📰 Szenario‑News (Tag {currentDay})</h3>
