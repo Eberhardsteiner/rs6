@@ -478,6 +478,45 @@ export default function TrainerDashboard({
   const [hintDrafts, setHintDrafts] = useState<Record<string, string>>({});
   const [isLoadingKpis, setIsLoadingKpis] = useState(true);
 
+  // --- CFO Kredit-Historie (nur Anzeige für Trainer) ---
+  type CreditDraw = { id?: string; day: number; amount: number; created_at: string; role?: string };
+  const [creditDraws, setCreditDraws] = useState<CreditDraw[]>([]);
+  const totalCreditToday = useMemo(() => {
+    try {
+      return creditDraws.filter(d => Number(d.day) === Number(currentDay))
+                        .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    } catch { return 0; }
+  }, [creditDraws, currentDay]);
+  const totalCreditAllTime = useMemo(() => {
+    try { return creditDraws.reduce((sum, d) => sum + (Number(d.amount) || 0), 0); }
+    catch { return 0; }
+  }, [creditDraws]);
+
+  const loadCreditHistorySafe = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('game_credit_history')
+        .select('id, day, amount, created_at, role')
+        .eq('game_id', gameId)
+        .order('created_at', { ascending: true });
+      if (!error && Array.isArray(data)) {
+        const norm = data.map((r: any) => ({
+          id: r?.id as string | undefined,
+          day: Number(r?.day) || 0,
+          amount: Number(r?.amount) || 0,
+          created_at: r?.created_at || new Date().toISOString(),
+          role: r?.role || undefined
+        }));
+        setCreditDraws(norm);
+      }
+    } catch (e) {
+      console.warn('[TrainerDashboard] game_credit_history nicht verfügbar:', e);
+      // Kein UI-Fehler: Dashboard darf niemals crashen
+    }
+  }, [gameId]);
+
+
+  
     // --- Broadcast/Anzeige-Daten ---
     const [broadcastTargetRole, setBroadcastTargetRole] = useState<'ALL' | RoleId>('ALL');
 
