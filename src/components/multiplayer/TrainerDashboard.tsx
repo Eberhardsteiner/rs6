@@ -379,6 +379,22 @@ export default function TrainerDashboard({
   // --- Broadcast/Anzeige-Daten ---
   const [broadcastAll, setBroadcastAll] = useState('');
   const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
+
+    // Rollensicht für Zufalls-News (Trainer) – identisch zur Spielersicht
+  const [selectedRole, setSelectedRole] = useState<RoleId | 'ALL'>('ALL');
+  const randomNewsForRole = useMemo(() => {
+    if (selectedRole === 'ALL') return randomNewsForDay;
+    return (randomNewsForDay as any[]).filter((n: any) => {
+      const rs: string[] | null = n?.roles ?? null;
+      return !rs || rs.includes(selectedRole);
+    });
+  }, [randomNewsForDay, selectedRole]);
+
+
+
+
+
+  
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
   const playedTitlesRef = React.useRef<string[]>([]); // Duplikatvermeidung über Tage
 
@@ -735,11 +751,7 @@ try {
       const newTitles = (items as any[]).map(n => n.title);
       playedTitlesRef.current.push(...newTitles);
 
-      // WICHTIG: Auch in globalThis.__playedNewsTitles speichern für Spieler-Synchronisation
-      if (!(globalThis as any).__playedNewsTitles) {
-        (globalThis as any).__playedNewsTitles = [];
-      }
-      (globalThis as any).__playedNewsTitles.push(...newTitles);
+     
     }
 
     // Einmalig am Ende setzen (leer, falls useRandomNews=false)
@@ -1245,7 +1257,8 @@ try {
                 // Zufalls‑News (gesamt) inkl. Rollen & KPI-Δ
 { text: `Zufalls-News (rollenbasiert${ (globalThis as any).__roleBasedRandomNews ? ' – Rollensicht AKTIV' : ' – Rollensicht INAKTIV' })`,
   style: 'h3', margin: [0, 12, 0, 4] },
-{ ul: (randomNewsForDay || []).map(n => {
+{ ul: ((selectedRole === 'ALL' ? randomNewsForDay : randomNewsForRole) || []).map(n => {
+
     const k = (n as any).impact ? formatKpiShort((n as any).impact) : '—';
     const rl = rolesLabel((n as any).roles);
     return `${n.title} (${n.severity}) • Rollen: ${rl} • KPI Δ: ${k}`;
@@ -1394,7 +1407,7 @@ try {
             <div style={{ color: '#6b7280' }}>Keine Zufalls‑News erzeugt.</div>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {randomNewsForDay.map((n) => (
+              {randomNewsForRole.map((n) => (
                 <li key={n.id || n.title} style={{ marginBottom: 8 }}>
                   <div style={{ fontWeight: 600 }}>{n.title}</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
