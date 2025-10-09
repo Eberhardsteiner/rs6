@@ -1233,42 +1233,6 @@ const sendBroadcastToAll = useCallback(async () => {
           {/* Status-Lampen */}
           <DecisionStatusBar decisionsToday={decisionsToday as any} players={players} />
 
-          {/* CFO – Kreditaufnahmen (live) */}
-          <div style={{ marginTop: 12, padding: 10, background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: '#7c2d12', fontWeight: 700, marginBottom: 6 }}>🏦 CFO · Kreditaufnahmen</div>
-            <div style={{ fontSize: 13, marginBottom: 4 }}>
-              Heute (Tag {currentDay}): <strong>€{Math.round(totalCreditToday).toLocaleString('de-DE')}</strong>
-              {totalCreditToday > 0 ? <span style={{ marginLeft: 6, fontSize: 12, color: '#065f46' }}>• live</span> : <span style={{ marginLeft: 6, fontSize: 12, color: '#6b7280' }}>– keine</span>}
-            </div>
-            <div style={{ fontSize: 12, color: '#374151', marginBottom: 6 }}>
-              Bisher gesamt: €{Math.round(totalCreditAllTime).toLocaleString('de-DE')}
-            </div>
-            {creditDraws && creditDraws.length > 0 && (
-              <div style={{ maxHeight: 140, overflowY: 'auto', background: 'white', border: '1px solid #fde68a', borderRadius: 6 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead style={{ position: 'sticky', top: 0, background: '#fef3c7' }}>
-                    <tr>
-                      <th style={{ textAlign: 'left', padding: 6 }}>Tag</th>
-                      <th style={{ textAlign: 'right', padding: 6 }}>Betrag</th>
-                      <th style={{ textAlign: 'left', padding: 6 }}>Zeit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {creditDraws.slice().sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((r, idx) => (
-                      <tr key={(r.id || idx) + '-' + r.created_at} style={{ borderTop: '1px solid #fde68a' }}>
-                        <td style={{ padding: 6 }}>Tag {r.day || '—'}</td>
-                        <td style={{ padding: 6, textAlign: 'right' }}>€{Math.round(Number(r.amount) || 0).toLocaleString('de-DE')}</td>
-                        <td style={{ padding: 6 }}>{new Date(r.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-
-          
           {error && <div style={{ marginTop: 6, color: '#fee2e2' }}>⚠ {error}</div>}
         </div>
 
@@ -1989,6 +1953,39 @@ const sendBroadcastToAll = useCallback(async () => {
           <RandomValuesDisplay randomValues={dailyRandoms || undefined} day={currentDay} />
         </div>
 
+        {/* CFO – Kreditaufnahmen (live) */}
+        <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
+          <h3 style={{ margin: '0 0 10px 0' }}>🏦 CFO · Kreditaufnahmen</h3>
+          <div style={{ fontSize: 13, marginBottom: 8 }}>
+            Heute (Tag {currentDay}): <strong>€{Math.round(totalCreditToday).toLocaleString('de-DE')}</strong>
+            {totalCreditToday > 0 ? <span style={{ marginLeft: 6, fontSize: 12, color: '#065f46' }}>• live</span> : <span style={{ marginLeft: 6, fontSize: 12, color: '#6b7280' }}>– keine</span>}
+          </div>
+          <div style={{ fontSize: 12, color: '#374151', marginBottom: 10 }}>
+            Bisher gesamt: €{Math.round(totalCreditAllTime).toLocaleString('de-DE')}
+          </div>
+          {creditDraws && creditDraws.length > 0 && (
+            <div style={{ maxHeight: 200, overflowY: 'auto', background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 6 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#f3f4f6' }}>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Tag</th>
+                    <th style={{ textAlign: 'right', padding: 8 }}>Betrag</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Zeit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {creditDraws.slice().sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((r, idx) => (
+                    <tr key={(r.id || idx) + '-' + r.created_at} style={{ borderTop: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: 8 }}>Tag {r.day || '—'}</td>
+                      <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>€{Math.round(Number(r.amount) || 0).toLocaleString('de-DE')}</td>
+                      <td style={{ padding: 8, color: '#6b7280' }}>{new Date(r.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         {/* Entscheidungsblöcke des Tages – jetzt mit Optionen & KPI-Auswirkung */}
         <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
