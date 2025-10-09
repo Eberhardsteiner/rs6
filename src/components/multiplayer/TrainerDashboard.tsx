@@ -1263,7 +1263,8 @@ try {
                   fontWeight: 700,
                   cursor: 'pointer'
                 }}
-                title="Sendet den Hinweis an alle Spieler (trainer_hints)"
+                title="Sendet den Hinweis in die Tabelle trainer_hints"
+
               >
                 An alle senden
               </button>
