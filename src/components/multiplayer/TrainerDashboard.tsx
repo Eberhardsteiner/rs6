@@ -778,10 +778,9 @@ try {
       playedTitlesRef.current.push(...newTitles);
 
       // WICHTIG: Auch in globalThis.__playedNewsTitles speichern für Spieler-Synchronisation
-      if (!(globalThis as any).__playedNewsTitles) {
-        (globalThis as any).__playedNewsTitles = [];
-      }
-      (globalThis as any).__playedNewsTitles.push(...newTitles);
+    // WICHTIG: Trainer-Preview darf die globale Duplikatliste NICHT verändern.
+// Die Synchronisation der "gespielten" Titel erfolgt ausschließlich durch das Spiel.
+// (Kein Write in globalThis.__playedNewsTitles hier!)
     }
 
     // Einmalig am Ende setzen (leer, falls useRandomNews=false)
