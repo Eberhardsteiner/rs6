@@ -1233,6 +1233,30 @@ try {
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 type="text"
+
+              <select
+                value={broadcastTargetRole}
+                onChange={(e) => setBroadcastTargetRole(e.target.value as 'ALL' | RoleId)}
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: 6,
+                  border: '1px solid #a5f3fc',
+                  background: 'white',
+                  fontSize: 13,
+                  color: '#111827'
+                }}
+                title="Zielauswahl: Alle oder einzelne Rolle"
+              >
+                <option value="ALL">Alle</option>
+                <option value="CEO">CEO</option>
+                <option value="CFO">CFO</option>
+                <option value="OPS">OPS</option>
+                <option value="HRLEGAL">HRLEGAL</option>
+              </select>
+
+
+
+                
                 placeholder="Kurzer Hinweis an das ganze Team"
                 value={broadcastAll}
                 onChange={(e) => setBroadcastAll(e.target.value)}
