@@ -385,6 +385,36 @@ export default function TrainerDashboard({
   // Rollensicht für Zufalls-News (Trainer) – identisch zur Spielersicht
   const [selectedRole, setSelectedRole] = useState<RoleId | 'ALL'>('ALL');
 
+  // --- Live-Update Hilfen für decisions (bulletproof) ---
+  // Wir halten die jeweils aktuellen Spieler (Name/Role) referenzierbar,
+  // damit neue Entscheidungen direkt mit Metadaten angezeigt werden können.
+  const playersRef = React.useRef<any[]>([]);
+  useEffect(() => { playersRef.current = Array.isArray(players) ? players : []; }, [players]);
+
+  // Entscheidung in den lokalen State einpflegen/aktualisieren (defensiv)
+  const upsertDecisionInState = useCallback((row: any) => {
+    if (!row || !row.id) return; // ungültiger Payload -> ignorieren
+    setDecisions((prev) => {
+      const idx = prev.findIndex(d => d.id === row.id);
+      const p = playersRef.current.find((pp: any) => pp?.id === row.player_id);
+      const playerMeta = p ? { name: p.name || p.display_name || '', role: p.role } : undefined;
+      const normalized: Decision = { ...row, player: playerMeta };
+
+      if (idx === -1) return [normalized, ...prev];
+      const next = prev.slice();
+      next[idx] = { ...prev[idx], ...normalized };
+      return next;
+    });
+  }, []);
+
+  // Entscheidung aus dem lokalen State entfernen (für DELETE)
+  const removeDecisionFromState = useCallback((id: string) => {
+    if (!id) return;
+    setDecisions((prev) => prev.filter(d => d.id !== id));
+  }, []);
+
+
+  
   // Abgeleitete Liste entsprechend ausgewählter Rolle (robust: Rollenfeld optional)
   const randomNewsForRole = useMemo(() => {
     const list = Array.isArray(randomNewsForDay) ? randomNewsForDay : [];
