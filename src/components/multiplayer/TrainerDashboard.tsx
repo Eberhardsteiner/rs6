@@ -84,15 +84,6 @@ function readScenarioOverride(kind: 'blocks' | 'news' | 'attachments', day: numb
 
 
 
-const [selectedRole, setSelectedRole] = useState<RoleId | 'ALL'>('ALL');
-
-const randomNewsForRole = useMemo(() => {
-  if (selectedRole === 'ALL') return randomNewsForDay;
-  return (randomNewsForDay as any[]).filter((n: any) => {
-    const rs: RoleId[] | null = n?.roles ?? null;
-    return !rs || rs.includes(selectedRole);
-  });
-}, [randomNewsForDay, selectedRole]);
 
 
 // KPI-Impact je Rolle (für „Punktstände“)
