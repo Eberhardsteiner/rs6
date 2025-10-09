@@ -1392,9 +1392,7 @@ try {
         </div>
       </div>
 
-      {/* ──────────────────────────────────────────────────────────────────── */}
-      {/* News, Zufalls‑News, Tages‑Randoms & Entscheidungsblöcke             */}
-      {/* ──────────────────────────────────────────────────────────────────── */}
+      
       <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* Szenario‑News des Tages */}
         <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
