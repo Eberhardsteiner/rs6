@@ -482,14 +482,7 @@ export default function TrainerDashboard({
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
   const playedTitlesRef = React.useRef<string[]>([]); // Duplikatvermeidung über Tage
 
-    // — Minimal-Referenz für schnelle Lookups im Live-Insert —
-  const playersRef = React.useRef<any[]>([]);
-  useEffect(() => {
-    playersRef.current = (players || []).map(p => ({
-      id: p.id, name: p.name || p.display_name || '', role: p.role
-    }));
-  }, [players]);
-
+   
   
 
 
