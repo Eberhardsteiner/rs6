@@ -536,6 +536,21 @@ export default function TrainerDashboard({
     workforceEngagement?: number;
     publicPerception?: number;
   } | null>(null);
+
+  // Lookup: Block-ID -> Rolle (für sofortiges, join-freies Scoring)
+  const blockRoleById = useMemo(() => {
+    const m = new Map<string, RoleId>();
+    for (const b of (blocksForDay || [])) {
+      const bid = String(getBlockId(b as any));
+      const r   = String(getBlockRole(b as any)).toUpperCase() as RoleId;
+      if (bid) m.set(bid, r);
+    }
+    return m;
+  }, [blocksForDay]);
+
+
+
+  
 const [attachmentsForDay, setAttachmentsForDay] = useState<Attachment[]>([]);
   const [deadlineTs, setDeadlineTs] = useState<number | null>(null);
   const [startTs, setStartTs] = useState<number | null>(null);
