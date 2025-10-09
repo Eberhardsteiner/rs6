@@ -584,6 +584,9 @@ return (
               <div><strong>/role [rolle] [text]</strong> - Nachricht an Rolle</div>
               {isGM && (
                 <>
+
+                                <div><strong>/dm [&lt;Name|UUID&gt;] [text]</strong> - Direktnachricht an einzelnen Spieler</div>
+
                   <div><strong>/announce [text]</strong> - Ankündigung senden</div>
                   <div><strong>/system [text]</strong> - Systemnachricht senden</div>
                 </>
