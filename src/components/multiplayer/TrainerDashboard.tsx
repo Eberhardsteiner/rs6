@@ -1225,15 +1225,12 @@ try {
               background: '#ecfeff',
               border: '1px solid #a5f3fc',
               borderRadius: 6
-            }}
+                   }}
           >
             <div style={{ fontSize: 12, color: '#0369a1', marginBottom: 6, fontWeight: 700 }}>
               Hinweis an alle Spieler senden
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                type="text"
-
               <select
                 value={broadcastTargetRole}
                 onChange={(e) => setBroadcastTargetRole(e.target.value as 'ALL' | RoleId)}
@@ -1253,10 +1250,8 @@ try {
                 <option value="OPS">OPS</option>
                 <option value="HRLEGAL">HRLEGAL</option>
               </select>
-
-
-
-                
+              <input
+                type="text"
                 placeholder="Kurzer Hinweis an das ganze Team"
                 value={broadcastAll}
                 onChange={(e) => setBroadcastAll(e.target.value)}
@@ -1264,6 +1259,7 @@ try {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     sendBroadcastToAll();
+
                   }
                 }}
                 style={{
