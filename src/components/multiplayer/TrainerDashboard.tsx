@@ -81,15 +81,8 @@ function readScenarioOverride(kind: 'blocks' | 'news' | 'attachments', day: numb
   return null;
 }
 
-
-
-
-
-
 // KPI-Impact je Rolle (für „Punktstände“)
 function aggregateImpactByRole(list: Decision[]) {
-  // Ziel: robuste Summenbildung pro Rolle, selbst wenn player-Join fehlt
-  // oder kpi_delta-Zahlen als String aus JSON kommen.
   const acc: Record<
     RoleId,
     {
@@ -103,26 +96,16 @@ function aggregateImpactByRole(list: Decision[]) {
     HRLEGAL: { cashEUR: 0, profitLossEUR: 0, customerLoyalty: 0, bankTrust: 0, workforceEngagement: 0, publicPerception: 0 }
   };
 
-  const num = (v: any) => {
-    const n = typeof v === 'string' ? parseFloat(v) : (typeof v === 'number' ? v : 0);
-    return Number.isFinite(n) ? n : 0;
-  };
-
   for (const d of list) {
-    // Fallback: Wenn Join auf players fehlt, rolle aus decision_metadata nehmen
-    const r: RoleId | undefined =
-      (d.player?.role as RoleId | undefined) ||
-      ((d as any)?.decision_metadata?.role as RoleId | undefined);
-
-    if (!r || !(r in acc)) continue;
-
-    const k: any = d.kpi_delta ?? {};
-    acc[r].cashEUR             += num(k.cashEUR);
-    acc[r].profitLossEUR       += num(k.profitLossEUR);
-    acc[r].customerLoyalty     += num(k.customerLoyalty);
-    acc[r].bankTrust           += num(k.bankTrust);
-    acc[r].workforceEngagement += num(k.workforceEngagement);
-    acc[r].publicPerception    += num(k.publicPerception);
+    const r = d.player?.role as RoleId | undefined;
+    if (!r || !acc[r] || !d.kpi_delta) continue;
+    const k = d.kpi_delta as any;
+    acc[r].cashEUR             += Number(k.cashEUR || 0);
+    acc[r].profitLossEUR       += Number(k.profitLossEUR || 0);
+    acc[r].customerLoyalty     += Number(k.customerLoyalty || 0);
+    acc[r].bankTrust           += Number(k.bankTrust || 0);
+    acc[r].workforceEngagement += Number(k.workforceEngagement || 0);
+    acc[r].publicPerception    += Number(k.publicPerception || 0);
   }
 
   // Gewichte aus AdminPanel (Standard 25/25/25/25)
@@ -145,7 +128,6 @@ function aggregateImpactByRole(list: Decision[]) {
 
   return withPoints;
 }
-
 
 /* ──────────────────────────────────────────────────────────────────────────
    Hilfsfunktionen: Optionen & KPI-Delta robust aus Szenario-Blöcken lesen
@@ -398,27 +380,12 @@ export default function TrainerDashboard({
   const [broadcastAll, setBroadcastAll] = useState('');
   const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
-
-  // Rollensicht für Zufalls-News (Trainer) – identisch zur Spielersicht
-  const [selectedRole, setSelectedRole] = useState<RoleId | 'ALL'>('ALL');
-  const randomNewsForRole = useMemo(() => {
-    if (selectedRole === 'ALL') return randomNewsForDay;
-    return (randomNewsForDay as any[]).filter((n: any) => {
-      const rs: string[] | null = n?.roles ?? null;
-      return !rs || rs.includes(selectedRole);
-    });
-  }, [randomNewsForDay, selectedRole]);
-
   const playedTitlesRef = React.useRef<string[]>([]); // Duplikatvermeidung über Tage
 
   const [blocksForDay, setBlocksForDay] = useState<DecisionBlock[]>([]);
   const [dailyRandoms, setDailyRandoms] = useState<{
     cashEUR?: number;
     profitLossEUR?: number;
-
-
-
-  
     customerLoyalty?: number;
     bankTrust?: number;
     workforceEngagement?: number;
@@ -769,9 +736,10 @@ try {
       playedTitlesRef.current.push(...newTitles);
 
       // WICHTIG: Auch in globalThis.__playedNewsTitles speichern für Spieler-Synchronisation
-    // WICHTIG: Trainer-Preview darf die globale Duplikatliste NICHT verändern.
-// Die Synchronisation der "gespielten" Titel erfolgt ausschließlich durch das Spiel.
-// (Kein Write in globalThis.__playedNewsTitles hier!)
+      if (!(globalThis as any).__playedNewsTitles) {
+        (globalThis as any).__playedNewsTitles = [];
+      }
+      (globalThis as any).__playedNewsTitles.push(...newTitles);
     }
 
     // Einmalig am Ende setzen (leer, falls useRandomNews=false)
@@ -1144,41 +1112,44 @@ try {
       </div>
 
       {/* Punktstände (aggregierter KPI-Impact je Rolle) */}
-      {/* Punktstände (aggregierter KPI-Impact je Rolle) */}
-<div style={{ marginTop: 20, background: 'white', padding: 16, borderRadius: 8 }}>
-  <h3>Punktstände (Summe KPI-Impact je Rolle)</h3>
-  <div style={{ overflowX: 'auto' }}>
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-      <thead style={{ background: '#f3f4f6' }}>
-        <tr>
-          <th style={{ textAlign: 'left', padding: 8 }}>Rolle</th>
-          <th style={{ textAlign: 'right', padding: 8 }}>Cash Δ</th>
-          <th style={{ textAlign: 'right', padding: 8 }}>P&L Δ</th>
-          <th style={{ textAlign: 'right', padding: 8 }}>Kunden</th>
-          <th style={{ textAlign: 'right', padding: 8 }}>Bank</th>
-          <th style={{ textAlign: 'right', padding: 8 }}>Belegschaft</th>
-          <th style={{ textAlign: 'right', padding: 8 }}>Öffentlichkeit</th>
-          <th style={{ textAlign: 'right', padding: 8 }}>Punkte (gewichtet)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {aggRows.map(row => (
-          <tr key={row.r} style={{ borderTop: '1px solid #e5e7eb' }}>
-            <td style={{ padding: 8 }}>{row.r}</td>
-            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.cashEUR).toLocaleString('de-DE')} €</td>
-            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.profitLossEUR).toLocaleString('de-DE')} €</td>
-            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.customerLoyalty)}</td>
-            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.bankTrust)}</td>
-            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.workforceEngagement)}</td>
-            <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.publicPerception)}</td>
-            <td style={{ padding: 8, textAlign: 'right', fontWeight: 700 }}>{row.points.toLocaleString('de-DE')}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
-
+      <div style={{ marginTop: 20, background: 'white', padding: 16, borderRadius: 8 }}>
+        <h3>Punktstände (Summe KPI-Impact je Rolle)</h3>
+        {(() => {
+          const agg = aggregateImpactByRole(decisions);
+          const rows = ROLES.map(r => ({ r, ...agg[r] })).sort((a, b) => b.points - a.points);
+          return (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead style={{ background: '#f3f4f6' }}>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Rolle</th>
+                    <th style={{ textAlign: 'right', padding: 8 }}>Cash Δ</th>
+                    <th style={{ textAlign: 'right', padding: 8 }}>P&L Δ</th>
+                    <th style={{ textAlign: 'right', padding: 8 }}>Kunden</th>
+                    <th style={{ textAlign: 'right', padding: 8 }}>Bank</th>
+                    <th style={{ textAlign: 'right', padding: 8 }}>Belegschaft</th>
+                    <th style={{ textAlign: 'right', padding: 8 }}>Öffentlichkeit</th>
+                    <th style={{ textAlign: 'right', padding: 8 }}>Punkte (gewichtet)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(row => (
+                    <tr key={row.r} style={{ borderTop: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: 8 }}>{row.r}</td>
+                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.cashEUR).toLocaleString('de-DE')} €</td>
+                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.profitLossEUR).toLocaleString('de-DE')} €</td>
+                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.customerLoyalty)}</td>
+                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.bankTrust)}</td>
+                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.workforceEngagement)}</td>
+                      <td style={{ padding: 8, textAlign: 'right' }}>{Math.round(row.publicPerception)}</td>
+                      <td style={{ padding: 8, textAlign: 'right', fontWeight: 700 }}>{row.points.toLocaleString('de-DE')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
 
         <div style={{ marginTop: 12 }}>
           <button
@@ -1392,7 +1363,9 @@ try {
         </div>
       </div>
 
-      
+      {/* ──────────────────────────────────────────────────────────────────── */}
+      {/* News, Zufalls‑News, Tages‑Randoms & Entscheidungsblöcke             */}
+      {/* ──────────────────────────────────────────────────────────────────── */}
       <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* Szenario‑News des Tages */}
         <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
@@ -1421,7 +1394,7 @@ try {
             <div style={{ color: '#6b7280' }}>Keine Zufalls‑News erzeugt.</div>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
-             {randomNewsForRole.map((n: any) => (
+              {randomNewsForDay.map((n) => (
                 <li key={n.id || n.title} style={{ marginBottom: 8 }}>
                   <div style={{ fontWeight: 600 }}>{n.title}</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
