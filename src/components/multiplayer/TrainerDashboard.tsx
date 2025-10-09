@@ -22,6 +22,7 @@ import { generateDailyRandomValues, type DailyRandomValues } from '@/core/engine
 
 import { makeRng } from '@/core/utils/prng';
 import { generateRandomNewsForDay } from '@/core/engine/randomNews';
+import RandomValuesDisplay from '@/components/hud/RandomValuesDisplay';
 
 // Szenario-Daten für 14 Tage
 import { day1Blocks, day1News }   from '@/data/scenario_day_01';
