@@ -18,7 +18,8 @@ import { attachmentContents } from '@/data/attachmentContents';
 
 
 // --- Szenario/Zufallswerte ---
-import { generateDailyRandomValues } from '@/core/engine/gameEngine';
+import { generateDailyRandomValues, type DailyRandomValues } from '@/core/engine/gameEngine';
+
 import { makeRng } from '@/core/utils/prng';
 import { generateRandomNewsForDay } from '@/core/engine/randomNews';
 
