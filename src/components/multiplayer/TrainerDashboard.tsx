@@ -566,14 +566,8 @@ export default function TrainerDashboard({
 
 
   const [blocksForDay, setBlocksForDay] = useState<DecisionBlock[]>([]);
-  const [dailyRandoms, setDailyRandoms] = useState<{
-    cashEUR?: number;
-    profitLossEUR?: number;
-    customerLoyalty?: number;
-    bankTrust?: number;
-    workforceEngagement?: number;
-    publicPerception?: number;
-  } | null>(null);
+ const [dailyRandoms, setDailyRandoms] = useState<DailyRandomValues | null>(null);
+
 
   // Lookup: Block-ID -> Rolle (für sofortiges, join-freies Scoring)
   const blockRoleById = useMemo(() => {
