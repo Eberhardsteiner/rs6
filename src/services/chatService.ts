@@ -11,6 +11,16 @@ export interface ChatMessage {
   message_type: 'chat' | 'system' | 'announcement';
   metadata?: {
     sender_name?: string;
+
+  /**
+   * Direktnachrichten-Ziel (optional).
+   * Wird von der DB-Policy geschützt; fehlt bei normalen/rollenbasierten Nachrichten.
+   */
+  target_player_id?: string | null;
+
+
+
+    
     sender_role?: RoleId;
     timestamp?: string;
     is_private?: boolean;
