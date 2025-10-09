@@ -1297,7 +1297,7 @@ const sendBroadcastToAll = useCallback(async () => {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr ', gap: 20 }}>
         {/* Spieler-Übersicht + Hint-Eingabe */}
         <div style={{ background: 'white', padding: 16, borderRadius: 8 }}>
           <h3>Spieler-Status</h3>
