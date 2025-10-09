@@ -616,7 +616,78 @@ const copyGameId = useCallback(async () => {
     setDeadlineTs(readDayDeadlineTs(currentDay));
   }, [currentDay]);
 
-  
+    // VORKALKULATION: Zufallsnews für alle 14 Tage deterministisch (Seed, RNG-Offsets, Difficulty, Intensität)
+  const buildRandomNewsMap = useCallback((seed: number | null) => {
+    try {
+      const g: any = globalThis as any;
+      const useRandomNews = !!g.__randomNews;
+      const result: Record<number, DayNewsItem[]> = {};
+
+      // Wenn RandomNews aus sind oder kein Seed vorhanden -> leere Listen
+      if (!useRandomNews || typeof seed !== 'number' || !Number.isFinite(seed)) {
+        for (let day = 1; day <= 14; day++) result[day] = [];
+        setRandomNewsByDay(result);
+        return;
+      }
+
+      const prevRng = (globalThis as any).__rng;
+      const playedLocal: string[] = []; // Duplikatvermeidung über Tage (nur lokal für die Vorkalkulation)
+
+      for (let day = 1; day <= 14; day++) {
+        const daySpecificSeed = seed + day * 1000;            // identisch zu Multiplayer
+        (globalThis as any).__rng = makeRng(daySpecificSeed + 500); // RNG-Offset für News (wie Multiplayer)
+
+        // Admin-Eventintensität -> Generator-Intensität
+        const useIntensity = !!g.__featureEventIntensity;
+        const arr = Array.isArray(g.__eventIntensityByDay) ? g.__eventIntensityByDay : [];
+        const intensityStr = mapIntensity(useIntensity ? (Number(arr[day - 1]) || 1) : 1);
+
+        // Schwierigkeit aus AdminPanelMPM (easy/normal/hard)
+        const diff = (g.__mpDifficulty || g.__multiplayerSettings?.mpDifficulty || 'normal') as 'easy'|'normal'|'hard';
+
+        // Items aus dem Pool deterministisch ziehen
+        const items = generateRandomNewsForDay(undefined, {
+          enabled: true,
+          intensity: intensityStr,
+          difficulty: diff,
+          day,
+          alreadyPlayed: playedLocal
+        });
+
+        // In DayNewsItem-Form für die UI mappen (Severity-Angleichung)
+        const dayNews = (items as any[]).map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          text: n.text,
+          source: n.category,
+          severity: mapSeverityForUi(n.severity),
+          impact: n.impact,
+          roles: (n as any).roles ?? null
+        }));
+
+        result[day] = dayNews;
+
+        // Titel sofort blocken (tagesübergreifende Deduplizierung wie im Multiplayer)
+        playedLocal.push(...(items as any[]).map(n => n.title));
+      }
+
+      (globalThis as any).__rng = prevRng; // RNG wiederherstellen
+      setRandomNewsByDay(result);
+    } catch (e) {
+      console.warn('[Trainer] buildRandomNewsMap failed', e);
+      setRandomNewsByDay({});
+    }
+  }, []);
+
+  // Builder beim Seed-Update (oder erstmalig) aufrufen
+  useEffect(() => {
+    const g: any = globalThis as any;
+    const s = (typeof gameSeed === 'number' && Number.isFinite(gameSeed))
+      ? gameSeed
+      : (typeof g.__gameSeed === 'number' ? g.__gameSeed : null);
+    buildRandomNewsMap(s);
+  }, [gameSeed, buildRandomNewsMap]);
+
 
     // News/Blöcke/Randoms für aktuellen Tag vorbereiten (RandomNews aus Vorkalkulation)
   useEffect(() => {
