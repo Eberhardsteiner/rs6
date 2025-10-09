@@ -395,39 +395,30 @@ export default function TrainerDashboard({
   const [isLoadingKpis, setIsLoadingKpis] = useState(true);
 
   // --- Broadcast/Anzeige-Daten ---
-
-    const [players, setPlayers] = useState<any[]>([]);
-  const [currentDay, setCurrentDay] = useState(1);
-  const [gameKpis, setGameKpis] = useState<KPI | null>(null);
-  const [error, setError] = useState<string>('');
-  const [hintDrafts, setHintDrafts] = useState<Record<string, string>>({});
-  const [isLoadingKpis, setIsLoadingKpis] = useState(true);
-
-  // Aggregation der KPI-Impacts pro Rolle vorbereiten (stabil, performant)
-  const aggByRole = useMemo(() => aggregateImpactByRole(decisions), [decisions]);
-  const aggRows = useMemo(
-    () => ROLES.map(r => ({ r, ...aggByRole[r] })).sort((a, b) => b.points - a.points),
-    [aggByRole]
-  );
-
-  // --- Broadcast/Anzeige-Daten ---
-  const [broadcastAll, setBroadcastAll] = useState('');
-  const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
-  const [attachments, setAttachments] = useState<{ title: string; content: string } | null>(null);
-  const [blocksForDay, setBlocksForDay] = useState<DecisionBlock[]>([]);
-  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
-
-
-  
   const [broadcastAll, setBroadcastAll] = useState('');
   const [newsForDay, setNewsForDay] = useState<DayNewsItem[]>([]);
   const [randomNewsForDay, setRandomNewsForDay] = useState<DayNewsItem[]>([]);
+
+  // Rollensicht für Zufalls-News (Trainer) – identisch zur Spielersicht
+  const [selectedRole, setSelectedRole] = useState<RoleId | 'ALL'>('ALL');
+  const randomNewsForRole = useMemo(() => {
+    if (selectedRole === 'ALL') return randomNewsForDay;
+    return (randomNewsForDay as any[]).filter((n: any) => {
+      const rs: string[] | null = n?.roles ?? null;
+      return !rs || rs.includes(selectedRole);
+    });
+  }, [randomNewsForDay, selectedRole]);
+
   const playedTitlesRef = React.useRef<string[]>([]); // Duplikatvermeidung über Tage
 
   const [blocksForDay, setBlocksForDay] = useState<DecisionBlock[]>([]);
   const [dailyRandoms, setDailyRandoms] = useState<{
     cashEUR?: number;
     profitLossEUR?: number;
+
+
+
+  
     customerLoyalty?: number;
     bankTrust?: number;
     workforceEngagement?: number;
