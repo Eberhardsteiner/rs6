@@ -1055,17 +1055,25 @@ try {
 
 
   // Broadcast an alle Spieler
-  const sendBroadcastToAll = useCallback(async () => {
-  const msg = (broadcastAll || '').trim();
-  if (!msg) return;
+// Broadcast an alle Spieler oder gezielt an eine Rolle
+const sendBroadcastToAll = useCallback(async () => {
+  const raw = broadcastAll;
+  const msg = (raw ?? '').trim();
+  if (!msg) {
+    setError('Broadcast-Nachricht ist leer.');
+    return;
+  }
+
   try {
     const target = broadcastTargetRole;
+    type Target = 'ALL' | RoleId;
+    const allowedRoles: RoleId[] = ['CEO', 'CFO', 'OPS', 'HRLEGAL'];
 
-    // Entweder globale Ankündigung ...
     if (target === 'ALL') {
+      // RLS-konformes Insert: player_id NULL + message_type 'announcement'
       const row = {
         game_id: gameId,
-        player_id: null,
+        player_id: null as unknown as null,
         content: msg,
         message_type: 'announcement',
         metadata: {
@@ -1073,13 +1081,16 @@ try {
           timestamp: new Date().toISOString()
         }
       };
-      const { error } = await supabase.from('messages').insert(row);
+      const { error } = await supabase.from('messages').insert(row); // kein .select()
       if (error) throw error;
     } else {
-      // ... oder Systemnachricht an eine Rolle
+      // Validierte Zielrolle + RLS-konformes Insert: 'system'
+      if (!allowedRoles.includes(target)) {
+        throw new Error('Ungültige Zielrolle für Broadcast.');
+      }
       const row = {
         game_id: gameId,
-        player_id: null,
+        player_id: null as unknown as null,
         content: msg,
         message_type: 'system',
         metadata: {
@@ -1089,7 +1100,7 @@ try {
           timestamp: new Date().toISOString()
         }
       };
-      const { error } = await supabase.from('messages').insert(row);
+      const { error } = await supabase.from('messages').insert(row); // kein .select()
       if (error) throw error;
     }
 
