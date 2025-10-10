@@ -32,6 +32,21 @@ private static isRoleUniqueViolation(err: any): boolean {
   
   // ===== Seed helpers (auto-deterministic MP) =====
 
+// Einheitliche Normalisierung von Rollenwerten auf die DB‑zulässigen Werte
+  private normalizeRole(input?: RoleId | string | null): RoleId {
+    const r = String(input ?? '').toUpperCase();
+    switch (r) {
+      case 'CEO':
+      case 'CFO':
+      case 'OPS':
+      case 'HRLEGAL':
+      case 'TRAINER':
+        return r as RoleId;
+      default:
+        return 'CEO';
+    }
+  }
+  
   // Hilfsfunktion: stabilen 32-bit-Seed aus einer UUID ableiten (Fallback, wenn DB-Write nicht möglich)
   private deriveSeedFromGameId(id: string): number {
     try {
@@ -170,7 +185,8 @@ private static isRoleUniqueViolation(err: any): boolean {
 
       this.userId = data.user.id;
       this.currentPlayerName = username;
-      this.currentRole = role?.toLowerCase() || null;
+            this.currentRole = (this.normalizeRole(role) as RoleId) || null;
+
 
       localStorage.setItem('mp_user_id', data.user.id);
       localStorage.setItem('mp_user_name', username);
