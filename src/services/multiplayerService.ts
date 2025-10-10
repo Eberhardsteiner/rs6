@@ -378,13 +378,8 @@ private static isRoleUniqueViolation(err: any): boolean {
       .update({ role: normalizedRole })
       .eq('id', this.playerId);
 
-    if (error) {
-      // Spezifische Behandlung für Unique-Constraint-Verletzung
-      if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('idx_players_game_role_unique')) {
-        throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-      }
-      throw error;
-    }
+    throw new Error('Beitritt fehlgeschlagen: ' + error.message);
+}
 
     this.currentRole = normalizedRole;
     localStorage.setItem('mp_current_role', normalizedRole);
