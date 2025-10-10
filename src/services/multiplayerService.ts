@@ -252,18 +252,19 @@ private static isRoleUniqueViolation(err: any): boolean {
       }
 
       // Als Host beitreten - NUR mit existierenden Spalten
-      const { data: player, error: playerError } = await supabase
+           const { data: player, error: playerError } = await supabase
         .from('players')
         .insert({
           game_id: game.id,
           user_id: user.id,
-          role: (this.currentRole || 'CEO').toLowerCase(),
+          role: this.normalizeRole(this.currentRole || 'CEO'),
           display_name: this.currentPlayerName || 'Host',
           is_ready: false,
           game_state: {}
         })
         .select()
         .single();
+
 
       if (playerError) {
         // Cleanup: Game löschen wenn Player nicht erstellt werden kann
@@ -387,21 +388,26 @@ private static isRoleUniqueViolation(err: any): boolean {
     }
   }
 
-  async selectRole(role: RoleId): Promise<void> {
+   async selectRole(role: RoleId): Promise<void> {
     if (!this.playerId) throw new Error('Not in game');
 
-    const normalizedRole = role.toLowerCase();
+    const normalizedRole = this.normalizeRole(role);
     const { error } = await supabase
       .from('players')
       .update({ role: normalizedRole })
       .eq('id', this.playerId);
 
-    throw new Error('Beitritt fehlgeschlagen: ' + error.message);
-}
+    if (error) {
+      if (MultiplayerService.isRoleUniqueViolation(error)) {
+        throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+      }
+      throw error;
+    }
 
     this.currentRole = normalizedRole;
     localStorage.setItem('mp_current_role', normalizedRole);
   }
+
 
   async setPlayerReady(ready: boolean = true): Promise<void> {
     if (!this.playerId) throw new Error('Not in game');
