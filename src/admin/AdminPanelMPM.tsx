@@ -807,6 +807,14 @@ function SectionTrainerAccess({
   setSettings: React.Dispatch<React.SetStateAction<MultiplayerAdminSettings>>;
 }) {
   const enabled = !!settings.features?.trainerAccess;
+
+  const handleTrainerAccessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSettings(s => ({
+      ...s,
+      features: { ...(s.features||{}), trainerAccess: e.target.checked }
+    }));
+  };
+
   return (
     <div style={box}>
       <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Trainer*in‑Teilnahme</h3>
@@ -814,10 +822,7 @@ function SectionTrainerAccess({
         <input
           type="checkbox"
           checked={enabled}
-          onChange={e => setSettings(s => ({
-            ...s,
-            features: { ...(s.features||{}), trainerAccess: e.currentTarget.checked }
-          }))}
+          onChange={handleTrainerAccessChange}
         />
         <span>Trainer*in‑Teilnahme aktivieren (fünfte Rolle im Login sichtbar)</span>
       </label>
@@ -1004,6 +1009,14 @@ function SectionInsolvencyMP({
     });
   };
 
+  const handleRuleEnabledChange = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateRule(key, { enabled: e.target.checked });
+  };
+
+  const handleRuleThresholdChange = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateRule(key, { threshold: Number(e.currentTarget.value) || 0 });
+  };
+
   return (
     <div style={box}>
       <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>Insolvenz</h3>
@@ -1023,12 +1036,12 @@ function SectionInsolvencyMP({
           return (
             <div key={k} style={{ border:'1px solid #e5e7eb', borderRadius:8, padding:12 }}>
               <label style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <input type="checkbox" checked={!!r.enabled} onChange={e=>updateRule(k,{ enabled:e.currentTarget.checked })} />
+                <input type="checkbox" checked={!!r.enabled} onChange={handleRuleEnabledChange(k)} />
                 <span style={{ fontWeight:600 }}>{labelFor(k)}</span>
               </label>
               <div style={{ marginTop:8, display:'flex', alignItems:'center', gap:8 }}>
                 <span className="small" style={{ minWidth:100 }}>Schwelle</span>
-                <input type="number" value={Number(r.threshold ?? 0)} onChange={e=>updateRule(k,{ threshold:Number(e.currentTarget.value)||0 })} style={{ width:140 }} />
+                <input type="number" value={Number(r.threshold ?? 0)} onChange={handleRuleThresholdChange(k)} style={{ width:140 }} />
               </div>
             </div>
           );
@@ -1134,6 +1147,9 @@ function SectionOperationsMP() {
   const [doSet, setDoSet] = React.useState(false);
   const [doDelta, setDoDelta] = React.useState(false);
 
+  const handleDoSetChange = (e: React.ChangeEvent<HTMLInputElement>) => setDoSet(e.target.checked);
+  const handleDoDeltaChange = (e: React.ChangeEvent<HTMLInputElement>) => setDoDelta(e.target.checked);
+
   // Szenario-Import/Append
   const [scenarioText, setScenarioText] = React.useState('');
   const svc = MultiplayerService.getInstance();
@@ -1196,8 +1212,8 @@ function SectionOperationsMP() {
       <div style={box}>
         <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>KPI steuern</h3>
         <div style={{ display:'flex', gap:12, alignItems:'center' }}>
-          <label><input type="checkbox" checked={doSet}   onChange={e=>setDoSet(e.currentTarget.checked)} /> KPI setzen</label>
-          <label><input type="checkbox" checked={doDelta} onChange={e=>setDoDelta(e.currentTarget.checked)} /> Δ anwenden</label>
+          <label><input type="checkbox" checked={doSet}   onChange={handleDoSetChange} /> KPI setzen</label>
+          <label><input type="checkbox" checked={doDelta} onChange={handleDoDeltaChange} /> Δ anwenden</label>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(0,1fr))', gap:8, marginTop:8 }}>
           <label>Cash (€)<input type="number" value={k.cashEUR||0} onChange={e=>setK(s=>({ ...s, cashEUR:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
@@ -1398,10 +1414,14 @@ function applyInvariantsGlobals(v: InvariantsLocal) {
   }
 }
 function SectionInvariantsMP({ inv, setInv }:{ inv:InvariantsLocal; setInv:(v:InvariantsLocal)=>void; }) {
+  const handleInvariantChange = (k: keyof InvariantsLocal) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInv({ ...inv, [k]: e.target.checked });
+  };
+
   const Row = ({label, k}:{label:string; k: keyof InvariantsLocal}) => (
     <div style={{ display:'flex', gap:12, alignItems:'center', margin:'6px 0' }}>
       <label style={{ minWidth:420 }}>{label}</label>
-      <input type="checkbox" checked={!!inv[k]} onChange={e=>setInv({ ...inv, [k]: e.currentTarget.checked })} />
+      <input type="checkbox" checked={!!inv[k]} onChange={handleInvariantChange(k)} />
     </div>
   );
   return (
