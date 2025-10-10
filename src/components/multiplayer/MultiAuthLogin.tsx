@@ -20,6 +20,14 @@ function isRoleUniqueViolation(err: any): boolean {
   
   // Load admin settings or from localStorage as fallback
 
+  // --- Trainer-Login: zentrale Definition, überall identisch ---
+  const TRAINER_PASSWORD = 'observer101';
+
+  // DB verlangt Uppercase für role; Hilfsfunktion zur Absicherung
+  const toDbRole = (r: RoleId) => (String(r).toUpperCase() as RoleId);
+
+  
+
   let adminSettings = (globalThis as any).__multiplayerSettings;
   if (!adminSettings) {
     const stored = localStorage.getItem('admin:multiplayer');
