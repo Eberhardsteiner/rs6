@@ -1697,14 +1697,25 @@ function isRoleUniqueViolation(err: any): boolean {
             finalGameId = newGame.id;
           } else {
             // Join existing game
+                      } else {
+            // Join existing game (Game-ID aus Join-Code/UUID auflösen)
+            let resolvedId = (joinCode || '').trim();
+            try {
+              const { data, error } = await supabase.rpc('join_game', { p_join_code: resolvedId });
+              if (!error) {
+                const rpcId = Array.isArray(data) ? data?.[0]?.game_id : data?.game_id;
+                if (rpcId) resolvedId = rpcId;
+              }
+            } catch {}
             const { data: existingGame, error: fetchErr } = await supabase
               .from('games')
               .select('id')
-              .eq('id', joinCode)
+              .eq('id', resolvedId)
               .single();
             if (fetchErr || !existingGame) throw new Error('Spiel nicht gefunden');
             finalGameId = existingGame.id;
           }
+
 
           // Upsert trainer player
                    // Upsert trainer player (DB verlangt UPPERCASE + Feld "name")
