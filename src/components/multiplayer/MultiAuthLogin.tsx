@@ -1732,54 +1732,39 @@ const { data: existingPlayers, error: epErr } = await supabase
             return;
           }
           // Get anon session
-          let { data: { user } } = await supabase.auth.getUser();
-          
-         
-          if (!user) {
-            const { data, error: authErr } = await supabase.auth.signInAnonymously();
-            if (authErr) throw authErr;
-            user = data.user!;
-          }
+let { data: { user } } = await supabase.auth.getUser();
+if (!user) {
+  const { data, error: authErr } = await supabase.auth.signInAnonymously();
+  if (authErr) throw authErr;
+  user = data.user!;
+}
 
-          let finalGameId: string;
+let finalGameId: string;
 
-          if (gameMode === 'create') {
-            // Create new game
-            const { data: newGame, error: createErr } = await supabase
-              .from('games')
-              .insert({
-                name: 'Trainer Game',
-                created_by: user.id,
-                host_id: user.id,
-                session_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-                status: 'waiting',
-                current_day: 1,
-                difficulty: 'medium',
-                game_mode: 'standard'
-              })
-              .select()
-              .single();
-            if (createErr) throw createErr;
-            finalGameId = newGame.id;
-          } else {
-         
-            // Join existing game (Game-ID aus Join-Code/UUID auflösen)
-            let resolvedId = (joinCode || '').trim();
-            try {
-              const { data, error } = await supabase.rpc('join_game', { p_join_code: resolvedId });
-              if (!error) {
-                const rpcId = Array.isArray(data) ? data?.[0]?.game_id : data?.game_id;
-                if (rpcId) resolvedId = rpcId;
-              }
-            } catch {}
-            const { data: existingGame, error: fetchErr } = await supabase
-              .from('games')
-              .select('id')
-              .eq('id', resolvedId)
-              .single();
-            if (fetchErr || !existingGame) throw new Error('Spiel nicht gefunden');
-            finalGameId = existingGame.id;
-          }
+if (gameMode === 'create') {
+  // Create new game
+  const { data: newGame, error: createErr } = await supabase
+    .from('games')
+    .insert({
+      name: 'Trainer Game',
+      created_by: user.id,
+      host_id: user.id,
+      session_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      status: 'waiting',
+      current_day: 1,
+      difficulty: 'medium',
+      game_mode: 'standard'
+    })
+    .select()
+    .single();
+  if (createErr) throw createErr;
+  finalGameId = newGame.id;
+} else {
+  // Join existing game – Code/UUID sicher auflösen
+  const gid = await resolveGameIdFromInput(joinCode);
+  finalGameId = gid;
+}
+
 
 
           // Upsert trainer player
