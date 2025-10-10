@@ -14,10 +14,12 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 function isRoleUniqueViolation(err: any): boolean {
   const codeMatch = err?.code === '23505'; // Postgres unique_violation
   const msg = String(err?.message || '');
-  const nameMatch = /\b(uq_players_game_role|idx_players_game_role_unique)\b/i.test(msg);
+  // auf neue, bereinigte Indexnamen erweitert
+  const nameMatch = /\b(uq_players_active_core_roles|uq_players_game_user_active|uq_players_active_trainer_one_per_game)\b/i.test(msg);
   const genericDup = /duplicate key value violates unique constraint/i.test(msg);
   return Boolean(codeMatch || nameMatch || genericDup);
 }
+
 
   async function resolveGameId(code: string, current?: string | null): Promise<string> {
   const raw = (code || '').trim();
