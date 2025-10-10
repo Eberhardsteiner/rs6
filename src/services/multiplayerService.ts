@@ -314,12 +314,12 @@ private static isRoleUniqueViolation(err: any): boolean {
           .eq('id', existing.id);
 
         if (updateError) {
-          // Spezifische Behandlung für Unique-Constraint-Verletzung
-          if (updateError.code === '23505' || updateError.message?.includes('duplicate key') || updateError.message?.includes('idx_players_game_role_unique')) {
-            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-          }
-          throw updateError;
-        }
+  if (MultiplayerService.isRoleUniqueViolation(updateError)) {
+    throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+  }
+  throw updateError;
+}
+
         
         this.gameId = gameId;
         this.playerId = existing.id;
