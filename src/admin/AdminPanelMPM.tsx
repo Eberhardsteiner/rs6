@@ -106,6 +106,44 @@ type MultiplayerAdminSettings = {
 
 const LS_KEY = 'admin:multiplayer';
 
+function validateSettings(s: MultiplayerAdminSettings): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (!s.mpDifficulty || !['easy', 'normal', 'hard'].includes(s.mpDifficulty)) {
+    errors.push('Ungültige Schwierigkeit');
+  }
+
+  if (!s.authMode || !['email', 'name-only', 'preset-credentials'].includes(s.authMode)) {
+    errors.push('Ungültiger Authentifizierungsmodus');
+  }
+
+  if (s.roundTimeMode && !['off', 'global', 'matrix'].includes(s.roundTimeMode)) {
+    errors.push('Ungültiger Rundenzeitmodus');
+  }
+
+  if (s.insolvencyMode && !['hard', 'soft', 'off'].includes(s.insolvencyMode)) {
+    errors.push('Ungültiger Insolvenzmodus');
+  }
+
+  if (s.creditSettings) {
+    if (typeof s.creditSettings.creditLineEUR !== 'number' || s.creditSettings.creditLineEUR < 0) {
+      errors.push('Ungültige Kreditlinie');
+    }
+    if (typeof s.creditSettings.interestRatePct !== 'number' || s.creditSettings.interestRatePct < 0) {
+      errors.push('Ungültiger Zinssatz');
+    }
+  }
+
+  if (!Array.isArray(s.eventIntensityByDay) || s.eventIntensityByDay.length !== 14) {
+    errors.push('Ungültige Event-Intensität-Daten');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
 function normalizeWeights(w?: Partial<ScoringWeights> | null): ScoringWeights {
   const toNum = (n: any, fallback: number) => {
     const x = Number(n);
@@ -235,62 +273,79 @@ function loadSettings(): MultiplayerAdminSettings {
 
 
 function saveSettings(s: MultiplayerAdminSettings) {
-  localStorage.setItem(LS_KEY, JSON.stringify(s));
+  try {
+    const serialized = JSON.stringify(s);
+    localStorage.setItem(LS_KEY, serialized);
+  } catch (e) {
+    console.error('[AdminPanelMPM] Failed to save settings to localStorage:', e);
+    throw new Error('Speichern der Einstellungen fehlgeschlagen. Möglicherweise ist der Speicher voll.');
+  }
 }
 
 function applyToGlobals(s: MultiplayerAdminSettings) {
-  const g: any = globalThis as any;
-  // Spiel-/Lobby-Themes
-  g.__multiplayerSettings = s;
-  // Schwierigkeits-/Simulations-Flags
-  g.__mpDifficulty = s.mpDifficulty;
-  g.__npcDifficulty = s.mpDifficulty; // Kompatibilität
-  g.__randomNews = !!s.randomNews;
-  g.__adaptiveDifficultyLightEnabled = !!s.adaptiveDifficultyLight;
+  try {
+    const g: any = globalThis as any;
+    // Spiel-/Lobby-Themes
+    g.__multiplayerSettings = s;
+    // Schwierigkeits-/Simulations-Flags
+    g.__mpDifficulty = s.mpDifficulty;
+    g.__npcDifficulty = s.mpDifficulty; // Kompatibilität
+    g.__randomNews = !!s.randomNews;
+    g.__adaptiveDifficultyLightEnabled = !!s.adaptiveDifficultyLight;
 
-  // NEU: Difficulty-Kompatibilität
-  g.__mode = s.mpDifficulty;
+    // NEU: Difficulty-Kompatibilität
+    g.__mode = s.mpDifficulty;
 
-  g.__scoringWeights = normalizeWeights(s.scoringWeights);
-  // Rundenzeiten
-  g.__roundTimeMode = s.roundTimeMode || 'off';
-  g.__roundTimeGlobalSec = typeof s.roundTimeGlobalSec === 'number' ? s.roundTimeGlobalSec : undefined;
-  g.__roundTimeGraceSec  = typeof s.roundTimeGraceSec  === 'number' ? s.roundTimeGraceSec  : undefined;
-  g.__roundTimeMatrix    = (s.roundTimeMatrix && typeof s.roundTimeMatrix === 'object') ? s.roundTimeMatrix : undefined;
+    g.__scoringWeights = normalizeWeights(s.scoringWeights);
+    // Rundenzeiten
+    g.__roundTimeMode = s.roundTimeMode || 'off';
+    g.__roundTimeGlobalSec = typeof s.roundTimeGlobalSec === 'number' ? s.roundTimeGlobalSec : undefined;
+    g.__roundTimeGraceSec  = typeof s.roundTimeGraceSec  === 'number' ? s.roundTimeGraceSec  : undefined;
+    g.__roundTimeMatrix    = (s.roundTimeMatrix && typeof s.roundTimeMatrix === 'object') ? s.roundTimeMatrix : undefined;
 
-  // Features
-  g.__featureSaveLoadMenu   = !!s.features?.saveLoadMenu;
-  g.__featureAutoSave       = !!s.features?.autoSave;
-  g.__featureCoach          = !!s.features?.coach;
-  g.__featureWhatIfPreview  = !!s.features?.whatIfPreview;
-  g.__featureEventIntensity = !!s.features?.eventIntensity;
-  g.__roleBasedRandomNews   = !!s.features?.roleBasedRandomNews;
- g.__trainerAccessEnabled  = !!s.features?.trainerAccess;
-  // NEU: Event-Intensity (für GameView)
-  g.__eventIntensityByDay = Array.isArray(s.eventIntensityByDay) ? s.eventIntensityByDay : Array.from({ length: 14 }, () => 1);
+    // Features
+    g.__featureSaveLoadMenu   = !!s.features?.saveLoadMenu;
+    g.__featureAutoSave       = !!s.features?.autoSave;
+    g.__featureCoach          = !!s.features?.coach;
+    g.__featureWhatIfPreview  = !!s.features?.whatIfPreview;
+    g.__featureEventIntensity = !!s.features?.eventIntensity;
+    g.__roleBasedRandomNews   = !!s.features?.roleBasedRandomNews;
+    g.__trainerAccessEnabled  = !!s.features?.trainerAccess;
+    // NEU: Event-Intensity (für GameView)
+    g.__eventIntensityByDay = Array.isArray(s.eventIntensityByDay) ? s.eventIntensityByDay : Array.from({ length: 14 }, () => 1);
 
-  // NEU: Insolvenzmodus
-  g.__insolvencyMode = s.insolvencyMode ?? 'hard';
+    // NEU: Insolvenzmodus
+    g.__insolvencyMode = s.insolvencyMode ?? 'hard';
 
- 
-  // CFO-Kredit (Legacy‑Schalter)
-  g.__mpAllowCredit = !!s.creditSettings?.enabled;
 
-  // NEU: Bank-Settings zusätzlich unter SP-kompatiblen Keys spiegeln
-  if (s.creditSettings) {
-    g.__bankSettings = {
-      creditLineEUR: Number(s.creditSettings.creditLineEUR || 0),
-      interestRatePct: Number(s.creditSettings.interestRatePct || 0)
-    };
-    g.__bankCreditLineEUR   = g.__bankSettings.creditLineEUR;
-    g.__bankInterestRatePct = g.__bankSettings.interestRatePct;
+    // CFO-Kredit (Legacy‑Schalter)
+    g.__mpAllowCredit = !!s.creditSettings?.enabled;
+
+    // NEU: Bank-Settings zusätzlich unter SP-kompatiblen Keys spiegeln
+    if (s.creditSettings) {
+      g.__bankSettings = {
+        creditLineEUR: Number(s.creditSettings.creditLineEUR || 0),
+        interestRatePct: Number(s.creditSettings.interestRatePct || 0)
+      };
+      g.__bankCreditLineEUR   = g.__bankSettings.creditLineEUR;
+      g.__bankInterestRatePct = g.__bankSettings.interestRatePct;
+    }
+
+    // Insolvenzregeln (aus Einzelspieler‑Admin übernommen, falls vorhanden)
+    if (s.insolvencyConfig && s.insolvencyConfig.rules) {
+      g.__insolvencyRules = s.insolvencyConfig.rules;
+    }
+
+    // Event-Dispatch mit verbessertem Error Handling
+    try {
+      window.dispatchEvent(new CustomEvent('admin:settings', { detail: { multiplayerSettings: s } }));
+    } catch (eventError) {
+      console.error('[AdminPanelMPM] Failed to dispatch admin:settings event:', eventError);
+    }
+  } catch (e) {
+    console.error('[AdminPanelMPM] Failed to apply settings to globals:', e);
+    throw new Error('Anwenden der Einstellungen fehlgeschlagen.');
   }
-
-  // Insolvenzregeln (aus Einzelspieler‑Admin übernommen, falls vorhanden)
-  if (s.insolvencyConfig && s.insolvencyConfig.rules) {
-    g.__insolvencyRules = s.insolvencyConfig.rules;
-  }
-  try { window.dispatchEvent(new CustomEvent('admin:settings', { detail: { multiplayerSettings: s } })); } catch {}
 }
 
 const box: React.CSSProperties = { border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, background: '#fff', marginTop: 16 };
@@ -1314,16 +1369,33 @@ function loadInvariantsLocal(): InvariantsLocal {
     bankTrustGt80_workEngagementPlus10:false, bankTrustGt80_publicPerceptionPlus80:false
   };
 }
-function saveInvariantsLocal(v: InvariantsLocal) { try { localStorage.setItem(LS_INV, JSON.stringify(v)); } catch {} }
+function saveInvariantsLocal(v: InvariantsLocal) {
+  try {
+    localStorage.setItem(LS_INV, JSON.stringify(v));
+  } catch (e) {
+    console.error('[AdminPanelMPM] Failed to save invariants to localStorage:', e);
+    throw new Error('Speichern der Invarianten fehlgeschlagen.');
+  }
+}
 function applyInvariantsGlobals(v: InvariantsLocal) {
-  (globalThis as any).__invariants = { optional: {
-    pp_penalty_on_neg_cash:!!v.ppPenaltyOnNegCash, loyalty_penalty_on_neg_cash:!!v.loyaltyPenaltyOnNegCash, payroll_delay_we_minus10:!!v.payrollDelay_weMinus10,
-    loss5_banktrust_minus8:!!v.loss5_bankTrustMinus8, loss5_publicperception_minus5:!!v.loss5_publicPerceptionMinus5, loss5_customerloyalty_minus5:!!v.loss5_customerLoyaltyMinus5,
-    banktrust_lt10_workengagement_minus10:!!v.bankTrustLt10_workEngagementMinus10, banktrust_lt10_publicperception_minus10:!!v.bankTrustLt10_publicPerceptionMinus10,
-    profit5_banktrust_plus8:!!v.profit5_bankTrustPlus8, profit5_publicperception_plus8:!!v.profit5_publicPerceptionPlus8, profit5_customerloyalty_plus8:!!v.profit5_customerLoyaltyPlus8,
-    banktrust_gt80_workengagement_plus10:!!v.bankTrustGt80_workEngagementPlus10, banktrust_gt80_publicperception_plus80:!!v.bankTrustGt80_publicPerceptionPlus80
-  }};
-  try { window.dispatchEvent(new CustomEvent('admin:invariants', { detail: v })); } catch {}
+  try {
+    (globalThis as any).__invariants = { optional: {
+      pp_penalty_on_neg_cash:!!v.ppPenaltyOnNegCash, loyalty_penalty_on_neg_cash:!!v.loyaltyPenaltyOnNegCash, payroll_delay_we_minus10:!!v.payrollDelay_weMinus10,
+      loss5_banktrust_minus8:!!v.loss5_bankTrustMinus8, loss5_publicperception_minus5:!!v.loss5_publicPerceptionMinus5, loss5_customerloyalty_minus5:!!v.loss5_customerLoyaltyMinus5,
+      banktrust_lt10_workengagement_minus10:!!v.bankTrustLt10_workEngagementMinus10, banktrust_lt10_publicperception_minus10:!!v.bankTrustLt10_publicPerceptionMinus10,
+      profit5_banktrust_plus8:!!v.profit5_bankTrustPlus8, profit5_publicperception_plus8:!!v.profit5_publicPerceptionPlus8, profit5_customerloyalty_plus8:!!v.profit5_customerLoyaltyPlus8,
+      banktrust_gt80_workengagement_plus10:!!v.bankTrustGt80_workEngagementPlus10, banktrust_gt80_publicperception_plus80:!!v.bankTrustGt80_publicPerceptionPlus80
+    }};
+
+    try {
+      window.dispatchEvent(new CustomEvent('admin:invariants', { detail: v }));
+    } catch (eventError) {
+      console.error('[AdminPanelMPM] Failed to dispatch admin:invariants event:', eventError);
+    }
+  } catch (e) {
+    console.error('[AdminPanelMPM] Failed to apply invariants to globals:', e);
+    throw new Error('Anwenden der Invarianten fehlgeschlagen.');
+  }
 }
 function SectionInvariantsMP({ inv, setInv }:{ inv:InvariantsLocal; setInv:(v:InvariantsLocal)=>void; }) {
   const Row = ({label, k}:{label:string; k: keyof InvariantsLocal}) => (
@@ -1359,6 +1431,7 @@ export default function AdminPanelMPM({ onClose }: { onClose?: () => void }) {
   const [busy, setBusy] = React.useState(false);
   const [toast, setToast] = React.useState('');
   const [inv, setInv] = React.useState<InvariantsLocal>(() => loadInvariantsLocal());
+  const [applyTimeoutId, setApplyTimeoutId] = React.useState<number | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(''), 1600); };
 
@@ -1394,27 +1467,42 @@ const importScenario = async (mode: 'import' | 'append') => {
   }
 };
 
-  
+
    const onApply = async () => {
-    try {
-      setBusy(true);
-      // Persistieren
-      const next = { ...settings, scoringWeights: normalizeWeights((settings as any)?.scoringWeights) };
-
-      saveSettings(next);
-      applyToGlobals(next);
-
-      // Invarianten persistieren & anwenden
-      saveInvariantsLocal(inv);
-      applyInvariantsGlobals(inv);
-
-      showToast('MP‑Einstellungen übernommen');
-    } catch (e) {
-      console.error('[AdminPanelMPM] apply failed:', e);
-      alert('Fehler beim Übernehmen der MP‑Einstellungen (Details siehe Konsole).');
-    } finally {
-      setBusy(false);
+    if (applyTimeoutId !== null) {
+      window.clearTimeout(applyTimeoutId);
     }
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setBusy(true);
+
+        const next = { ...settings, scoringWeights: normalizeWeights((settings as any)?.scoringWeights) };
+
+        const validation = validateSettings(next);
+        if (!validation.valid) {
+          alert('Einstellungen sind ungültig:\n' + validation.errors.join('\n'));
+          return;
+        }
+
+        saveSettings(next);
+        applyToGlobals(next);
+
+        saveInvariantsLocal(inv);
+        applyInvariantsGlobals(inv);
+
+        showToast('MP‑Einstellungen übernommen');
+      } catch (e) {
+        console.error('[AdminPanelMPM] apply failed:', e);
+        const errorMessage = e instanceof Error ? e.message : 'Unbekannter Fehler';
+        alert(`Fehler beim Übernehmen der MP‑Einstellungen:\n${errorMessage}\n\nDetails siehe Konsole.`);
+      } finally {
+        setBusy(false);
+        setApplyTimeoutId(null);
+      }
+    }, 100);
+
+    setApplyTimeoutId(timeoutId);
   };
 
 
