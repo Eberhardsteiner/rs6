@@ -1734,8 +1734,7 @@ const { data: existingPlayers, error: epErr } = await supabase
           // Get anon session
           let { data: { user } } = await supabase.auth.getUser();
           
-          // Get anon session
-          let { data: { user } } = await supabase.auth.getUser();
+         
           if (!user) {
             const { data, error: authErr } = await supabase.auth.signInAnonymously();
             if (authErr) throw authErr;
@@ -1763,8 +1762,7 @@ const { data: existingPlayers, error: epErr } = await supabase
             if (createErr) throw createErr;
             finalGameId = newGame.id;
           } else {
-            // Join existing game
-                      } else {
+         
             // Join existing game (Game-ID aus Join-Code/UUID auflösen)
             let resolvedId = (joinCode || '').trim();
             try {
