@@ -1,1434 +1,2217 @@
-// src/admin/AdminPanelMPM.tsx
-import React from 'react';
-import { supabase } from '@/services/supabaseClient';
+import React, { useState, useEffect } from 'react';
 import { MultiplayerService } from '@/services/multiplayerService';
+import { supabase } from '@/services/supabaseClient';
 import type { RoleId } from '@/core/models/domain';
-// NEU
-import ScenarioEditor from '@/admin/ScenarioEditor';
-import { parseScenarioFromText, compileScenario } from '@/services/scenarioLoader';
+import '@/styles/onboarding.css';
 
+interface MultiAuthLoginProps {
+  onSuccess: (gameId: string, role: RoleId) => void;
+}
 
-/** Schlanke, vom Einzelspielermodus getrennte Adminoberfläche NUR für den Mehrspielermodus (MPM).
- *  Persistiert ausschliesslich in localStorage('admin:multiplayer') und spiegelt in globalThis.__multiplayerSettings.
- *  Löst 'admin:settings' aus, damit laufende MP-Views (Lobby, GameView) sofort reagieren.
- */
+export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
+  // Load admin settings or from localStorage as fallback
 
-type Difficulty = 'easy'|'normal'|'hard';
-type InsolvencyMode = 'hard' | 'soft' | 'off';
+  let adminSettings = (globalThis as any).__multiplayerSettings;
+  if (!adminSettings) {
+    const stored = localStorage.getItem('admin:multiplayer');
+    if (stored) {
+      try {
+        adminSettings = JSON.parse(stored);
+        (globalThis as any).__multiplayerSettings = adminSettings;
+      } catch (e) {}
+    }
+  }
 
-type ScoringWeights = {
-  bankTrust: number;
-  publicPerception: number;
-  customerLoyalty: number;
-  workforceEngagement: number;
-};
+  const isAdminConfigured = !!adminSettings?.authMode;
 
-export type InsolvencyRuleLite = { key: string; enabled: boolean; threshold: number };
-export type InsolvencyRulesMapLite = Record<string, InsolvencyRuleLite>;
-export type InsolvencyConfigLite = { rules: InsolvencyRulesMapLite };
-
-type KPI = {
-  cashEUR?: number;
-  profitLossEUR?: number;
-  customerLoyalty?: number;
-  bankTrust?: number;
-  workforceEngagement?: number;
-  publicPerception?: number;
-};
-
-
-type MultiplayerAdminSettings = {
-  // Auth & Lobby
-  authMode: 'email' | 'name-only' | 'preset-credentials';
-  allowEarlyEntry: boolean;
-  forceAllPlayersForAdvance: boolean;
-  autoStartWhenReady: boolean;
-  autoStartDelaySeconds: number;
-  lobbyCountdownSeconds: number;
-  presetCredentials: {
-    CEO: { username: string; password: string };
-    CFO: { username: string; password: string };
-    OPS: { username: string; password: string };
-    HRLEGAL: { username: string; password: string };
-  };
-  lobbySettings: {
-    showTimer: boolean;
-    backgroundTheme: 'corporate' | 'dynamic' | 'minimal';
-    welcomeMessage?: string;
-  };
-
-  // Spielseite
-  gameSettings: {
-    backgroundTheme: 'corporate' | 'dynamic' | 'minimal';
-    allowUserOverride: boolean;
-  };
-
-  // Rundenzeit
-  roundTimeMode: 'off'|'global'|'matrix';
-  roundTimeGlobalSec?: number;
-  roundTimeGraceSec?: number;
-  roundTimeMatrix?: Record<number, { CEO:number; CFO:number; OPS:number; HRLEGAL:number; }>;
-
-  // Schwierigkeits-/Simulationsparameter
-  mpDifficulty: Difficulty;
-  randomNews: boolean;
-  adaptiveDifficultyLight: boolean;
-  scoringWeights: ScoringWeights;
-  eventIntensityByDay: number[];
-
-  // Bank/Kredit
-  creditSettings: {
-    enabled: boolean;
-    creditLineEUR: number;
-    interestRatePct: number;
-  };
-
-  // Feature-Schalter
-  features: {
-    saveLoadMenu: boolean;
-    autoSave: boolean;
-    coach?: boolean;
-    whatIfPreview: boolean;
-    eventIntensity: boolean;
-    /** NEU: steuert Trainer-Rolle im Login */
-    trainerAccess?: boolean;
-     /** NEU: rollenspezifische Zufalls-News (wirkt auch im MP-Client für Sicht) */
-   roleBasedRandomNews?: boolean;
-  };
-
+  const [authMode, setAuthMode] = useState<'email' | 'name-only' | 'preset-credentials'>(
+    adminSettings?.authMode || 'name-only'
+  );
+  const [step, setStep] = useState<'game-mode' | 'role-auth' | 'joining'>('game-mode');
 
   
-  // Insolvenz (MP übernimmt Modus + lite-Regeln)
-  insolvencyMode: InsolvencyMode;
-  insolvencyConfig?: InsolvencyConfigLite;
-};
-
-
-const LS_KEY = 'admin:multiplayer';
-
-function normalizeWeights(w?: Partial<ScoringWeights> | null): ScoringWeights {
-  const toNum = (n: any, fallback: number) => {
-    const x = Number(n);
-    return isFinite(x) && x >= 0 ? x : fallback;
-  };
-  const base = {
-    bankTrust:           toNum(w?.bankTrust, 25),
-    publicPerception:    toNum(w?.publicPerception, 25),
-    customerLoyalty:     toNum(w?.customerLoyalty, 25),
-    workforceEngagement: toNum(w?.workforceEngagement, 25),
-  };
-  let sum = base.bankTrust + base.publicPerception + base.customerLoyalty + base.workforceEngagement;
-  if (!isFinite(sum) || sum <= 0) {
-    return { bankTrust: 25, publicPerception: 25, customerLoyalty: 25, workforceEngagement: 25 };
-  }
-  const f = 100 / sum;
-  const out = {
-    bankTrust:           Math.round(base.bankTrust * f),
-    publicPerception:    Math.round(base.publicPerception * f),
-    customerLoyalty:     Math.round(base.customerLoyalty * f),
-    workforceEngagement: Math.round(base.workforceEngagement * f),
-  };
-  // Rundungsdrift auf exakt 100% korrigieren
-  const drift = 100 - (out.bankTrust + out.publicPerception + out.customerLoyalty + out.workforceEngagement);
-  if (drift !== 0) {
-    const keys = ['bankTrust','publicPerception','customerLoyalty','workforceEngagement'] as const;
-    let maxKey = keys[0]; let maxVal = out[maxKey];
-    for (const k of keys) { if (out[k] > maxVal) { maxVal = out[k]; maxKey = k; } }
-    (out as any)[maxKey] = out[maxKey] + drift;
-  }
-  return out;
-}
-
-
-function generatePassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
-  let password = '';
-  for (let i = 0; i < 12; i++) password += chars.charAt(Math.floor(Math.random() * chars.length));
-  return password;
-}
-function getDefaultSettings(): MultiplayerAdminSettings {
-  return {
-    authMode: 'name-only',
-    allowEarlyEntry: false,
-    forceAllPlayersForAdvance: false,
-    autoStartWhenReady: false,
-    autoStartDelaySeconds: 5,
-    lobbyCountdownSeconds: 10,
-    presetCredentials: {
-      CEO: { username: 'ceo', password: 'ceo123' },
-      CFO: { username: 'cfo', password: 'cfo123' },
-      OPS: { username: 'ops', password: 'ops123' },
-      HRLEGAL: { username: 'hr', password: 'hr123' },
-    },
-    lobbySettings: {
-      showTimer: true,
-      backgroundTheme: 'corporate',
-      welcomeMessage: 'Willkommen zur Crisis Management Simulation!'
-    },
-    gameSettings: {
-      backgroundTheme: 'dynamic',
-      allowUserOverride: false
-    },
-    creditSettings: {
-      enabled: false,
-      creditLineEUR: 500000,
-      interestRatePct: 8.5
-    },
-    roundTimeMode: 'off',
-    roundTimeGlobalSec: 0,
-    roundTimeGraceSec: 180,
-    roundTimeMatrix: {},
-    mpDifficulty: 'normal',
-    randomNews: true,
-    adaptiveDifficultyLight: false,
-
-    // ▼ neu
-    insolvencyMode: 'hard',
-
-    scoringWeights: { bankTrust: 25, publicPerception: 25, customerLoyalty: 25, workforceEngagement: 25 },
-    eventIntensityByDay: Array.from({ length: 14 }, () => 1),
-        features: { saveLoadMenu: false, autoSave: false, coach: false, whatIfPreview: false, eventIntensity: false, trainerAccess: false, roleBasedRandomNews: false },
-    insolvencyConfig: undefined,
-  };
-}
-
-
-
-function upgradeSettings(base: MultiplayerAdminSettings, raw: any): MultiplayerAdminSettings {
-  const s: any = { ...base, ...(raw || {}) };
-
-  // Verschachtelte Objekte mit Defaults mergen
-  s.features          = { ...base.features,          ...(raw?.features || {}) };
-  s.presetCredentials = { ...base.presetCredentials, ...(raw?.presetCredentials || {}) };
-  s.lobbySettings     = { ...base.lobbySettings,     ...(raw?.lobbySettings || {}) };
-  s.gameSettings      = { ...base.gameSettings,      ...(raw?.gameSettings || {}) };
-  s.creditSettings    = { ...base.creditSettings,    ...(raw?.creditSettings || {}) };
-
-  // Arrays / optionale Felder defensiv übernehmen
-  s.eventIntensityByDay = Array.isArray(raw?.eventIntensityByDay) ? raw.eventIntensityByDay : base.eventIntensityByDay;
-  s.roundTimeMatrix     = raw?.roundTimeMatrix ?? base.roundTimeMatrix;
-  s.roundTimeMode       = raw?.roundTimeMode   ?? base.roundTimeMode;
-  s.roundTimeGlobalSec  = typeof raw?.roundTimeGlobalSec === 'number' ? raw.roundTimeGlobalSec : base.roundTimeGlobalSec;
-  s.roundTimeGraceSec   = typeof raw?.roundTimeGraceSec  === 'number' ? raw.roundTimeGraceSec  : base.roundTimeGraceSec;
-
-  s.insolvencyMode   = raw?.insolvencyMode   ?? base.insolvencyMode;
-  s.insolvencyConfig = raw?.insolvencyConfig ?? base.insolvencyConfig;
-
-  // Kritisch: scoringWeights *immer* valide & normiert
-  s.scoringWeights = normalizeWeights(raw?.scoringWeights);
-
-  return s as MultiplayerAdminSettings;
-}
-
-
-function loadSettings(): MultiplayerAdminSettings {
-  const base = getDefaultSettings();
-  const saved = localStorage.getItem(LS_KEY);
-  if (saved) {
-    try {
-      const raw = JSON.parse(saved);
-      return upgradeSettings(base, raw);
-    } catch {}
-  }
-  return base;
-}
-
-
-function saveSettings(s: MultiplayerAdminSettings) {
-  localStorage.setItem(LS_KEY, JSON.stringify(s));
-}
-
-function applyToGlobals(s: MultiplayerAdminSettings) {
-  const g: any = globalThis as any;
-  // Spiel-/Lobby-Themes
-  g.__multiplayerSettings = s;
-  // Schwierigkeits-/Simulations-Flags
-  g.__mpDifficulty = s.mpDifficulty;
-  g.__npcDifficulty = s.mpDifficulty; // Kompatibilität
-  g.__randomNews = !!s.randomNews;
-  g.__adaptiveDifficultyLightEnabled = !!s.adaptiveDifficultyLight;
-
-  // NEU: Difficulty-Kompatibilität
-  g.__mode = s.mpDifficulty;
-
-  g.__scoringWeights = normalizeWeights(s.scoringWeights);
-  // Rundenzeiten
-  g.__roundTimeMode = s.roundTimeMode || 'off';
-  g.__roundTimeGlobalSec = typeof s.roundTimeGlobalSec === 'number' ? s.roundTimeGlobalSec : undefined;
-  g.__roundTimeGraceSec  = typeof s.roundTimeGraceSec  === 'number' ? s.roundTimeGraceSec  : undefined;
-  g.__roundTimeMatrix    = (s.roundTimeMatrix && typeof s.roundTimeMatrix === 'object') ? s.roundTimeMatrix : undefined;
-
-  // Features
-  g.__featureSaveLoadMenu   = !!s.features?.saveLoadMenu;
-  g.__featureAutoSave       = !!s.features?.autoSave;
-  g.__featureCoach          = !!s.features?.coach;
-  g.__featureWhatIfPreview  = !!s.features?.whatIfPreview;
-  g.__featureEventIntensity = !!s.features?.eventIntensity;
-  g.__roleBasedRandomNews   = !!s.features?.roleBasedRandomNews;
- g.__trainerAccessEnabled  = !!s.features?.trainerAccess;
-  // NEU: Event-Intensity (für GameView)
-  g.__eventIntensityByDay = Array.isArray(s.eventIntensityByDay) ? s.eventIntensityByDay : Array.from({ length: 14 }, () => 1);
-
-  // NEU: Insolvenzmodus
-  g.__insolvencyMode = s.insolvencyMode ?? 'hard';
-
- 
-  // CFO-Kredit (Legacy‑Schalter)
-  g.__mpAllowCredit = !!s.creditSettings?.enabled;
-
-  // NEU: Bank-Settings zusätzlich unter SP-kompatiblen Keys spiegeln
-  if (s.creditSettings) {
-    g.__bankSettings = {
-      creditLineEUR: Number(s.creditSettings.creditLineEUR || 0),
-      interestRatePct: Number(s.creditSettings.interestRatePct || 0)
-    };
-    g.__bankCreditLineEUR   = g.__bankSettings.creditLineEUR;
-    g.__bankInterestRatePct = g.__bankSettings.interestRatePct;
-  }
-
-  // Insolvenzregeln (aus Einzelspieler‑Admin übernommen, falls vorhanden)
-  if (s.insolvencyConfig && s.insolvencyConfig.rules) {
-    g.__insolvencyRules = s.insolvencyConfig.rules;
-  }
-  try { window.dispatchEvent(new CustomEvent('admin:settings', { detail: { multiplayerSettings: s } })); } catch {}
-}
-
-const box: React.CSSProperties = { border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, background: '#fff', marginTop: 16 };
-
-function SectionMultiplayer({ settings, setSettings }: { 
-  settings: MultiplayerAdminSettings; 
-  setSettings: (updater: (prev: MultiplayerAdminSettings) => MultiplayerAdminSettings) => void; 
-}) {
+  // Trainer-Feature: über AdminPanelMPM schaltbar
+  const trainerFeatureEnabled =
+    !!adminSettings?.features?.trainerAccess ||
+    !!(globalThis as any).__trainerAccessEnabled;
 
 
 
   
-  const roles = ['CEO', 'CFO', 'OPS', 'HRLEGAL'] as const;
+  // Check for trainer bypass (ensure session + DB upsert)
+  useEffect(() => {
+    (async () => {
+      const isTrainerMode = localStorage.getItem('mp_trainer_mode') === 'true';
+            // Trainer-Feature-Flag (vom AdminPanel gespiegelt) + Passwort
+      const trainerFeatureEnabled = !!adminSettings?.features?.trainerAccess;
+      const TRAINER_PASSWORD = 'observer101';
 
-  const mpGenerateCredentials = () => {
-    const newCredentials = {} as typeof settings.presetCredentials;
-    roles.forEach(role => {
-      newCredentials[role] = {
-        username: `${role.toLowerCase()}_${Math.random().toString(36).substring(7)}`,
-        password: generatePassword()
-      };
-    });
-    setSettings(s => ({ ...s, presetCredentials: newCredentials }));
-  };
+      const trainerGameId = localStorage.getItem('mp_trainer_game_id');
+      if (!isTrainerMode || !trainerGameId) return;
 
-  const handleCopyCredentials = async () => {
+      try {
+        // 1) Auth sicherstellen
+        let { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          const { data, error } = await supabase.auth.signInAnonymously();
+          if (error) throw error;
+          user = data.user!;
+        }
+
+        // 2) Spiel prüfen
+        const { data: game } = await supabase
+          .from('games')
+          .select('id')
+          .eq('id', trainerGameId)
+          .single();
+        if (!game) return;
+
+        // 3) Trainer-Player upsert
+        const { data: playerRow } = await supabase
+          .from('players')
+          .upsert({
+            game_id: trainerGameId,
+            user_id: user.id,
+            role: 'TRAINER',
+            name: 'Trainer',
+            is_gm: false,
+            is_active: true,
+            last_seen: new Date().toISOString()
+          }, { onConflict: 'game_id,user_id' })
+          .select()
+          .single();
+
+        // Optional: Mitgliedschaft für RLS ergänzen (nicht kritisch, Fehler werden geloggt)
+        try {
+          await supabase.from('trainer_memberships').upsert({
+            game_id: trainerGameId, user_id: user.id
+          });
+        } catch (e) {
+          console.warn('[TrainerMemberships] bypass upsert failed:', e);
+        }
+
+        // 4) LocalStorage vervollständigen
+        localStorage.setItem('mp_current_game', trainerGameId);
+        localStorage.setItem('mp_current_role', 'TRAINER');
+        if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
+
+        // 5) Weiter in die App
+        onSuccess(trainerGameId, 'TRAINER');
+      } catch (e) {
+        console.error('[Trainer-Bypass] Fehler:', e);
+      }
+    })();
+  }, []);
+
+  // Authentication fields
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [playerName, setPlayerName] = useState('');
+  const [selectedRole, setSelectedRole] = useState<RoleId | null>(null);
+  const [occupiedRoles, setOccupiedRoles] = useState<Set<RoleId>>(new Set());
+  const [currentGameId, setCurrentGameId] = useState<string | null>(null);
+
+  // Game fields
+  const [gameMode, setGameMode] = useState<'create' | 'join' | null>(null);
+    // Trainer-spezifisches Passwortfeld
+  const [trainerPass, setTrainerPass] = useState('');
+
+  const [joinCode, setJoinCode] = useState('');
+  const [gameCode, setGameCode] = useState('');
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const mpService = MultiplayerService.getInstance();
+
+  
+  // Trainer-spezifisch
+  const [trainerPassword, setTrainerPassword] = useState('');
+  const [trainerCreatedGameId, setTrainerCreatedGameId] = useState<string | null>(null);
+  const [trainerJoinId, setTrainerJoinId] = useState<string>('');
+
+  
+  useEffect(() => {
+    // Check URL parameters for game code
+    const urlParams = new URLSearchParams(window.location.search);
+    const game = urlParams.get('game');
+    if (game) {
+      setJoinCode(game.toUpperCase());
+      setGameMode('join');
+      setGameCode(game);
+    }
+  }, []);
+
+  // Funktion zum Abrufen der belegten Rollen (FIX: select user_id as well)
+  const fetchOccupiedRoles = async (gameIdOrCode: string) => {
     try {
-      const text = Object.entries(settings.presetCredentials)
-        .map(([role, creds]) => `${role}: ${creds.username} / ${creds.password}`)
-        .join('\n');
+      // Zuerst versuchen wir es als Game-ID
+      let gameId = gameIdOrCode;
 
-      await navigator.clipboard.writeText(text);
-      alert('Alle Zugangsdaten wurden in die Zwischenablage kopiert.');
-    } catch (err) {
-      console.error('Fehler beim Kopieren:', err);
-      alert('Kopieren in die Zwischenablage nicht möglich.');
+     // Join-Codes sind jetzt UUIDs: erst per RPC auflösen; wenn nicht gefunden, bleibt es die eingegebene ID.
+       gameId = gameIdOrCode.trim();
+      try {
+        const { data, error } = await supabase.rpc('join_game', { p_join_code: gameId });
+        if (!error) {
+          const rpcId = Array.isArray(data) ? data?.[0]?.game_id : data?.game_id;
+          if (rpcId) {
+            gameId = rpcId;
+          }
+        } else {
+          console.warn('[join_game] RPC warn:', error.message ?? error);
+        }
+      } catch (e) {
+        console.warn('[join_game] RPC exception:', e);
+      }
+      if (!gameId) {
+        setOccupiedRoles(new Set());
+        return;
+      }
+
+      // Jetzt holen wir die belegten Rollen (inkl. user_id)
+      const { data: players, error: pErr } = await supabase
+        .from('players')
+        .select('role,user_id')
+        .eq('game_id', gameId)
+        .not('role', 'is', null);
+
+      if (pErr) {
+        console.error('Error fetching players:', pErr);
+        setOccupiedRoles(new Set());
+        return;
+      }
+
+      // Aktuelle User-ID holen
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id;
+
+      const occ = new Set<RoleId>();
+      (players || []).forEach((p: any) => { 
+        // Rolle nur als belegt markieren, wenn sie nicht vom aktuellen User ist
+        if (p.role && p.user_id !== currentUserId) {
+          occ.add(p.role as RoleId);
+        }
+      });
+
+      setOccupiedRoles(occ);
+      setCurrentGameId(gameId);
+    } catch (e) {
+      console.error('Error in fetchOccupiedRoles:', e);
+      setOccupiedRoles(new Set());
     }
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Authentifizierung */}
-      <div style={box}>
-        <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Authentifizierung</h3>
+  // Belegte Rollen für Join-Code laden und Echtzeit-Updates einrichten
+  useEffect(() => {
+    let subscription: any = null;
+    let isMounted = true;
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontWeight: 600, display: 'block', marginBottom: 8 }}>
-            Anmelde‑Modus
+    const setupRealtimeAndFetch = async () => {
+      if (gameMode !== 'join' || !joinCode || joinCode.trim().length < 3) {
+        if (isMounted) {
+          setOccupiedRoles(new Set());
+          setCurrentGameId(null);
+        }
+        return;
+      }
+
+      // Initiale Daten laden
+      await fetchOccupiedRoles(joinCode.trim());
+
+      // Game-ID für Subscription holen
+      const code = joinCode.trim().toUpperCase();
+      const { data: game } = await supabase
+        .from('games')
+        .select('id')
+        .eq('session_code', code)
+        .single();
+
+      if (game && isMounted) {
+        // Echtzeit-Subscription einrichten
+        subscription = supabase
+          .channel(`game-${game.id}-players`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'players',
+              filter: `game_id=eq.${game.id}`
+            },
+            async (payload) => {
+              console.log('Player change detected:', payload);
+              if (isMounted) {
+                // Bei jeder Änderung die Rollen neu laden
+                await fetchOccupiedRoles(code);
+              }
+            }
+          )
+          .subscribe();
+      }
+    };
+
+    // Debounce für bessere Performance
+    const timeoutId = setTimeout(setupRealtimeAndFetch, 400);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+      if (subscription) {
+        supabase.removeChannel(subscription);
+      }
+    };
+  }, [joinCode, gameMode]);
+
+  // Rolle reservieren (optimistische UI-Updates)
+  const reserveRole = async (role: RoleId, gameId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+
+      // Prüfen ob Rolle noch frei ist
+      const { data: existingPlayers, error: existingErr } = await supabase
+        .from('players')
+        .select('id')
+        .eq('game_id', gameId)
+        .eq('role', role);
+
+      if (existingErr) {
+        console.error('Error checking role before reserving:', existingErr);
+        return false;
+      }
+      if ((existingPlayers || []).length > 0) {
+        setError('Diese Rolle wurde gerade von einem anderen Spieler gewählt.');
+        return false;
+      }
+
+      // Rolle reservieren durch Update des eigenen Player-Eintrags
+      const { error } = await supabase
+        .from('players')
+        .update({ role: role })
+        .eq('game_id', gameId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error reserving role:', error);
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Error in reserveRole:', err);
+      return false;
+    }
+  };
+
+  // Step 1: Choose game mode (create or join)
+  const handleGameAction = async () => {
+    setError('');
+
+    if (gameMode === 'join') {
+      if (!joinCode.trim()) {
+        setError('Bitte Spiel-Code eingeben');
+        return;
+      }
+
+      // Fetch occupied roles before showing role selection
+      setLoading(true);
+      try {
+        await fetchOccupiedRoles(joinCode.trim());
+        setLoading(false);
+      } catch (e) {
+        setError('Fehler beim Laden der Spieldaten');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Proceed to role selection
+    setStep('role-selection');
+  };
+
+  // Step 2: Create or join game with selected role
+  const handleFinalJoin = async () => {
+    if (!selectedRole) {
+      setError('Bitte wähle eine Rolle');
+      return;
+    }
+
+    if (occupiedRoles.has(selectedRole)) {
+      setError('Diese Rolle ist bereits belegt. Bitte wähle eine freie Rolle.');
+      return;
+    }
+
+    setLoading(true);
+
+    // Trainer-Passwort prüfen (nur bei TRAINER)
+    if (selectedRole === 'TRAINER') {
+      if (trainerPass !== TRAINER_PASSWORD) {
+        setLoading(false);
+        setError('Falsches Trainer-Passwort');
+        return;
+      }
+    }
+
+
+    setError('');
+    setStep('joining');
+
+    try {
+      let finalGameId = '';
+
+      if (gameMode === 'create') {
+        // Create new game
+        const { gameId } = await mpService.createGame({
+          name: `${playerName}'s Spiel`,
+          max_players: 4,
+          settings: {
+            authMode: authMode,
+            seed: Math.floor(Math.random() * 1000000)
+          }
+        });
+        finalGameId = gameId;
+
+        // Join as host with selected role
+        await mpService.joinGame(finalGameId, playerName, selectedRole);
+
+      } else if (gameMode === 'join') {
+        // Join existing game
+        if (!joinCode) {
+          throw new Error('Bitte Spiel-Code eingeben');
+        }
+
+        // Game-ID bestimmen
+        const gid = currentGameId || (await (async () => {
+          const { data: g } = await supabase.from('games').select('id').eq('session_code', joinCode).single();
+          return g?.id || joinCode; // Fallback
+        })());
+
+        // FRISCHER SERVER-CHECK direkt vor dem Beitritt (vermeidet Race Conditions)
+        const { data: existingPlayers, error: epErr } = await supabase
+          .from('players')
+          .select('id')
+          .eq('game_id', gid)
+          .eq('role', selectedRole);
+
+        if (epErr) throw epErr;
+        if ((existingPlayers || []).length > 0) {
+          throw new Error('Diese Rolle wurde gerade von einem anderen Spieler gewählt.');
+        }
+
+        await mpService.joinGame(gid, playerName, selectedRole);
+        finalGameId = gid;
+      }
+
+      // Falls Trainer*in: Modus markieren & ggf. Zugangsdaten mit Game-ID kopieren
+      if (selectedRole === 'TRAINER') {
+        try {
+          localStorage.setItem('mp_trainer_mode', 'true');
+          localStorage.setItem('mp_trainer_game_id', finalGameId);
+          localStorage.setItem('mp_current_role', 'TRAINER');
+          localStorage.setItem('mp_current_game', finalGameId);
+
+          if (authMode === 'preset-credentials') {
+            const creds = adminSettings?.presetCredentials;
+            const lines = ['CEO','CFO','OPS','HRLEGAL']
+              .map(r => `${r}: ${creds?.[r as keyof typeof creds]?.username} / ${creds?.[r as keyof typeof creds]?.password}`)
+              .join('\n');
+            const payload = `${lines}\nGame-ID: ${finalGameId}`;
+            try { await navigator.clipboard.writeText(payload); }
+            catch {
+              const ta = document.createElement('textarea'); ta.value = payload; ta.style.position = 'fixed'; ta.style.opacity = '0';
+              document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+            }
+            alert('Game-ID und Zugangsdaten wurden in die Zwischenablage kopiert.');
+          }
+        } catch {}
+      }
+
+      
+      // Success - call parent callback
+      onSuccess(finalGameId, selectedRole);
+
+    } catch (err: any) {
+      setError(err.message || 'Fehler beim Spielbeitritt');
+      setStep('game-mode');
+      setLoading(false);
+    }
+  };
+
+  // Email Registration
+  const handleEmailRegister = async () => {
+    if (password !== confirmPassword) {
+      setError('Passwörter stimmen nicht überein');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { display_name: playerName }
+        }
+      });
+
+      if (error) throw error;
+
+      setVerificationSent(true);
+      // Nach Verifizierung muss User sich einloggen
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Email Login
+  const handleEmailLogin = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+
+      setIsAuthenticated(true);
+      setPlayerName(data.user?.user_metadata?.display_name || email.split('@')[0]);
+      setStep('game-mode');
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Anonymous Login
+  const handleAnonymousLogin = async () => {
+    if (!playerName.trim()) {
+      setError('Bitte Namen eingeben');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await mpService.signInAnonymously(playerName);
+      setIsAuthenticated(true);
+      setStep('game-mode');
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Preset Credentials Login
+  const handlePresetLogin = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const username = (document.getElementById('preset-username') as HTMLInputElement)?.value;
+      const password = (document.getElementById('preset-password') as HTMLInputElement)?.value;
+
+      if (!username || !password) {
+        throw new Error('Bitte Benutzername und Passwort eingeben');
+      }
+
+      await mpService.signInAnonymously(username);
+      setPlayerName(username);
+      setIsAuthenticated(true);
+      setStep('game-mode');
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Role selection handler with optimistic updates
+  const handleRoleSelection = async (role: RoleId) => {
+    if (occupiedRoles.has(role)) {
+      setError(`Die Rolle ${role} ist bereits belegt.`);
+      return;
+    }
+
+    // Rolle sofort als ausgewählt markieren
+    setSelectedRole(role);
+    setError('');
+  };
+
+  // Reagiere sofort, wenn die aktuell gewählte Rolle zwischenzeitlich belegt wird
+  useEffect(() => {
+    if (selectedRole && occupiedRoles.has(selectedRole)) {
+      setSelectedRole(null);
+      setError('Diese Rolle wurde soeben von einem anderen Spieler belegt. Bitte wähle eine andere.');
+    }
+  }, [occupiedRoles, selectedRole]);
+
+  // Common styles
+  const styles = {
+    root: {
+      minHeight: '100vh',
+      background: 'radial-gradient(ellipse at top left, rgba(37,99,235,0.15) 0%, transparent 40%), radial-gradient(ellipse at bottom right, rgba(20,184,166,0.15) 0%, transparent 40%), linear-gradient(180deg, #0a0e1a 0%, #0f1729 50%, #0a0e1a 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px',
+      position: 'relative' as const,
+      overflow: 'hidden'
+    },
+    card: {
+      width: '100%',
+      maxWidth: '500px',
+      background: 'linear-gradient(145deg, rgba(15,31,55,0.95) 0%, rgba(11,18,32,0.98) 50%, rgba(8,15,28,0.95) 100%)',
+      border: '2px solid rgba(37,99,235,0.3)',
+      borderRadius: '24px',
+      padding: '40px',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
+      backdropFilter: 'blur(12px)',
+      position: 'relative' as const,
+      overflow: 'hidden'
+    },
+    panel: {
+      width: '100%',
+      background: 'linear-gradient(145deg, rgba(15,31,55,0.95) 0%, rgba(11,18,32,0.98) 50%, rgba(8,15,28,0.95) 100%)',
+      border: '2px solid rgba(37,99,235,0.3)',
+      borderRadius: '24px',
+      padding: '40px',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
+      backdropFilter: 'blur(12px)',
+      position: 'relative' as const,
+      zIndex: 1
+    },
+    title: {
+      fontSize: '32px',
+      fontWeight: '800',
+      background: 'linear-gradient(135deg, #ffffff 0%, #60a5fa 25%, #2563eb 50%, #14b8a6 75%, #10b981 100%)',
+      backgroundSize: '200% 200%',
+      WebkitBackgroundClip: 'text',
+      backgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      animation: 'gradient-shift 4s ease infinite',
+      textAlign: 'center' as const,
+      marginBottom: '12px',
+      filter: 'drop-shadow(0 0 30px rgba(37,99,235,0.5))'
+    },
+    subtitle: {
+      color: '#94a3b8',
+      textAlign: 'center' as const,
+      marginBottom: '32px',
+      fontSize: '16px'
+    },
+    input: {
+      width: '100%',
+      padding: '14px 16px',
+      background: 'rgba(11,18,32,0.8)',
+      border: '2px solid rgba(37,99,235,0.3)',
+      borderRadius: '12px',
+      color: '#e6eefc',
+      fontSize: '16px',
+      marginBottom: '16px',
+      outline: 'none',
+      transition: 'all 0.3s ease'
+    },
+    button: {
+      width: '100%',
+      padding: '16px',
+      background: 'linear-gradient(135deg, #14b8a6, #10b981)',
+      color: '#041121',
+      border: 'none',
+      borderRadius: '12px',
+      fontSize: '18px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      position: 'relative' as const,
+      overflow: 'hidden',
+      boxShadow: '0 8px 24px rgba(20,184,166,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+      textTransform: 'uppercase' as const,
+      letterSpacing: '1px'
+    },
+    roleButton: {
+      padding: '16px',
+      border: '2px solid rgba(37,99,235,0.3)',
+      borderRadius: '12px',
+      background: 'rgba(16,35,63,0.4)',
+      color: '#ffffff',
+      WebkitTextFillColor: '#ffffff',
+      textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      fontWeight: '600',
+      position: 'relative' as const
+    },
+    roleButtonActive: {
+      background: 'linear-gradient(145deg, rgba(37,99,235,0.3), rgba(59,130,246,0.4))',
+      borderColor: '#14b8a6',
+      transform: 'translateY(-2px)',
+      boxShadow: '0 8px 24px rgba(20,184,166,0.3)',
+      color: '#ffffff',
+      WebkitTextFillColor: '#ffffff'
+    },
+    roleButtonDisabled: {
+      opacity: 0.7,
+      cursor: 'not-allowed',
+      borderColor: 'rgba(239,68,68,0.9)',
+      background: 'repeating-linear-gradient(45deg, rgba(127,29,29,0.5), rgba(127,29,29,0.5) 10px, rgba(185,28,28,0.4) 10px, rgba(185,28,28,0.4) 20px)',
+      position: 'relative' as const,
+      filter: 'grayscale(0.5) brightness(0.7)',
+      boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(239,68,68,0.3)',
+      pointerEvents: 'none' as const
+    },
+    roleButtonUpdating: {
+      animation: 'pulse-update 0.6s ease-out'
+    },
+    errorBox: {
+      marginTop: '20px',
+      padding: '14px',
+      background: 'rgba(239,68,68,0.1)',
+      border: '1px solid rgba(239,68,68,0.3)',
+      borderRadius: '12px',
+      color: '#fca5a5',
+      fontSize: '14px',
+      animation: 'shake 0.5s ease-out'
+    },
+    modeCard: {
+      padding: '24px',
+      border: '2px solid rgba(37,99,235,0.3)',
+      borderRadius: '16px',
+      background: 'linear-gradient(145deg, rgba(16,35,63,0.4), rgba(12,25,45,0.6))',
+      cursor: 'pointer',
+      transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+      textAlign: 'center' as const,
+      position: 'relative' as const,
+      overflow: 'hidden'
+    },
+    modeCardActive: {
+      transform: 'translateY(-8px) scale(1.02)',
+      borderColor: '#14b8a6',
+      background: 'linear-gradient(145deg, rgba(20,184,166,0.15), rgba(16,185,129,0.2))',
+      boxShadow: '0 20px 40px rgba(20,184,166,0.3), 0 0 60px rgba(20,184,166,0.2)'
+    },
+    realtimeIndicator: {
+      position: 'absolute' as const,
+      top: '8px',
+      right: '8px',
+      width: '8px',
+      height: '8px',
+      borderRadius: '50%',
+      background: '#10b981',
+      animation: 'pulse-indicator 2s ease-in-out infinite'
+    }
+  };
+
+  // Render Auth Mode Selector (disabled)
+  const renderAuthModeSelector = () => null;
+
+  // ========== SCREEN 1: GAME MODE SELECTION (Create vs Join) ==========
+  const renderGameModeSelection = () => (
+    <div style={styles.root}>
+      {/* Animated background */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'radial-gradient(circle at 50% 50%, rgba(20,184,166,0.15), transparent 70%)',
+        animation: 'pulse 3s ease-in-out infinite',
+        pointerEvents: 'none'
+      }} />
+
+      <div style={{
+        ...styles.panel,
+        maxWidth: '500px',
+        margin: '0 auto'
+      }}>
+        <h2 style={{
+          fontSize: '32px',
+          fontWeight: '700',
+          color: '#14b8a6',
+          marginBottom: '12px',
+          textAlign: 'center'
+        }}>
+          Multiplayer-Modus
+        </h2>
+        <p style={{
+          color: '#94a3b8',
+          textAlign: 'center',
+          marginBottom: '40px',
+          fontSize: '14px'
+        }}>
+          Wähle eine Option um zu starten
+        </p>
+
+        {/* CREATE GAME Button */}
+        <button
+          onClick={() => {
+            setGameMode('create');
+            setStep('role-auth');
+          }}
+          style={{
+            width: '100%',
+            padding: '20px',
+            marginBottom: '16px',
+            background: 'linear-gradient(135deg, #14b8a6 0%, #0891b2 100%)',
+            border: 'none',
+            borderRadius: '12px',
+            color: '#fff',
+            fontSize: '18px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 8px 24px rgba(20,184,166,0.4)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 12px 32px rgba(20,184,166,0.6)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(20,184,166,0.4)';
+          }}
+        >
+          🎮 Neues Spiel starten
+        </button>
+
+        {/* JOIN GAME Section */}
+        <div style={{
+          padding: '24px',
+          background: 'rgba(15,23,42,0.8)',
+          border: '1px solid rgba(20,184,166,0.2)',
+          borderRadius: '12px'
+        }}>
+          <label style={{
+            display: 'block',
+            color: '#e6eefc',
+            fontSize: '14px',
+            fontWeight: '600',
+            marginBottom: '12px'
+          }}>
+            Einem Spiel beitreten
           </label>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="radio"
-                checked={settings.authMode === 'name-only'}
-                onChange={() => setSettings(s => ({ ...s, authMode: 'name-only' }))}
-              />
-              Nur Name (Anonym)
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="radio"
-                checked={settings.authMode === 'email'}
-                onChange={() => setSettings(s => ({ ...s, authMode: 'email' }))}
-              />
-              Email‑Registrierung
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="radio"
-                checked={settings.authMode === 'preset-credentials'}
-                onChange={() => setSettings(s => ({ ...s, authMode: 'preset-credentials' }))}
-              />
-              Vorgegebene Zugangsdaten
-            </label>
-          </div>
+          <input
+            type="text"
+            placeholder="Game-ID eingeben"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+            style={{
+              ...styles.input,
+              marginBottom: '12px'
+            }}
+          />
+          <button
+            onClick={async () => {
+              if (!joinCode.trim()) {
+                setError('Bitte Game-ID eingeben');
+                return;
+              }
+              setError('');
+              setGameMode('join');
+              // Fetch occupied roles
+              await fetchOccupiedRoles(joinCode);
+              setStep('role-auth');
+            }}
+            disabled={!joinCode.trim()}
+            style={{
+              ...styles.button,
+              width: '100%',
+              opacity: !joinCode.trim() ? 0.5 : 1,
+              cursor: !joinCode.trim() ? 'not-allowed' : 'pointer'
+            }}
+          >
+            Beitreten →
+          </button>
         </div>
 
-        {settings.authMode === 'preset-credentials' && (
-          <div style={{ marginTop: 20, padding: 16, background: '#f9fafb', borderRadius: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h4 style={{ margin: 0 }}>Zugangsdaten für Rollen</h4>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={mpGenerateCredentials}
-                  style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14 }}>
-                  🎲 Neue generieren
-                </button>
-                <button onClick={handleCopyCredentials}
-                  style={{ padding: '6px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14 }}>
-                  📋 Alle kopieren
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {roles.map(role => (
-                <div key={role} style={{ padding: 12, background: 'white', borderRadius: 6, border: '1px solid #e5e7eb' }}>
-                  <h5 style={{ margin: '0 0 8px', color: '#374151' }}>{role}</h5>
-                  <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div><span style={{ color: '#6b7280' }}>User:</span>{' '}
-                      <span style={{ fontFamily: 'monospace', fontSize: 12 }}>
-                        {settings.presetCredentials[role].username}
-                      </span>
-                    </div>
-                    <div><span style={{ color: '#6b7280' }}>Pass:</span>{' '}
-                      <span style={{ fontFamily: 'monospace', fontSize: 12 }}>
-                        {settings.presetCredentials[role].password}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {error && (
+          <div style={{
+            ...styles.errorBox,
+            marginTop: '16px'
+          }}>
+            ⚠️ {error}
           </div>
         )}
       </div>
+    </div>
+  );
 
-      {/* Spielstart‑Regeln */}
-      <div style={box}>
-        <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Spielstart‑Regeln</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={settings.allowEarlyEntry}
-              onChange={e => setSettings(s => ({ ...s, allowEarlyEntry: e.target.checked }))}
-            />
-            <span>Spieler können das SPIEL starten/beitreten, auch wenn nicht alle da sind (Einzelstart möglich)</span>
-          </label>
+  // Render Login Form
+  const renderLoginForm = () => (
+    <div style={styles.root}>
+      {/* Animated glow effect */}
+      <div style={{
+        position: 'absolute',
+        width: '800px',
+        height: '800px',
+        background: 'radial-gradient(circle, rgba(20,184,166,0.3) 0%, transparent 60%)',
+        borderRadius: '50%',
+        animation: 'pulse-glow 4s ease-in-out infinite'
+      }} />
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={settings.forceAllPlayersForAdvance}
-              onChange={e => setSettings(s => ({ ...s, forceAllPlayersForAdvance: e.target.checked }))}
-            />
-            <span>Alle Spieler müssen ihre Entscheidungen abgeben vor Tageswechsel</span>
-          </label>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={settings.autoStartWhenReady}
-              onChange={e => setSettings(s => ({ ...s, autoStartWhenReady: e.target.checked }))}
-            />
-            <span>Automatischer Start wenn alle bereit sind</span>
-          </label>
-
-          {settings.autoStartWhenReady && (
-            <div style={{ marginLeft: 28, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <label>Verzögerung (Sekunden):</label>
-              <input
-                type="number"
-                min={0}
-                max={60}
-                value={settings.autoStartDelaySeconds}
-                onChange={e => setSettings(s => ({ ...s, autoStartDelaySeconds: parseInt(e.target.value) || 0 }))}
-                style={{ width: 80, padding: '4px 8px', borderRadius: 4 }}
-              />
-            </div>
-          )}
-        </div>
+      {/* Flying Lines Background */}
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+        <div style={{
+          position: 'absolute',
+          width: '180px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(37,99,235,0.5), transparent)',
+          top: '25%',
+          animation: 'fly-line 16s linear infinite 1s'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '220px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(20,184,166,0.4), transparent)',
+          top: '60%',
+          animation: 'fly-line 21s linear infinite 5s'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '1px',
+          height: '180px',
+          background: 'linear-gradient(180deg, transparent, rgba(168,85,247,0.4), transparent)',
+          left: '20%',
+          animation: 'fly-line-vertical 19s linear infinite 3s'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '1px',
+          height: '220px',
+          background: 'linear-gradient(180deg, transparent, rgba(37,99,235,0.3), transparent)',
+          left: '80%',
+          animation: 'fly-line-vertical 24s linear infinite 8s'
+        }} />
       </div>
 
-      {/* MP‑Schwierigkeit */}
-      <div style={box}>
-        <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Schwierigkeit (Mehrspielermodus)</h3>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{...styles.card, position: 'relative'}}>
+        {/* Realtime indicator */}
+        {gameMode === 'join' && currentGameId && (
+          <div style={styles.realtimeIndicator} title="Live-Synchronisation aktiv" />
+        )}
+
+        {/* Border Animation Effect */}
+        <div style={{
+          position: 'absolute',
+          inset: '-2px',
+          borderRadius: '24px',
+          padding: '2px',
+          background: 'linear-gradient(90deg, #14b8a6, #2563eb, #a855f7, #14b8a6)',
+          backgroundSize: '300% 100%',
+          animation: 'border-flow 8s linear infinite',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude',
+          opacity: 0.6,
+          pointerEvents: 'none'
+        }} />
+
+        {/* Glowing accent line */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '2px',
+          background: 'linear-gradient(90deg, transparent, #14b8a6, transparent)',
+          animation: 'scan-line 3s linear infinite'
+        }} />
+
+        <h1 style={styles.title}>Liquiditätskrise</h1>
+        <p style={styles.subtitle}>
+          {authMode === 'email' && 'Mit Email-Account anmelden'}
+          {authMode === 'name-only' && 'Schnellstart ohne Registrierung'}
+          {authMode === 'preset-credentials' && 'Mit vorgegebenen Zugangsdaten'}
+        </p>
+
+        {isAdminConfigured && (
+          <div style={{ 
+            marginBottom: '24px',
+            padding: '8px 16px',
+            background: 'rgba(37,99,235,0.1)',
+            border: '1px solid rgba(37,99,235,0.3)',
+            borderRadius: '8px',
+            fontSize: '13px',
+            color: '#94a3b8',
+            textAlign: 'center'
+          }}>
+            🔐 Authentifizierungsmethode vom Administrator vorgegeben
+          </div>
+        )}
+
+        {authMode === 'email' && (
+          <>
+            {step === 'login' ? (
+              <>
+                <input
+                  type="email"
+                  placeholder="Email-Adresse"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  style={styles.input}
+                  onFocus={(e) => {
+                    (e.currentTarget as HTMLInputElement).style.borderColor = '#14b8a6';
+                    (e.currentTarget as HTMLInputElement).style.boxShadow = '0 0 40px rgba(20,184,166,0.3)';
+                  }}
+                  onBlur={(e) => {
+
+                    (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(37,99,235,0.3)';
+                    (e.currentTarget as HTMLInputElement).style.boxShadow = 'none';
+                  }}
+                />
+                <input
+                  type="password"
+                  placeholder="Passwort"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  style={styles.input}
+                  onFocus={(e) => {
+                    (e.currentTarget as HTMLInputElement).style.borderColor = '#14b8a6';
+                    (e.currentTarget as HTMLInputElement).style.boxShadow = '0 0 40px rgba(20,184,166,0.3)';
+                  }}
+                  onBlur={(e) => {
+                    (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(37,99,235,0.3)';
+                    (e.currentTarget as HTMLInputElement).style.boxShadow = 'none';
+                  }}
+                />
+                <button
+                  onClick={handleEmailLogin}
+                  disabled={loading}
+                  style={{
+                    ...styles.button,
+                    opacity: loading ? 0.5 : 1,
+                    cursor: loading ? 'not-allowed' : 'pointer'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loading) {
+                      (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-3px) scale(1.05)';
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 12px 32px rgba(20,184,166,0.5), 0 0 60px rgba(20,184,166,0.3)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0) scale(1)';
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px rgba(20,184,166,0.4)';
+                  }}
+                >
+                  {loading ? 'Anmelden...' : 'Anmelden'}
+                </button>
+                <button
+                  onClick={() => setStep('register')}
+                  style={{
+                    ...styles.button,
+                    background: 'transparent',
+                    border: '2px solid rgba(20,184,166,0.5)',
+                    color: '#14b8a6',
+                    marginTop: '12px',
+                    boxShadow: 'none'
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.1)';
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = '#14b8a6';
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(20,184,166,0.5)';
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+                  }}
+                >
+                  Neuen Account erstellen
+                </button>
+              </>
+            ) : (
+              // Register form
+              <>
+                {!verificationSent ? (
+                  <>
+                    <input
+                      type="text"
+                      placeholder="Spielername"
+                      value={playerName}
+                      onChange={e => setPlayerName(e.target.value)}
+                      style={styles.input}
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email-Adresse"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      style={styles.input}
+                    />
+                    <input
+                      type="password"
+                      placeholder="Passwort"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      style={styles.input}
+                    />
+                    <input
+                      type="password"
+                      placeholder="Passwort bestätigen"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      style={styles.input}
+                    />
+                    <button
+                      onClick={handleEmailRegister}
+                      disabled={loading}
+                      style={{
+                        ...styles.button,
+                        opacity: loading ? 0.5 : 1
+                      }}
+                    >
+                      {loading ? 'Registrieren...' : 'Registrieren'}
+                    </button>
+                  </>
+                ) : (
+                  <div style={{
+                    padding: '24px',
+                    background: 'rgba(16,185,129,0.1)',
+                    border: '1px solid rgba(16,185,129,0.3)',
+                    borderRadius: '12px',
+                    textAlign: 'center',
+                    color: '#10b981'
+                  }}>
+                    ✅ Bestätigungsmail wurde gesendet!<br/>
+                    Bitte prüfen Sie Ihren Posteingang.
+                    <button
+                      onClick={() => { setStep('login'); setVerificationSent(false); }}
+                      style={{ 
+                        marginTop: '12px', 
+                        color: '#14b8a6', 
+                        background: 'none', 
+                        border: 'none', 
+                        cursor: 'pointer',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      Zum Login
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {authMode === 'name-only' && (
+          <>
             <input
-              type="radio"
-              name="mp-difficulty"
-              checked={(settings.mpDifficulty || 'normal') === 'easy'}
-              onChange={() => setSettings(s => ({ ...s, mpDifficulty: 'easy' }))}
+              type="text"
+              placeholder="Dein Spielername"
+              value={playerName}
+              onChange={e => setPlayerName(e.target.value)}
+              style={styles.input}
+              autoFocus
+              onFocus={(e) => {
+                (e.currentTarget as HTMLInputElement).style.borderColor = '#14b8a6';
+                (e.currentTarget as HTMLInputElement).style.boxShadow = '0 0 40px rgba(20,184,166,0.3)';
+                (e.currentTarget as HTMLInputElement).style.background = 'rgba(11,18,32,0.95)';
+              }}
+              onBlur={(e) => {
+                (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(37,99,235,0.3)';
+                (e.currentTarget as HTMLInputElement).style.boxShadow = 'none';
+                (e.currentTarget as HTMLInputElement).style.background = 'rgba(11,18,32,0.8)';
+              }}
             />
-            Easy
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              onClick={handleAnonymousLogin}
+              disabled={loading || !playerName.trim()}
+              style={{
+                ...styles.button,
+                opacity: (!playerName.trim() || loading) ? 0.5 : 1,
+                cursor: (!playerName.trim() || loading) ? 'not-allowed' : 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                if (playerName.trim() && !loading) {
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-3px) scale(1.05)';
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 12px 32px rgba(20,184,166,0.5), 0 0 60px rgba(20,184,166,0.3)';
+                  (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0) scale(1)';
+                (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px rgba(20,184,166,0.4)';
+                (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)';
+              }}
+            >
+              {loading ? 'Starte...' : 'Weiter →'}
+            </button>
+          </>
+        )}
+
+        {authMode === 'preset-credentials' && (
+          <>
             <input
-              type="radio"
-              name="mp-difficulty"
-              checked={(settings.mpDifficulty || 'normal') === 'normal'}
-              onChange={() => setSettings(s => ({ ...s, mpDifficulty: 'normal' }))}
+              id="preset-username"
+              type="text"
+              placeholder="Benutzername"
+              style={styles.input}
             />
-            Normal
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input
-              type="radio"
-              name="mp-difficulty"
-              checked={(settings.mpDifficulty || 'normal') === 'hard'}
-              onChange={() => setSettings(s => ({ ...s, mpDifficulty: 'hard' }))}
+              id="preset-password"
+              type="password"
+              placeholder="Passwort"
+              style={styles.input}
             />
-            Hard
-          </label>
-        </div>
-        <div className="small" style={{ marginTop: 6, color: '#6b7280' }}>
-          Wirkt nur im Mehrspielermodus auf: (1) <em>Zufalls‑News</em> (Anteil <strong>critical</strong> steigt mit Schwierigkeit) und
-          (2) negative Zufallswerte bei <em>Cash</em> &amp; <em>P&amp;L</em> (Hard ≙ ×1.3, Easy ≙ ×0.7). NPC‑Entscheidungen bleiben unberührt.
-        </div>
+            <button
+              onClick={handlePresetLogin}
+              disabled={loading}
+              style={{
+                ...styles.button,
+                opacity: loading ? 0.5 : 1
+              }}
+            >
+              {loading ? 'Anmelden...' : 'Anmelden'}
+            </button>
+          </>
+        )}
+
+        {error && (
+          <div style={styles.errorBox} aria-live="assertive">
+            ⚠️ {error}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Render Role Selection Screen
+  const renderRoleSelection = () => (
+    <div style={styles.root}>
+      {/* Flying Lines Background */}
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+        <div style={{
+          position: 'absolute',
+          width: '200px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(20,184,166,0.5), transparent)',
+          top: '30%',
+          animation: 'fly-line 17s linear infinite 2s'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '170px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(37,99,235,0.4), transparent)',
+          top: '65%',
+          animation: 'fly-line 22s linear infinite 6s'
+        }} />
       </div>
 
-      {/* CFO‑Kredit */}
-      <div style={box}>
-        <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>💰 CFO Kreditaufnahme (Mehrspielermodus)</h3>
+      <div style={{...styles.card, position: 'relative'}}>
+        {/* Border Animation Effect */}
+        <div style={{
+          position: 'absolute',
+          inset: '-2px',
+          borderRadius: '24px',
+          padding: '2px',
+          background: 'linear-gradient(90deg, #2563eb, #14b8a6, #a855f7, #2563eb)',
+          backgroundSize: '300% 100%',
+          animation: 'border-flow 10s linear infinite',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude',
+          opacity: 0.7,
+          pointerEvents: 'none'
+        }} />
 
-        <div style={{ marginBottom: 16, padding: 12, background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae6fd' }}>
-          <p style={{ margin: 0, fontSize: 13, color: '#0c4a6e' }}>
-            Aktiviert die Kreditaufnahme‑Mechanik aus dem Einzelspielermodus speziell für den CFO im MP.
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <h1 style={{
+            ...styles.title,
+            fontSize: '28px',
+            marginBottom: '8px'
+          }}>
+            Willkommen {playerName}!
+          </h1>
+          <p style={{ color: '#94a3b8', fontSize: '16px' }}>
+            {gameMode === 'create' && 'Neues Spiel erstellen'}
+            {gameMode === 'join' && `Spiel beitreten: ${joinCode}`}
           </p>
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <input
-            type="checkbox"
-            checked={settings.creditSettings?.enabled ?? false}
-            onChange={e => setSettings(s => ({
-              ...s,
-              creditSettings: {
-                ...s.creditSettings,
-                enabled: e.target.checked,
-                creditLineEUR: s.creditSettings?.creditLineEUR ?? 500000,
-                interestRatePct: s.creditSettings?.interestRatePct ?? 8.5
-              }
-            }))}
-          />
-          <span style={{ fontWeight: 600 }}>Kreditaufnahme für CFO aktivieren</span>
-        </label>
-
-        {settings.creditSettings?.enabled && (
-          <div style={{ padding: 16, background: 'white', borderRadius: 8, border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: '#374151' }}>Kreditlinie (EUR)</label>
-              <input
-                type="number"
-                value={settings.creditSettings?.creditLineEUR ?? 500000}
-                onChange={e => setSettings(s => ({ ...s, creditSettings: { ...s.creditSettings!, creditLineEUR: parseInt(e.target.value) || 0 } }))}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14 }}
-                placeholder="z.B. 500000"
-              />
-              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>Maximaler Kreditrahmen für den CFO.</div>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: '#374151' }}>Zinssatz p.a. (%)</label>
-              <input
-                type="number"
-                step="0.1"
-                value={settings.creditSettings?.interestRatePct ?? 8.5}
-                onChange={e => setSettings(s => ({ ...s, creditSettings: { ...s.creditSettings!, interestRatePct: parseFloat(e.target.value) || 0 } }))}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14 }}
-                placeholder="z.B. 8.5"
-              />
-              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>Jährlicher Zinssatz (Abzug täglich p.a./365).</div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Warteraum (Lobby) */}
-      <div style={box}>
-        <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Warteraum (Lobby)</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={settings.lobbySettings.showTimer}
-              onChange={e => setSettings(s => ({
-                ...s,
-                lobbySettings: { ...s.lobbySettings, showTimer: e.target.checked }
-              }))}
-            />
-            <span>Countdown‑Timer beim Start anzeigen</span>
+        {/* Role Selection */}
+        <div style={{ marginBottom: '24px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '12px',
+            fontWeight: '600',
+            color: '#e6eefc',
+            fontSize: '14px',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}>
+            Wähle deine Rolle:
+            {gameMode === 'join' && occupiedRoles.size > 0 && (
+              <span style={{
+                fontSize: '12px',
+                color: '#94a3b8',
+                marginLeft: '8px',
+                fontWeight: 'normal'
+              }}>
+                ({occupiedRoles.size} bereits belegt)
+              </span>
+            )}
           </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            {(
+              trainerFeatureEnabled
+                ? (['CEO','CFO','OPS','HRLEGAL','TRAINER'] as RoleId[])
+                : (['CEO','CFO','OPS','HRLEGAL'] as RoleId[])
+            ).map(role => {
+              const isOccupied = occupiedRoles.has(role);
+              const isSelected = selectedRole === role;
+              return (
+                <button
+                  key={role}
+                  onClick={() => handleRoleSelection(role)}
+                  disabled={isOccupied}
+                  aria-disabled={isOccupied}
+                  aria-label={isOccupied ? `${role} belegt` : `${role} frei`}
+                  title={isOccupied ? 'Rolle belegt – Auswahl gesperrt' : (role === 'TRAINER' ? 'Trainer (Passwort erforderlich)' : 'Rolle wählen')}
+                  style={{
+                    ...styles.roleButton,
+                    ...(isSelected ? styles.roleButtonActive : {}),
+                    ...(isOccupied ? styles.roleButtonDisabled : {}),
+                    color: '#ffffff',
+                    WebkitTextFillColor: '#ffffff'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isOccupied && selectedRole !== role) {
+                      (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(37,99,235,0.2)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isOccupied && selectedRole !== role) {
+                      (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
+                    }
+                  }}
+                >
+                  {isOccupied && (
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        fontSize: 24,
+                        filter: 'drop-shadow(0 0 8px rgba(239,68,68,1))',
+                        animation: 'pulse 2s ease-in-out infinite'
+                      }}
+                    >
+                      🔒
+                    </div>
+                  )}
 
-          {settings.lobbySettings.showTimer && (
-            <div style={{ marginLeft: 28, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <label>Countdown (Sekunden):</label>
-              <input
-                type="number"
-                min={3}
-                max={10}
-                value={settings.lobbyCountdownSeconds}
-                onChange={e => setSettings(s => ({ ...s, lobbyCountdownSeconds: parseInt(e.target.value) || 3 }))}
-                style={{ width: 80, padding: '4px 8px', borderRadius: 4 }}
-              />
-            </div>
-          )}
+                  <div style={{
+                    fontSize: '16px',
+                    color: isOccupied ? 'rgba(255,255,255,0.4)' : '#ffffff',
+                    WebkitTextFillColor: isOccupied ? 'rgba(255,255,255,0.4)' : '#ffffff',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                    textDecoration: isOccupied ? 'line-through' : 'none'
+                  }}>
+                    {role}
+                  </div>
 
-          <div>
-            <label style={{ fontWeight: 600, display: 'block', marginBottom: 8 }}>
-              Lobby‑Design
-            </label>
-            <select
-              value={settings.lobbySettings.backgroundTheme}
-              onChange={e => setSettings(s => ({
-                ...s,
-                lobbySettings: { ...s.lobbySettings, backgroundTheme: e.target.value as any }
-              }))}
-              style={{ padding: '6px 12px', borderRadius: 6, width: '100%', maxWidth: 300 }}
-            >
-              <option value="corporate">Corporate (Professionell)</option>
-              <option value="dynamic">Dynamic (Animiert)</option>
-              <option value="minimal">Minimal (Schlicht)</option>
-            </select>
+                  {isOccupied && (
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'rgba(0,0,0,0.85)',
+                      borderRadius: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      pointerEvents: 'none'
+                    }}>
+                      <div style={{
+                        fontSize: '28px',
+                        animation: 'pulse 2s ease-in-out infinite'
+                      }}>
+                        🔒
+                      </div>
+                      <div style={{
+                        fontSize: '14px',
+                        fontWeight: '800',
+                        color: '#ef4444',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1.5px',
+                        textShadow: '0 0 10px rgba(239,68,68,0.8), 0 0 20px rgba(239,68,68,0.5)'
+                      }}>
+                        BELEGT
+                      </div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
+        </div>
 
-          <div>
-            <label style={{ fontWeight: 600, display: 'block', marginBottom: 8 }}>
-              Willkommensnachricht
-            </label>
-            <textarea
-              value={settings.lobbySettings.welcomeMessage}
-              onChange={e => setSettings(s => ({
-                ...s,
-                lobbySettings: { ...s.lobbySettings, welcomeMessage: e.target.value }
-              }))}
-              placeholder="z.B. Willkommen zur Crisis Management Simulation!"
+        {/* Trainer Password Field */}
+        {selectedRole === 'TRAINER' && (
+          <div style={{ marginBottom: '20px' }}>
+            <input
+              type="password"
+              placeholder="Trainer-Passwort"
+              value={trainerPass}
+              onChange={(e) => setTrainerPass(e.target.value)}
               style={{
-                width: '100%',
-                minHeight: 60,
-                padding: 8,
-                borderRadius: 6,
-                border: '1px solid #e5e7eb',
-                resize: 'vertical'
+                ...styles.input,
+                borderColor: trainerPass ? '#14b8a6' : 'rgba(37,99,235,0.3)'
               }}
             />
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+        )}
 
-function SectionGameTheme({
-  settings,
-  setSettings
-}: {
-  settings: MultiplayerAdminSettings;
-  setSettings: (updater: (prev: MultiplayerAdminSettings) => MultiplayerAdminSettings) => void;
-}) {
-  return (
-    <div style={box}>
-      <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Spielseite – Theme</h3>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <label style={{ fontWeight: 600, display: 'block' }}>Hintergrund</label>
-        <select
-          value={settings.gameSettings?.backgroundTheme ?? 'dynamic'}
-          onChange={e =>
-            setSettings(s => ({
-              ...s,
-              gameSettings: {
-                ...(s.gameSettings ?? { allowUserOverride: false }),
-                backgroundTheme: e.target.value as any
-              }
-            }))
-          }
-          style={{ padding: '6px 12px', borderRadius: 6, width: '100%', maxWidth: 300 }}
+        <button
+          onClick={handleFinalJoin}
+          disabled={!selectedRole || loading}
+          style={{
+            ...styles.button,
+            opacity: (!selectedRole || loading) ? 0.5 : 1,
+            cursor: (!selectedRole || loading) ? 'not-allowed' : 'pointer'
+          }}
         >
-          <option value="dynamic">Dynamic (animiertes Neuronen‑Netz)</option>
-          <option value="minimal">Minimal (schlicht, hell)</option>
-          <option value="corporate">Corporate (statisch, dunkel)</option>
-        </select>
+          {loading ? 'Laden...' : (gameMode === 'create' ? '🚀 Spiel erstellen' : '✅ Spiel beitreten')}
+        </button>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={!!settings.gameSettings?.allowUserOverride}
-            onChange={e =>
-              setSettings(s => ({
-                ...s,
-                gameSettings: {
-                  ...(s.gameSettings ?? { backgroundTheme: 'dynamic' }),
-                  allowUserOverride: e.target.checked
-                }
-              }))
-            }
-          />
-          <span>Spieler dürfen Theme überschreiben</span>
-        </label>
+        <button
+          onClick={() => {
+            setStep('game-mode');
+            setSelectedRole(null);
+            setError('');
+          }}
+          style={{
+            ...styles.button,
+            background: 'rgba(100,116,139,0.2)',
+            marginTop: '12px'
+          }}
+        >
+          ← Zurück
+        </button>
 
-        <div className="small" style={{ color: '#6b7280' }}>
-          Benutzer‑Override via URL (<code>?gameTheme=…</code>) oder 🎨‑Widget auf der Spielseite (wenn aktiviert).
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** ───────────────────────── Gameplay/Features (MP) ───────────────────────── */
-function SectionGameplayMP({
-  settings, setSettings
-}:{ settings: MultiplayerAdminSettings; setSettings: React.Dispatch<React.SetStateAction<MultiplayerAdminSettings>>; }) {
-  return (
-    <div style={box}>
-      <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Gameplay &amp; Features</h3>
-
-      {/* Zufalls-News */}
-      <label style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <input
-          type="checkbox"
-          checked={!!settings.randomNews}
-          onChange={e => setSettings(s => ({ ...s, randomNews: e.target.checked }))}
-        />
-        <span>Zufalls‑News aktiv</span>
-      </label>
-{/* Rollenspezifische Zufalls-News */}
-     <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:8 }}>
-       <input
-         type="checkbox"
-         checked={!!settings.features?.roleBasedRandomNews}
-         onChange={e => setSettings(s => ({ ...s, features: { ...(s.features||{}), roleBasedRandomNews: e.target.checked } }))}
-       />
-       <span>Rollenspezifische Zufalls‑News</span>
-     </label>
-      {/* Adaptive Difficulty (Light) */}
-      <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:8 }}>
-        <input
-          type="checkbox"
-          checked={!!settings.adaptiveDifficultyLight}
-          onChange={e => setSettings(s => ({ ...s, adaptiveDifficultyLight: e.target.checked }))}
-        />
-        <span>Adaptive Difficulty (Light)</span>
-      </label>
-
-      <div style={{ height:8 }} />
-
-      {/* Feature‑Schalter */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:8 }}>
-        <label><input type="checkbox"
-          checked={!!settings.features?.saveLoadMenu}
-          onChange={e => setSettings(s => ({ ...s, features:{ ...(s.features||{}), saveLoadMenu: e.target.checked } }))}
-        /> Speicher-/Laden‑Menü</label>
-
-        <label><input type="checkbox"
-          checked={!!settings.features?.autoSave}
-          onChange={e => setSettings(s => ({ ...s, features:{ ...(s.features||{}), autoSave: e.target.checked } }))}
-        /> Auto‑Save</label>
-
-        <label><input type="checkbox"
-          checked={!!settings.features?.coach}
-          onChange={e => setSettings(s => ({ ...s, features:{ ...(s.features||{}), coach: e.target.checked } }))}
-        /> Coach</label>
-
-        <label><input type="checkbox"
-          checked={!!settings.features?.eventIntensity}
-          onChange={e => setSettings(s => ({ ...s, features:{ ...(s.features||{}), eventIntensity: e.target.checked } }))}
-        /> Event‑Intensity (Feature)</label>
-      </div>
-    </div>
-  );
-}
-
-/** ───────────────────────── Trainer-Teilnahme (Schalter) ───────────────────────── */
-function SectionTrainerAccess({
-  settings, setSettings
-}:{
-  settings: MultiplayerAdminSettings;
-  setSettings: React.Dispatch<React.SetStateAction<MultiplayerAdminSettings>>;
-}) {
-  const enabled = !!settings.features?.trainerAccess;
-  return (
-    <div style={box}>
-      <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Trainer*in‑Teilnahme</h3>
-      <label style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={e => setSettings(s => ({
-            ...s,
-            features: { ...(s.features||{}), trainerAccess: e.currentTarget.checked }
-          }))}
-        />
-        <span>Trainer*in‑Teilnahme aktivieren (fünfte Rolle im Login sichtbar)</span>
-      </label>
-      <div className="small" style={{ color:'#6b7280', marginTop:6 }}>
-        Der/die Trainer*in meldet sich künftig über das Login‑Panel als Rolle <strong>TRAINER</strong> an (passwortgeschützt).
-        Das Adminpanel enthält keinen Trainer‑Login mehr.
-      </div>
-    </div>
-  );
-}
-
-
-/** ───────────────────────── Rundenzeiten (MP) ───────────────────────── */
-function SectionRoundTimeMP({
-  settings, setSettings
-}:{ settings: MultiplayerAdminSettings; setSettings: React.Dispatch<React.SetStateAction<MultiplayerAdminSettings>>; }) {
-  const roles = ['CEO','CFO','OPS','HRLEGAL'] as const;
-  const days  = Array.from({length:14}, (_,i)=>i+1);
-  const mode = settings.roundTimeMode || 'off';
-  const matrix = settings.roundTimeMatrix || {};
-  const globalSec = Number(settings.roundTimeGlobalSec || 0);
-  const graceSec  = Number(settings.roundTimeGraceSec  || 180);
-
-  const setMode       = (m:'off'|'global'|'matrix') => setSettings(s => ({ ...s, roundTimeMode: m }));
-  const setGlobalSec  = (n:number) => setSettings(s => ({ ...s, roundTimeGlobalSec: n }));
-  const setGraceSec   = (n:number) => setSettings(s => ({ ...s, roundTimeGraceSec: n }));
-  const setCell = (day:number, role:(typeof roles)[number], n:number) => {
-    setSettings(s => {
-      const base = { ...(s.roundTimeMatrix||{}) } as any; const row = { ...(base[day]||{}) };
-      row[role] = n; return { ...s, roundTimeMatrix: { ...base, [day]: row } };
-    });
-  };
-
-  return (
-    <div style={box}>
-      <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Rundenzeiten</h3>
-
-      <div style={{ display:'flex', gap:12, alignItems:'center' }}>
-        <span style={{ fontWeight:600, minWidth:180 }}>Modus</span>
-        <label><input type="radio" name="rtmode" checked={mode==='off'} onChange={()=>setMode('off')} /> Automatik</label>
-        <label><input type="radio" name="rtmode" checked={mode==='global'} onChange={()=>setMode('global')} /> Global</label>
-        <label><input type="radio" name="rtmode" checked={mode==='matrix'} onChange={()=>setMode('matrix')} /> Matrix (Tag×Rolle)</label>
-      </div>
-
-      {mode === 'global' && (
-        <div style={{ display:'flex', gap:12, alignItems:'center', marginTop:8 }}>
-          <label>Rundenzeit gesamt (Sek.) <input type="number" min={0} value={isFinite(globalSec)?globalSec:0}
-            onChange={e=>setGlobalSec(Number((e.target as HTMLInputElement).value)||0)} /></label>
-          <label>Grace (Sek.) <input type="number" min={0} value={isFinite(graceSec)?graceSec:0}
-            onChange={e=>setGraceSec(Number((e.target as HTMLInputElement).value)||0)} /></label>
-        </div>
-      )}
-
-      {mode === 'matrix' && (
-        <div style={{ marginTop:8 }}>
-          <div style={{ overflowX:'auto', border:'1px solid #e5e7eb', borderRadius:8 }}>
-            <table style={{ borderCollapse:'collapse', width:'100%' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign:'left', padding:'6px 8px', borderBottom:'1px solid #e5e7eb' }}>Tag</th>
-                  {roles.map(r => <th key={r} style={{ textAlign:'right', padding:'6px 8px', borderBottom:'1px solid #e5e7eb' }}>{r}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {days.map(day => {
-                  const rowv:any = (matrix as any)[day] || {};
-                  return (
-                    <tr key={day}>
-                      <td style={{ padding:'6px 8px', borderBottom:'1px solid #f3f4f6' }}>{day}</td>
-                      {roles.map(role => (
-                        <td key={role} style={{ padding:'4px 8px', borderBottom:'1px solid #f3f4f6', textAlign:'right' }}>
-                          <input type="number" min={0} value={Number(rowv[role] ?? 480)}
-                            onChange={e=>setCell(day, role, Number((e.target as HTMLInputElement).value)||0)}
-                            style={{ width:96 }} />
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {error && (
+          <div style={styles.errorBox} aria-live="assertive">
+            ⚠️ {error}
           </div>
-          <div style={{ display:'flex', gap:12, alignItems:'center', marginTop:8 }}>
-            <label>Grace (Sek.) <input type="number" min={0} value={isFinite(graceSec)?graceSec:0}
-              onChange={e=>setGraceSec(Number((e.target as HTMLInputElement).value)||0)} /></label>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** ───────────────────────── Scoring (MP) ───────────────────────── */
-function SectionScoringMP({
-  settings, setSettings
-}:{ settings: MultiplayerAdminSettings; setSettings: React.Dispatch<React.SetStateAction<MultiplayerAdminSettings>>; }) {
-  const [local, setLocal] = React.useState<ScoringWeights>({...settings.scoringWeights});
-  React.useEffect(()=>{ setLocal({...settings.scoringWeights}); }, [settings.scoringWeights]);
-
-  const setField = (key: keyof ScoringWeights, val: number) => {
-    const v = Math.max(0, Math.min(100, Math.round(val)));
-    setLocal(s => ({ ...s, [key]: v } as ScoringWeights));
-    setSettings(s => ({ ...s, scoringWeights: { ...s.scoringWeights, [key]: v } }));
-  };
-  const total = local.bankTrust + local.publicPerception + local.customerLoyalty + local.workforceEngagement;
-  const warn = total !== 100;
-
-  return (
-    <div style={box}>
-      <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>Endwertung</h3>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:8 }}>
-        <label>Bankvertrauen (%)<input type="number" value={local.bankTrust} min={0} max={100} onChange={e=>setField('bankTrust', Number((e.target as HTMLInputElement).value)||0)} /></label>
-        <label>Öffentliche Wahrnehmung (%)<input type="number" value={local.publicPerception} min={0} max={100} onChange={e=>setField('publicPerception', Number((e.target as HTMLInputElement).value)||0)} /></label>
-        <label>Kundentreue (%)<input type="number" value={local.customerLoyalty} min={0} max={100} onChange={e=>setField('customerLoyalty', Number((e.target as HTMLInputElement).value)||0)} /></label>
-        <label>Belegschaft (%)<input type="number" value={local.workforceEngagement} min={0} max={100} onChange={e=>setField('workforceEngagement', Number((e.target as HTMLInputElement).value)||0)} /></label>
+        )}
       </div>
-      {warn && <div style={{ marginTop:8, color:'#b45309' }}>Wird beim Übernehmen automatisch auf 100% normalisiert.</div>}
     </div>
   );
-}
 
-/** ───────────────────────── Event‑Intensity (MP) ───────────────────────── */
-function SectionEventIntensityMP({
-  settings, setSettings
-}:{ settings: MultiplayerAdminSettings; setSettings: React.Dispatch<React.SetStateAction<MultiplayerAdminSettings>>; }) {
-  const arr = Array.isArray(settings.eventIntensityByDay) ? settings.eventIntensityByDay : Array.from({length:14}, ()=>1);
-  const setIdx = (i:number, v:number) => {
-    setSettings(s => {
-      const next = [...(Array.isArray(s.eventIntensityByDay) ? s.eventIntensityByDay : Array.from({length:14}, ()=>1))];
-      next[i] = v; return { ...s, eventIntensityByDay: next };
-    });
-  };
-  return (
-    <div style={box}>
-      <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>Ereignis‑Intensität (14 Tage)</h3>
+  // Render Game Mode Selection
+  const renderGameMode = () => (
+    <div style={styles.root}>
+      {/* Flying Lines Background */}
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+        <div style={{
+          position: 'absolute',
+          width: '200px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(20,184,166,0.5), transparent)',
+          top: '30%',
+          animation: 'fly-line 17s linear infinite 2s'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '170px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(37,99,235,0.4), transparent)',
+          top: '65%',
+          animation: 'fly-line 22s linear infinite 6s'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '1px',
+          height: '200px',
+          background: 'linear-gradient(180deg, transparent, rgba(168,85,247,0.3), transparent)',
+          left: '25%',
+          animation: 'fly-line-vertical 20s linear infinite 4s'
+        }} />
+      </div>
 
-      <label style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <input type="checkbox"
-          checked={!!settings.features?.eventIntensity}
-          onChange={e=> setSettings(s => ({ ...s, features: { ...(s.features||{}), eventIntensity: e.target.checked } }))}
-        />
-        <span>Feature aktiv</span>
-      </label>
+      <div style={{...styles.card, position: 'relative'}}>
+        {/* Border Animation Effect */}
+        <div style={{
+          position: 'absolute',
+          inset: '-2px',
+          borderRadius: '24px',
+          padding: '2px',
+          background: 'linear-gradient(90deg, #2563eb, #14b8a6, #a855f7, #2563eb)',
+          backgroundSize: '300% 100%',
+          animation: 'border-flow 10s linear infinite',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude',
+          opacity: 0.7,
+          pointerEvents: 'none'
+        }} />
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(7, minmax(0, 1fr))', gap:6, marginTop:8 }}>
-        {arr.map((v, i)=>(
-          <label key={i} style={{ display:'flex', flexDirection:'column', gap:4 }}>
-            <span style={{ fontSize:11, color:'#6b7280' }}>Tag {i+1}</span>
-            <input type="number" step="0.1" min={0}
-              value={Number(v ?? 1)}
-              onChange={e => setIdx(i, Number((e.target as HTMLInputElement).value) || 0)}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '2px',
+          background: 'linear-gradient(90deg, transparent, #14b8a6, transparent)',
+          animation: 'scan-line 3s linear infinite'
+        }} />
+
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <h1 style={{
+            ...styles.title,
+            fontSize: '28px',
+            marginBottom: '8px'
+          }}>
+            Willkommen {playerName}!
+          </h1>
+          <p style={{ color: '#94a3b8', fontSize: '16px' }}>
+            Du spielst als <span style={{ 
+              color: '#14b8a6', 
+              fontWeight: '700',
+              textShadow: '0 0 20px rgba(20,184,166,0.5)'
+            }}>{selectedRole}</span>
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+          <button
+            onClick={() => setGameMode('create')}
+            style={{
+              ...styles.modeCard,
+              ...(gameMode === 'create' ? styles.modeCardActive : {})
+            }}
+            onMouseEnter={(e) => {
+              if (gameMode !== 'create') {
+                Object.assign((e.currentTarget as HTMLButtonElement).style, {
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 12px 30px rgba(37,99,235,0.3)'
+                });
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (gameMode !== 'create') {
+                Object.assign((e.currentTarget as HTMLButtonElement).style, {
+                  transform: 'translateY(0)',
+                  boxShadow: 'none'
+                });
+              }
+            }}
+          >
+            <div style={{ fontSize: '32px', marginBottom: '8px' }}>🎮</div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#e6eefc' }}>Neues Spiel</div>
+            <div style={{ fontSize: '13px', color: '#94a3b8' }}>Erstelle ein neues Spiel</div>
+          </button>
+
+          <button
+            onClick={() => setGameMode('join')}
+            style={{
+              ...styles.modeCard,
+              ...(gameMode === 'join' ? styles.modeCardActive : {})
+            }}
+            onMouseEnter={(e) => {
+              if (gameMode !== 'join') {
+                Object.assign((e.currentTarget as HTMLButtonElement).style, {
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 12px 30px rgba(37,99,235,0.3)'
+                });
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (gameMode !== 'join') {
+                Object.assign((e.currentTarget as HTMLButtonElement).style, {
+                  transform: 'translateY(0)',
+                  boxShadow: 'none'
+                });
+              }
+            }}
+          >
+            <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔗</div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#e6eefc' }}>Beitreten</div>
+            <div style={{ fontSize: '13px', color: '#94a3b8' }}>Mit Code beitreten</div>
+          </button>
+        </div>
+
+        {gameMode === 'join' && (
+          <>
+            <input
+              type="text"
+              placeholder="Spiel-Code eingeben (z.B. ABC123)"
+              value={joinCode}
+              onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              style={{
+                ...styles.input,
+                fontSize: '20px',
+                textAlign: 'center',
+                letterSpacing: '3px',
+                textTransform: 'uppercase',
+                fontWeight: '700',
+                marginBottom: '24px'
+              }}
+              onFocus={(e) => {
+                (e.currentTarget as HTMLInputElement).style.borderColor = '#14b8a6';
+                (e.currentTarget as HTMLInputElement).style.boxShadow = '0 0 40px rgba(20,184,166,0.3)';
+                (e.currentTarget as HTMLInputElement).style.background = 'rgba(11,18,32,0.95)';
+              }}
+              onBlur={(e) => {
+                (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(37,99,235,0.3)';
+                (e.currentTarget as HTMLInputElement).style.boxShadow = 'none';
+                (e.currentTarget as HTMLInputElement).style.background = 'rgba(11,18,32,0.8)';
+              }}
             />
-          </label>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-/** ───────────────────────── Insolvenz (MP) ───────────────────────── */
-function SectionInsolvencyMP({
-  settings, setSettings
-}:{ settings: MultiplayerAdminSettings; setSettings: React.Dispatch<React.SetStateAction<MultiplayerAdminSettings>>; }) {
-  const rules = (settings.insolvencyConfig?.rules || {}) as InsolvencyRulesMapLite;
-  const labelFor = (k: string) => {
-    switch (k) {
-      case 'cashEUR': return 'Cash (effektiv, inkl. Pending‑Draw) < Schwelle';
-      case 'profitLossEUR': return 'P&L (kumuliert) < Schwelle';
-      case 'customerLoyalty': return 'Kundenloyalität < Schwelle';
-      case 'bankTrust': return 'Bankvertrauen < Schwelle';
-      case 'workforceEngagement': return 'Team‑Engagement < Schwelle';
-      case 'publicPerception': return 'Öffentl. Wahrnehmung < Schwelle';
-      case 'debt': return 'Verschuldung (genutzter Kredit) < Schwelle';
-      case 'receivables': return 'Forderungen < Schwelle';
-      default: return k;
-    }
-  };
-  const keys = ['cashEUR','profitLossEUR','customerLoyalty','bankTrust','workforceEngagement','publicPerception','debt','receivables'] as const;
-  const updateRule = (key: string, patch: Partial<InsolvencyRuleLite>) => {
-    setSettings(s => {
-      const curr = (s.insolvencyConfig?.rules || {}) as InsolvencyRulesMapLite;
-      const next = { ...curr, [key]: { ...(curr as any)[key], ...patch, key } as InsolvencyRuleLite };
-      return { ...s, insolvencyConfig: { rules: next } };
-    });
-  };
-
-  return (
-    <div style={box}>
-      <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>Insolvenz</h3>
-
-      {/* Modus */}
-      <div style={{ display:'flex', gap:12, alignItems:'center', marginBottom:8 }}>
-        <span style={{ fontWeight:600, minWidth:180 }}>Modus</span>
-        <label><input type="radio" name="insomode" checked={settings.insolvencyMode==='hard'} onChange={()=>setSettings(s=>({ ...s, insolvencyMode:'hard' }))}/> Abbruch (hart)</label>
-        <label><input type="radio" name="insomode" checked={settings.insolvencyMode==='soft'} onChange={()=>setSettings(s=>({ ...s, insolvencyMode:'soft' }))}/> Hinweis (weich)</label>
-        <label><input type="radio" name="insomode" checked={settings.insolvencyMode==='off'} onChange={()=>setSettings(s=>({ ...s, insolvencyMode:'off' }))}/> Keine Meldung (aus)</label>
-      </div>
-
-      {/* Regeln */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-        {keys.map(k => {
-          const r:any = (rules as any)[k] || { key:k, enabled:false, threshold:0 };
-          return (
-            <div key={k} style={{ border:'1px solid #e5e7eb', borderRadius:8, padding:12 }}>
-              <label style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <input type="checkbox" checked={!!r.enabled} onChange={e=>updateRule(k,{ enabled:e.currentTarget.checked })} />
-                <span style={{ fontWeight:600 }}>{labelFor(k)}</span>
-              </label>
-              <div style={{ marginTop:8, display:'flex', alignItems:'center', gap:8 }}>
-                <span className="small" style={{ minWidth:100 }}>Schwelle</span>
-                <input type="number" value={Number(r.threshold ?? 0)} onChange={e=>updateRule(k,{ threshold:Number(e.currentTarget.value)||0 })} style={{ width:140 }} />
+            {/* Show occupied roles when joining */}
+            {occupiedRoles.size > 0 && (
+              <div style={{
+                marginBottom: '16px',
+                padding: '12px',
+                background: 'rgba(37,99,235,0.1)',
+                border: '1px solid rgba(37,99,235,0.3)',
+                borderRadius: '8px',
+                fontSize: '14px',
+                color: '#94a3b8',
+                textAlign: 'center'
+              }}>
+                🔄 Live-Synchronisation aktiv • {occupiedRoles.size} Rolle(n) bereits belegt
               </div>
-            </div>
-          );
-        })}
+            )}
+          </>
+        )}
+
+        <button
+          onClick={handleGameAction}
+          disabled={!gameMode || (gameMode === 'join' && !joinCode) || loading}
+          style={{
+            ...styles.button,
+            opacity: (!gameMode || (gameMode === 'join' && !joinCode) || loading) ? 0.5 : 1,
+            cursor: (!gameMode || (gameMode === 'join' && !joinCode) || loading) ? 'not-allowed' : 'pointer'
+          }}
+          onMouseEnter={(e) => {
+            if (gameMode && (gameMode === 'create' || joinCode) && !loading) {
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-3px) scale(1.05)';
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 12px 32px rgba(20,184,166,0.5), 0 0 60px rgba(20,184,166,0.3)';
+              (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0) scale(1)';
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px rgba(20,184,166,0.4)';
+            (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)';
+          }}
+        >
+          {loading ? 'Laden...' : (gameMode === 'create' ? '🚀 Spiel erstellen' : '✅ Spiel beitreten')}
+        </button>
+
+        {error && (
+          <div style={styles.errorBox} aria-live="assertive">
+            ⚠️ {error}
+          </div>
+        )}
       </div>
     </div>
   );
-}
 
-/** ───────────────────────── Szenario-Editor (MP – wie SP, aber DB-Bridge) ───────────────────────── */
-function SectionScenarioEditorMP() {
-  const [gameId, setGameId] = React.useState<string>(() => {
-  try {
-    return (
-      localStorage.getItem('mp_current_game') ||
-      localStorage.getItem('admin:lastGameId') ||
-      ''
-    );
-  } catch { return ''; }
-});
-  const [busy, setBusy] = React.useState(false);
-  const svc = MultiplayerService.getInstance();
+  // ========== SCREEN 2: ROLE + AUTH SELECTION ==========
+  const renderRoleAndAuth = () => {
+    const roles: RoleId[] = trainerFeatureEnabled
+      ? ['CEO', 'CFO', 'OPS', 'HRLEGAL', 'TRAINER']
+      : ['CEO', 'CFO', 'OPS', 'HRLEGAL'];
 
-  // Bridge: fängt Events aus ScenarioEditor auf und schreibt in die DB
-  React.useEffect(() => {
-    const onInject = async (ev: Event) => {
-      const ce = ev as CustomEvent<any>;
-      const detail = ce?.detail;
+    const handleRoleSelect = (role: RoleId) => {
+      setSelectedRole(role);
+      setError('');
+    };
 
-      // Schutz: Nur reagieren, wenn der Editor feuert (der SP-Editor setzt 'mode')
-      if (!detail || typeof detail !== 'object' || !('mode' in detail)) return;
+    const handleContinue = async () => {
+      if (!selectedRole) {
+        setError('Bitte wähle eine Rolle');
+        return;
+      }
 
-      const gid = (gameId || '').trim();
-      if (!gid) { alert('Bitte Game‑ID angeben.'); return; }
+      // TRAINER needs no auth - directly join/create
+      if (selectedRole === 'TRAINER') {
+        setLoading(true);
+        try {
+          // Get anon session
+          let { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            const { data, error: authErr } = await supabase.auth.signInAnonymously();
+            if (authErr) throw authErr;
+            user = data.user!;
+          }
 
-      try {
-        setBusy(true);
-        const { mode, ...compiled } = detail;
-        // SP-Editor nutzt 'replace' | 'merge' → MPM erwartet 'import' | 'append'
-        const isAppend = String(mode) === 'merge';
-        if (isAppend) {
-          await svc.adminScenarioAppend(gid, compiled);
-        } else {
-          await svc.adminScenarioImport(gid, compiled);
+          let finalGameId: string;
+
+          if (gameMode === 'create') {
+            // Create new game
+            const { data: newGame, error: createErr } = await supabase
+              .from('games')
+              .insert({
+                name: 'Trainer Game',
+                created_by: user.id,
+                host_id: user.id,
+                session_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+                status: 'waiting',
+                current_day: 1,
+                difficulty: 'medium',
+                game_mode: 'standard'
+              })
+              .select()
+              .single();
+            if (createErr) throw createErr;
+            finalGameId = newGame.id;
+          } else {
+            // Join existing game
+            const { data: existingGame, error: fetchErr } = await supabase
+              .from('games')
+              .select('id')
+              .eq('id', joinCode)
+              .single();
+            if (fetchErr || !existingGame) throw new Error('Spiel nicht gefunden');
+            finalGameId = existingGame.id;
+          }
+
+          // Upsert trainer player
+          const { data: playerRow, error: upErr } = await supabase
+            .from('players')
+            .upsert({
+              game_id: finalGameId,
+              user_id: user.id,
+              role: 'TRAINER',
+              name: 'Trainer',
+              is_gm: false,
+              is_active: true,
+              last_seen: new Date().toISOString()
+            }, { onConflict: 'game_id,user_id' })
+            .select()
+            .single();
+
+          if (upErr) {
+            if (upErr.code === '23505') {
+              throw new Error('Fehler beim Beitreten als Trainer. Bitte versuche es erneut.');
+            }
+            throw upErr;
+          }
+
+          try {
+            await supabase.from('trainer_memberships').upsert({
+              game_id: finalGameId,
+              user_id: user.id
+            });
+          } catch (e) {
+            console.warn('Trainer membership upsert failed:', e);
+          }
+
+          localStorage.setItem('mp_current_game', finalGameId);
+          localStorage.setItem('mp_current_role', 'TRAINER');
+          if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
+
+          onSuccess(finalGameId, 'TRAINER');
+        } catch (e: any) {
+          setError(e?.message || 'Fehler beim Trainer-Zugang');
+        } finally {
+          setLoading(false);
         }
-        try { localStorage.setItem('admin:lastGameId', gid); } catch {}
-        alert(isAppend ? 'Szenario angehängt (MP).' : 'Szenario ersetzt (MP).');
-      } catch (e) {
-        console.error('[AdminPanelMPM] Szenario-DB-Update fehlgeschlagen:', e);
-        alert('Fehler beim Anwenden des Szenarios im Multiplayer (Details siehe Konsole).');
+        return;
+      }
+
+      // For other roles: proceed with auth
+      setError('');
+    };
+
+    const handleAuth = async () => {
+      if (!selectedRole || selectedRole === 'TRAINER') return;
+      if (!playerName.trim()) {
+        setError('Bitte Namen eingeben');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Auth based on authMode
+        let user: any;
+        if (authMode === 'email') {
+          // Email login (simplified - assume already logged in or handle login)
+          const { data: { user: emailUser } } = await supabase.auth.getUser();
+          if (!emailUser) {
+            setError('Bitte erst einloggen');
+            setLoading(false);
+            return;
+          }
+          user = emailUser;
+        } else {
+          // Anonymous/name-only
+          const { data: { user: anonUser } } = await supabase.auth.getUser();
+          if (!anonUser) {
+            const { data, error: authErr } = await supabase.auth.signInAnonymously();
+            if (authErr) throw authErr;
+            user = data.user!;
+          } else {
+            user = anonUser;
+          }
+        }
+
+        let finalGameId: string;
+
+        if (gameMode === 'create') {
+          // Create new game with initial KPI values
+          const { data: newGame, error: createErr } = await supabase
+            .from('games')
+            .insert({
+              name: `${playerName}'s Game`,
+              created_by: user.id,
+              host_id: user.id,
+              session_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+              status: 'waiting',
+              current_day: 1,
+              difficulty: 'medium',
+              game_mode: 'standard',
+              kpi_values: {
+                cashEUR: 100000,
+                profitLossEUR: 0,
+                customerLoyalty: 50,
+                bankTrust: 50,
+                workforceEngagement: 50,
+                publicPerception: 50
+              }
+            })
+            .select()
+            .single();
+          if (createErr) throw createErr;
+          finalGameId = newGame.id;
+        } else {
+          // Join existing game
+          const { data: existingGame, error: fetchErr } = await supabase
+            .from('games')
+            .select('id')
+            .eq('id', joinCode)
+            .single();
+          if (fetchErr || !existingGame) throw new Error('Spiel nicht gefunden');
+          finalGameId = existingGame.id;
+        }
+
+        // Upsert player
+        const { data: playerRow, error: upErr } = await supabase
+          .from('players')
+          .upsert({
+            game_id: finalGameId,
+            user_id: user.id,
+            role: selectedRole,
+            name: playerName,
+            is_gm: false,
+            is_active: true,
+            last_seen: new Date().toISOString()
+          }, { onConflict: 'game_id,user_id' })
+          .select()
+          .single();
+
+        if (upErr) {
+          if (upErr.code === '23505' && upErr.message?.includes('idx_players_game_role_unique')) {
+            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+          }
+          throw upErr;
+        }
+
+        localStorage.setItem('mp_current_game', finalGameId);
+        localStorage.setItem('mp_current_role', selectedRole);
+        if (playerRow?.id) localStorage.setItem('mp_player_id', playerRow.id);
+
+        onSuccess(finalGameId, selectedRole);
+      } catch (e: any) {
+        setError(e?.message || 'Fehler beim Beitreten');
       } finally {
-        setBusy(false);
+        setLoading(false);
       }
     };
 
-    window.addEventListener('admin:scenario:import', onInject as EventListener);
-    return () => window.removeEventListener('admin:scenario:import', onInject as EventListener);
-  }, [gameId, svc]);
+    return (
+      <div style={styles.root}>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(circle at 50% 50%, rgba(20,184,166,0.15), transparent 70%)',
+          animation: 'pulse 3s ease-in-out infinite',
+          pointerEvents: 'none'
+        }} />
 
-  return (
-    <div style={{ marginTop: 16, padding: 16, background: '#f9fafb', borderRadius: 8 }}>
-      <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Szenario-Editor (Mehrspieler)</h3>
+        <div style={{
+          ...styles.panel,
+          maxWidth: '600px',
+          margin: '0 auto'
+        }}>
+          <h2 style={{
+            fontSize: '28px',
+            fontWeight: '700',
+            color: '#14b8a6',
+            marginBottom: '8px',
+            textAlign: 'center'
+          }}>
+            {gameMode === 'create' ? 'Neues Spiel' : 'Spiel beitreten'}
+          </h2>
+          <p style={{
+            color: '#94a3b8',
+            textAlign: 'center',
+            marginBottom: '32px',
+            fontSize: '14px'
+          }}>
+            {gameMode === 'join' && `Game-ID: ${joinCode}`}
+          </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontWeight: 600 }}>Game‑ID</div>
-        <input
-  type="text"
-  value={gameId}
-  onChange={e => {
-    const v = (e.target as HTMLInputElement).value;
-    setGameId(v);
-    try { localStorage.setItem('admin:lastGameId', v); } catch {}
-  }}
-           placeholder="games.id (UUID)"
-          style={{ width: '100%', padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: 6 }}
-        />
-      </div>
-
-      {/* Originaler SP-Editor – liefert UI & Kompilierungslogik */}
-      <ScenarioEditor />
-
-      {busy && (
-        <div style={{ marginTop: 8, color: '#6b7280' }}>
-          Anwenden im Multiplayer läuft …
-        </div>
-      )}
-      <div style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>
-        Hinweis: „In Spiel injizieren“ kompiliert wie im Einzelspieler und schreibt das Ergebnis in die DB des angegebenen Spiels.
-      </div>
-    </div>
-  );
-}
-
-
-/** ───────────────────────── KPI/Tag/Szenario (MP – DB) ───────────────────────── */
-function SectionOperationsMP() {
-  const [gameId, setGameId] = React.useState('');
-  const [day, setDay] = React.useState<number>(1);
-
-  // KPI-Steuerung
-  const [k, setK]   = React.useState<KPI>({ cashEUR:0, profitLossEUR:0, customerLoyalty:50, bankTrust:50, workforceEngagement:50, publicPerception:50 });
-  const [d, setD]   = React.useState<Partial<KPI>>({});
-  const [doSet, setDoSet] = React.useState(false);
-  const [doDelta, setDoDelta] = React.useState(false);
-
-  // Szenario-Import/Append
-  const [scenarioText, setScenarioText] = React.useState('');
-  const svc = MultiplayerService.getInstance();
-
-  const applyKpi = async () => {
-    const gid = (gameId || '').trim();
-    if (!gid) { alert('Bitte Game‑ID angeben.'); return; }
-    try {
-      if (doSet)   { window.dispatchEvent(new CustomEvent('admin:kpi:set', { detail: k })); setDoSet(false); }
-      if (doDelta) { window.dispatchEvent(new CustomEvent('admin:kpi:add', { detail: d })); setDoDelta(false); }
-      alert('KPI‑Event(s) gesendet.');
-    } catch (e) {
-      console.error('[AdminPanelMPM] KPI‑Event‑Dispatch fehlgeschlagen:', e);
-      alert('Fehler beim Senden der KPI‑Events (Details siehe Konsole).');
-    }
-  };
-
-    const applyDay = async (mode: 'set' | 'advance') => {
-    const gid = (gameId || '').trim();
-    if (!gid) { alert('Bitte Game‑ID angeben.'); return; }
-    try {
-      if (mode === 'set') {
-        // Event für laufende GameViews
-        window.dispatchEvent(new CustomEvent('admin:set-day', { detail: day }));
-        // Fallback: DB-Update sicherstellen (solange kein Listener in GameView vorhanden ist)
-        await svc.adminSetDay(gid, day);
-      } else if (mode === 'advance') {
-        // Event für laufende GameViews
-        window.dispatchEvent(new Event('admin:advance-day'));
-        // Fallback: DB-Advance sicherstellen (siehe Hinweis oben)
-        await svc.adminAdvanceDayForce(gid);
-      }
-      alert('Tagessteuerung ausgelöst.');
-    } catch (e) {
-      console.error('[AdminPanelMPM] Day‑Control fehlgeschlagen:', e);
-      alert('Fehler bei der Tagessteuerung (Details siehe Konsole).');
-    }
-  };
-
-  
-  const importScenario = async (mode:'import'|'append') => {
-    const gid = (gameId||'').trim(); if (!gid) { alert('Bitte Game‑ID angeben.'); return; }
-    const payload = JSON.parse(scenarioText || '{}');
-    if (mode==='import') await svc.adminScenarioImport(gid, payload);
-    if (mode==='append') await svc.adminScenarioAppend(gid, payload);
-    alert(mode==='import' ? 'Szenario (ersetzt) importiert.' : 'Szenario‑Patch angehängt.');
-  };
-
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-      {/* Game-ID */}
-      <div style={box}>
-        <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>Ziel: Multiplayer‑Spiel</h3>
-        <label style={{ fontWeight:600, display:'block', marginBottom:8 }}>Game‑ID (UUID)</label>
-        <input type="text" value={gameId} onChange={e=>setGameId((e.target as HTMLInputElement).value)} placeholder="games.id (UUID)"
-               style={{ width:'100%', maxWidth:360, padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }} />
-      </div>
-
-      {/* KPI */}
-      <div style={box}>
-        <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>KPI steuern</h3>
-        <div style={{ display:'flex', gap:12, alignItems:'center' }}>
-          <label><input type="checkbox" checked={doSet}   onChange={e=>setDoSet(e.currentTarget.checked)} /> KPI setzen</label>
-          <label><input type="checkbox" checked={doDelta} onChange={e=>setDoDelta(e.currentTarget.checked)} /> Δ anwenden</label>
-        </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(0,1fr))', gap:8, marginTop:8 }}>
-          <label>Cash (€)<input type="number" value={k.cashEUR||0} onChange={e=>setK(s=>({ ...s, cashEUR:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-          <label>G/V (€)<input type="number" value={k.profitLossEUR||0} onChange={e=>setK(s=>({ ...s, profitLossEUR:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-          <label>Kunden<input type="number" value={k.customerLoyalty||0} onChange={e=>setK(s=>({ ...s, customerLoyalty:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-          <label>Bank<input type="number" value={k.bankTrust||0} onChange={e=>setK(s=>({ ...s, bankTrust:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-          <label>Workforce<input type="number" value={k.workforceEngagement||0} onChange={e=>setK(s=>({ ...s, workforceEngagement:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-          <label>Public<input type="number" value={k.publicPerception||0} onChange={e=>setK(s=>({ ...s, publicPerception:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-        </div>
-
-        <div style={{ marginTop:12, fontSize:12, color:'#6b7280' }}>Δ‑Werte</div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(0,1fr))', gap:8 }}>
-          <label>Δ Cash<input type="number" value={d.cashEUR||0} onChange={e=>setD(s=>({ ...s, cashEUR:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-          <label>Δ G/V<input type="number" value={d.profitLossEUR||0} onChange={e=>setD(s=>({ ...s, profitLossEUR:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-          <label>Δ Kunden<input type="number" value={d.customerLoyalty||0} onChange={e=>setD(s=>({ ...s, customerLoyalty:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-          <label>Δ Bank<input type="number" value={d.bankTrust||0} onChange={e=>setD(s=>({ ...s, bankTrust:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-          <label>Δ Workforce<input type="number" value={d.workforceEngagement||0} onChange={e=>setD(s=>({ ...s, workforceEngagement:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-          <label>Δ Public<input type="number" value={d.publicPerception||0} onChange={e=>setD(s=>({ ...s, publicPerception:Number((e.target as HTMLInputElement).value)||0 }))} /></label>
-        </div>
-
-        <div style={{ marginTop:12, display:'flex', justifyContent:'flex-end' }}>
-          <button onClick={applyKpi} style={{ padding:'8px 12px', fontWeight:600 }} disabled={!gameId || (!doSet && !doDelta)}>In Multiplayer übernehmen</button>
-        </div>
-      </div>
-
-      {/* Tag steuern */}
-      <div style={box}>
-        <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>Tag steuern</h3>
-        <div style={{ display:'flex', gap:12, alignItems:'center' }}>
-          <label>Tag <input type="number" min={1} max={14} value={day} onChange={e=>setDay(Number((e.target as HTMLInputElement).value)||1)} /></label>
-          <button onClick={()=>applyDay('set')}     style={{ padding:'6px 12px' }} disabled={!gameId}>Tag setzen</button>
-          <button onClick={()=>applyDay('advance')} style={{ padding:'6px 12px' }} disabled={!gameId}>Tageswechsel (erzwingen)</button>
-        </div>
-      </div>
-
-      {/* Szenario */}
-      <div style={box}>
-        <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>Szenario‑Editor (Import/Append)</h3>
-        <textarea value={scenarioText} onChange={e=>setScenarioText((e.target as HTMLTextAreaElement).value)}
-          placeholder='JSON (z.B. {"days":[...]})' style={{ width:'100%', minHeight:140, border:'1px solid #e5e7eb', borderRadius:6, padding:8, fontFamily:'monospace' }}/>
-        <div style={{ marginTop:8, display:'flex', gap:8, justifyContent:'flex-end' }}>
-          <button onClick={()=>importScenario('import')} style={{ padding:'6px 12px' }} disabled={!gameId}>Import (ersetzen)</button>
-          <button onClick={()=>importScenario('append')} style={{ padding:'6px 12px' }} disabled={!gameId}>Append (anhängen)</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** ───────────────────────── MP‑News injizieren ───────────────────────── */
-function SectionMpInjectNews() {
-  const [gameId, setGameId] = React.useState('');
-  const [day, setDay] = React.useState<number>(1);
-  const [source, setSource] = React.useState<'press'|'customer'|'supplier'|'internal'|'rumor'|'bank'|'authority'>('internal');
-  const [severity, setSeverity] = React.useState<'low'|'medium'|'high'|'critical'>('medium');
-  const [title, setTitle] = React.useState('');
-  const [content, setContent] = React.useState('');
-  const [roles, setRoles] = React.useState<RoleId[]>([]);
-  const [err, setErr] = React.useState<string>('');
-
-  const toggleRole = (r: RoleId) => setRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
-
-  const inject = async (target: 'all' | 'roles') => {
-    const gid = (gameId || '').trim();
-    if (!gid) { alert('Bitte Multiplayer Game‑ID angeben.'); return; }
-    if (!title.trim()) { alert('Bitte Titel eingeben.'); return; }
-
-    try {
-      setErr('');
-      const svc = MultiplayerService.getInstance();
-      await svc.adminInjectNews(gid, {
-        day, title: title.trim(), content: content || undefined, source, severity,
-        roles: (target === 'roles') ? roles : undefined
-      });
-      setTitle(''); setContent(''); alert('Inhalt wurde injiziert.');
-    } catch (e:any) {
-      console.error('[AdminPanelMPM] inject news failed:', e);
-      setErr(String(e?.message || e)); alert('Fehler beim Injizieren (Details in der Konsole).');
-    }
-  };
-
-  return (
-    <div style={{ marginTop: 24, padding: 16, background: '#f9fafb', borderRadius: 8 }}>
-      <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>Inhalte injizieren (Multiplayer)</h3>
-
-      <div style={{ display:'grid', gridTemplateColumns:'160px 1fr', gap:12, alignItems:'center' }}>
-        <div style={{ fontWeight:600 }}>Game‑ID</div>
-        <input type="text" value={gameId} onChange={e=>setGameId((e.target as HTMLInputElement).value)} placeholder="games.id (UUID)"
-               style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }} />
-
-        <div style={{ fontWeight:600 }}>Tag</div>
-        <input type="number" min={1} max={14} value={day} onChange={e=>setDay(Math.max(1, Math.min(14, Number((e.target as HTMLInputElement).value||'1'))))}
-               style={{ width:120, padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }} />
-
-        <div style={{ fontWeight:600 }}>Quelle</div>
-        <select value={source} onChange={e=>setSource((e.target as HTMLSelectElement).value as any)}
-                style={{ width:220, padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }}>
-          <option value="internal">internal</option>
-          <option value="press">press</option>
-          <option value="customer">customer</option>
-          <option value="supplier">supplier</option>
-          <option value="bank">bank</option>
-          <option value="authority">authority</option>
-          <option value="rumor">rumor</option>
-        </select>
-
-        <div style={{ fontWeight:600 }}>Schweregrad</div>
-        <select value={severity} onChange={e=>setSeverity((e.target as HTMLSelectElement).value as any)}
-                style={{ width:220, padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }}>
-          <option value="low">low</option>
-          <option value="medium">medium</option>
-          <option value="high">high</option>
-          <option value="critical">critical</option>
-        </select>
-
-        <div style={{ fontWeight:600 }}>Titel</div>
-        <input type="text" value={title} onChange={e=>setTitle((e.target as HTMLInputElement).value)} placeholder="z.B. Lieferengpass bei Zulieferer X"
-               style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }} />
-
-        <div style={{ fontWeight:600, alignSelf:'start' }}>Nachricht</div>
-        <textarea value={content} onChange={e=>setContent((e.target as HTMLTextAreaElement).value)} placeholder="Kurztext oder Details…"
-                  style={{ width:'100%', minHeight:120, padding:8, border:'1px solid #d1d5db', borderRadius:6, fontFamily:'monospace' }}/>
-      </div>
-
-      <div style={{ marginTop:12, fontWeight:600 }}>Zielrollen (optional)</div>
-      <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginTop:6 }}>
-        {(['CEO','CFO','OPS','HRLEGAL'] as RoleId[]).map(r => (
-          <label key={r} style={{ display:'flex', alignItems:'center', gap:6 }}>
-            <input type="checkbox" checked={roles.includes(r)} onChange={()=>toggleRole(r)} />
-            <span>{r}</span>
+          {/* Role Selection */}
+          <label style={{
+            display: 'block',
+            color: '#e6eefc',
+            fontSize: '14px',
+            fontWeight: '600',
+            marginBottom: '12px'
+          }}>
+            Wähle deine Rolle:
           </label>
-        ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+            {roles.map(role => {
+              const isOccupied = occupiedRoles.has(role);
+              const isSelected = selectedRole === role;
+              return (
+                <button
+                  key={role}
+                  onClick={() => !isOccupied && handleRoleSelect(role)}
+                  disabled={isOccupied}
+                  style={{
+                    padding: '16px',
+                    position: 'relative',
+                    background: isSelected
+                      ? 'linear-gradient(135deg, #14b8a6 0%, #0891b2 100%)'
+                      : isOccupied
+                      ? 'repeating-linear-gradient(45deg, rgba(127,29,29,0.5), rgba(127,29,29,0.5) 10px, rgba(185,28,28,0.4) 10px, rgba(185,28,28,0.4) 20px)'
+                      : 'rgba(15,23,42,0.8)',
+                    border: isSelected
+                      ? '2px solid #14b8a6'
+                      : isOccupied
+                      ? '2px solid rgba(239,68,68,0.9)'
+                      : '1px solid rgba(20,184,166,0.3)',
+                    borderRadius: '8px',
+                    color: isOccupied ? 'rgba(255,255,255,0.4)' : '#fff',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: isOccupied ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    opacity: isOccupied ? 0.7 : 1,
+                    filter: isOccupied ? 'grayscale(0.5) brightness(0.7)' : 'none',
+                    textDecoration: isOccupied ? 'line-through' : 'none',
+                    pointerEvents: isOccupied ? 'none' : 'auto'
+                  }}
+                >
+                  {role} {isOccupied && <span style={{ marginLeft: '8px', fontSize: '20px', animation: 'pulse 2s ease-in-out infinite' }}>🔒</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Auth Section - Only for non-TRAINER roles */}
+          {selectedRole && selectedRole !== 'TRAINER' && (
+            <>
+              <label style={{
+                display: 'block',
+                color: '#e6eefc',
+                fontSize: '14px',
+                fontWeight: '600',
+                marginBottom: '12px'
+              }}>
+                Dein Name:
+              </label>
+              <input
+                type="text"
+                placeholder="Namen eingeben"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                style={{
+                  ...styles.input,
+                  marginBottom: '20px'
+                }}
+              />
+              <button
+                onClick={handleAuth}
+                disabled={loading || !playerName.trim()}
+                style={{
+                  ...styles.button,
+                  width: '100%',
+                  opacity: (!playerName.trim() || loading) ? 0.5 : 1,
+                  cursor: (!playerName.trim() || loading) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {loading ? 'Wird geladen...' : (gameMode === 'create' ? 'Spiel erstellen' : 'Beitreten')}
+              </button>
+            </>
+          )}
+
+          {/* Trainer: Direct continue button */}
+          {selectedRole === 'TRAINER' && (
+            <button
+              onClick={handleContinue}
+              disabled={loading}
+              style={{
+                ...styles.button,
+                width: '100%',
+                opacity: loading ? 0.5 : 1
+              }}
+            >
+              {loading ? 'Wird geladen...' : (gameMode === 'create' ? 'Spiel als Trainer erstellen' : 'Als Trainer beitreten')}
+            </button>
+          )}
+
+          {error && (
+            <div style={{
+              ...styles.errorBox,
+              marginTop: '16px'
+            }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          <button
+            onClick={() => setStep('game-mode')}
+            style={{
+              marginTop: '16px',
+              background: 'transparent',
+              border: 'none',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            ← Zurück
+          </button>
+        </div>
       </div>
-      <div style={{ fontSize:12, color:'#6b7280', marginTop:4 }}>Ohne Auswahl gilt die Nachricht als <strong>global</strong> (alle Rollen).</div>
+    );
+  };
 
-      <div style={{ display:'flex', gap:8, marginTop:12 }}>
-        <button style={{ padding:'8px 14px', borderRadius:6, border:'1px solid #111827', background:'#111827', color:'#fff' }}
-                onClick={()=>inject('all')} disabled={!gameId.trim() || !title.trim()} title="Global injizieren (alle Rollen)">
-          Global injizieren (alle Rollen)
-        </button>
-        <button style={{ padding:'8px 14px', borderRadius:6, border:'1px solid #111827', background:'#fff' }}
-                onClick={()=>inject('roles')} disabled={!gameId.trim() || !title.trim() || roles.length===0} title="Nur an ausgewählte Rollen">
-          An ausgewählte Rollen injizieren
-        </button>
+  // Render Joining Screen
+  const renderJoining = () => (
+    <div style={styles.root}>
+      {/* Flying Lines Background */}
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+        <div style={{
+          position: 'absolute',
+          width: '250px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(37,99,235,0.6), transparent)',
+          top: '15%',
+          animation: 'fly-line 14s linear infinite'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '180px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(20,184,166,0.5), transparent)',
+          top: '40%',
+          animation: 'fly-line 18s linear infinite 4s'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '200px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, rgba(168,85,247,0.4), transparent)',
+          top: '75%',
+          animation: 'fly-line 16s linear infinite 8s'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '1px',
+          height: '250px',
+          background: 'linear-gradient(180deg, transparent, rgba(20,184,166,0.5), transparent)',
+          left: '10%',
+          animation: 'fly-line-vertical 20s linear infinite 2s'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '1px',
+          height: '180px',
+          background: 'linear-gradient(180deg, transparent, rgba(37,99,235,0.4), transparent)',
+          left: '90%',
+          animation: 'fly-line-vertical 23s linear infinite 7s'
+        }} />
       </div>
-      {err && <div style={{ color:'#b91c1c', marginTop:8 }}>{err}</div>}
-    </div>
-  );
-}
 
+      <div style={{
+        textAlign: 'center',
+        color: '#e6eefc'
+      }}>
+        <div style={{ 
+          fontSize: '64px', 
+          marginBottom: '24px',
+          animation: 'rotate-slow 2s linear infinite'
+        }}>
+          ⏳
+        </div>
+        <h2 style={{
+          ...styles.title,
+          fontSize: '36px'
+        }}>
+          Trete Spiel bei...
+        </h2>
+        <p style={{ color: '#94a3b8', fontSize: '18px' }}>Bitte warten</p>
 
-
-// Invarianten (optional)
-type InvariantsLocal = {
-  ppPenaltyOnNegCash: boolean; loyaltyPenaltyOnNegCash: boolean; payrollDelay_weMinus10: boolean;
-  loss5_bankTrustMinus8: boolean; loss5_publicPerceptionMinus5: boolean; loss5_customerLoyaltyMinus5: boolean;
-  bankTrustLt10_workEngagementMinus10: boolean; bankTrustLt10_publicPerceptionMinus10: boolean;
-  profit5_bankTrustPlus8: boolean; profit5_publicPerceptionPlus8: boolean; profit5_customerLoyaltyPlus8: boolean;
-  bankTrustGt80_workEngagementPlus10: boolean; bankTrustGt80_publicPerceptionPlus80: boolean;
-};
-const LS_INV = 'admin:invariants';
-function loadInvariantsLocal(): InvariantsLocal {
-  try { const raw = localStorage.getItem(LS_INV); if (raw) return JSON.parse(raw); } catch {}
-  return {
-    ppPenaltyOnNegCash:false, loyaltyPenaltyOnNegCash:false, payrollDelay_weMinus10:false,
-    loss5_bankTrustMinus8:false, loss5_publicPerceptionMinus5:false, loss5_customerLoyaltyMinus5:false,
-    bankTrustLt10_workEngagementMinus10:false, bankTrustLt10_publicPerceptionMinus10:false,
-    profit5_bankTrustPlus8:false, profit5_publicPerceptionPlus8:false, profit5_customerLoyaltyPlus8:false,
-    bankTrustGt80_workEngagementPlus10:false, bankTrustGt80_publicPerceptionPlus80:false
-  };
-}
-function saveInvariantsLocal(v: InvariantsLocal) { try { localStorage.setItem(LS_INV, JSON.stringify(v)); } catch {} }
-function applyInvariantsGlobals(v: InvariantsLocal) {
-  (globalThis as any).__invariants = { optional: {
-    pp_penalty_on_neg_cash:!!v.ppPenaltyOnNegCash, loyalty_penalty_on_neg_cash:!!v.loyaltyPenaltyOnNegCash, payroll_delay_we_minus10:!!v.payrollDelay_weMinus10,
-    loss5_banktrust_minus8:!!v.loss5_bankTrustMinus8, loss5_publicperception_minus5:!!v.loss5_publicPerceptionMinus5, loss5_customerloyalty_minus5:!!v.loss5_customerLoyaltyMinus5,
-    banktrust_lt10_workengagement_minus10:!!v.bankTrustLt10_workEngagementMinus10, banktrust_lt10_publicperception_minus10:!!v.bankTrustLt10_publicPerceptionMinus10,
-    profit5_banktrust_plus8:!!v.profit5_bankTrustPlus8, profit5_publicperception_plus8:!!v.profit5_publicPerceptionPlus8, profit5_customerloyalty_plus8:!!v.profit5_customerLoyaltyPlus8,
-    banktrust_gt80_workengagement_plus10:!!v.bankTrustGt80_workEngagementPlus10, banktrust_gt80_publicperception_plus80:!!v.bankTrustGt80_publicPerceptionPlus80
-  }};
-  try { window.dispatchEvent(new CustomEvent('admin:invariants', { detail: v })); } catch {}
-}
-function SectionInvariantsMP({ inv, setInv }:{ inv:InvariantsLocal; setInv:(v:InvariantsLocal)=>void; }) {
-  const Row = ({label, k}:{label:string; k: keyof InvariantsLocal}) => (
-    <div style={{ display:'flex', gap:12, alignItems:'center', margin:'6px 0' }}>
-      <label style={{ minWidth:420 }}>{label}</label>
-      <input type="checkbox" checked={!!inv[k]} onChange={e=>setInv({ ...inv, [k]: e.currentTarget.checked })} />
-    </div>
-  );
-  return (
-    <div style={box}>
-      <h3 style={{ marginTop:0, fontSize:18, fontWeight:700 }}>Invarianten (optional)</h3>
-      <Row label="Zahlungsverzug (neg. Cash) → Public Perception −5" k="ppPenaltyOnNegCash" />
-      <Row label="Negativer Cash → Kundentreue −2" k="loyaltyPenaltyOnNegCash" />
-      <Row label="Payroll-Verzögerung → Workforce Engagement −10" k="payrollDelay_weMinus10" />
-      <Row label="5 Perioden Loss → Bank Trust −8" k="loss5_bankTrustMinus8" />
-      <Row label="5 Perioden Loss → Public Perception −5" k="loss5_publicPerceptionMinus5" />
-      <Row label="5 Perioden Loss → Kundenzufriedenheit −5" k="loss5_customerLoyaltyMinus5" />
-      <Row label="Bank Trust < 10 → Workforce Engagement −10" k="bankTrustLt10_workEngagementMinus10" />
-      <Row label="Bank Trust < 10 → Public Perception −10" k="bankTrustLt10_publicPerceptionMinus10" />
-      <Row label="5 Perioden Profit → Bank Trust +8" k="profit5_bankTrustPlus8" />
-      <Row label="5 Perioden Profit → Public Perception +8" k="profit5_publicPerceptionPlus8" />
-      <Row label="5 Perioden Profit → Kundenzufriedenheit +8" k="profit5_customerLoyaltyPlus8" />
-      <Row label="Bank Trust > 80 → Workforce Engagement +10" k="bankTrustGt80_workEngagementPlus10" />
-      <Row label="Bank Trust > 80 → Public Perception +80" k="bankTrustGt80_publicPerceptionPlus80" />
-      <div className="small" style={{ color:'#6b7280', marginTop:6 }}>Aktiviert bei „Übernehmen“ (siehe Footer‑Buttons).</div>
-    </div>
-  );
-}
-
-
-export default function AdminPanelMPM({ onClose }: { onClose?: () => void }) {
-  const [settings, setSettings] = React.useState<MultiplayerAdminSettings>(() => loadSettings());
-  const [busy, setBusy] = React.useState(false);
-  const [toast, setToast] = React.useState('');
-  const [inv, setInv] = React.useState<InvariantsLocal>(() => loadInvariantsLocal());
-
-  const showToast = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(''), 1600); };
-
-
-
-  
-   const onApply = async () => {
-    try {
-      setBusy(true);
-      // Persistieren
-      const next = { ...settings, scoringWeights: normalizeWeights((settings as any)?.scoringWeights) };
-
-      saveSettings(next);
-      applyToGlobals(next);
-
-      // Invarianten persistieren & anwenden
-      saveInvariantsLocal(inv);
-      applyInvariantsGlobals(inv);
-
-      showToast('MP‑Einstellungen übernommen');
-    } catch (e) {
-      console.error('[AdminPanelMPM] apply failed:', e);
-      alert('Fehler beim Übernehmen der MP‑Einstellungen (Details siehe Konsole).');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-
-  return (
-    <div className="admin-panel" style={{ padding: 16, maxWidth: 1200 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>🎮 Admin – Mehrspielermodus</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onApply} disabled={busy} style={{ padding: '8px 12px', fontWeight: 600 }}>Übernehmen</button>
-          {onClose && <button onClick={onClose} style={{ padding: '8px 12px' }}>Schließen</button>}
+        {/* Loading dots animation */}
+        <div style={{ marginTop: '32px' }}>
+          <span style={{
+            display: 'inline-block',
+            width: '12px',
+            height: '12px',
+            borderRadius: '50%',
+            background: '#14b8a6',
+            margin: '0 4px',
+            animation: 'pulse 1.4s ease-in-out infinite'
+          }} />
+          <span style={{
+            display: 'inline-block',
+            width: '12px',
+            height: '12px',
+            borderRadius: '50%',
+            background: '#14b8a6',
+            margin: '0 4px',
+            animation: 'pulse 1.4s ease-in-out 0.2s infinite'
+          }} />
+          <span style={{
+            display: 'inline-block',
+            width: '12px',
+            height: '12px',
+            borderRadius: '50%',
+            background: '#14b8a6',
+            margin: '0 4px',
+            animation: 'pulse 1.4s ease-in-out 0.4s infinite'
+          }} />
         </div>
       </div>
 
-      <SectionMultiplayer settings={settings} setSettings={setSettings} />
+      <style>{`
+        @keyframes gradient-shift {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
 
-      
+        @keyframes float-bg {
+          0%, 100% { transform: scale(1) rotate(0deg); }
+          33% { transform: scale(1.1) rotate(120deg); }
+          66% { transform: scale(0.95) rotate(240deg); }
+        }
 
-      <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button onClick={onApply} disabled={busy} style={{ padding: '10px 16px', fontWeight: 700 }}>Übernehmen</button>
-      </div>
+        @keyframes pulse-glow {
+          0%, 100% { transform: scale(1); opacity: 0.5; }
+          50% { transform: scale(1.1); opacity: 0.8; }
+        }
 
-      {/* Neu hinzugefügte Sektionen (MP) */}
-      <SectionGameplayMP settings={settings} setSettings={setSettings} />
-      <SectionRoundTimeMP settings={settings} setSettings={setSettings} />
-      <SectionScoringMP   settings={settings} setSettings={setSettings} />
-      <SectionEventIntensityMP settings={settings} setSettings={setSettings} />
-      <SectionInsolvencyMP settings={settings} setSettings={setSettings} />
-      <SectionGameTheme settings={settings} setSettings={setSettings} />
-        {/* NEU: SP-kompatibler Szenario-Editor mit DB-Bridge */}
-  <SectionScenarioEditorMP />
+        @keyframes pulse-indicator {
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.2); }
+        }
 
-            <SectionOperationsMP />
-      <SectionMpInjectNews />
-      {/* NEU: Nur Schalter – keine Trainer-Anmeldung mehr im Adminpanel */}
-      <SectionTrainerAccess settings={settings} setSettings={setSettings} />
-      <SectionInvariantsMP inv={inv} setInv={setInv} />
+        @keyframes pulse-update {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+          100% { transform: scale(1); }
+        }
 
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+          20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
 
+        @keyframes scan-line {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
 
-      {toast && (
-        <div style={{ position:'fixed', right: 12, bottom: 12, background:'#111827', color:'#fff', padding:'8px 12px', borderRadius: 6 }}>
-          {toast}
-        </div>
-      )}
+        @keyframes rotate-slow {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            transform: scale(0.8);
+            opacity: 0.5;
+          }
+          50% {
+            transform: scale(1.2);
+            opacity: 1;
+          }
+        }
+
+        @keyframes fly-line {
+          0% {
+            transform: translateX(-100%);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.5;
+          }
+          90% {
+            opacity: 0.5;
+          }
+          100% {
+            transform: translateX(calc(100vw + 100%));
+            opacity: 0;
+          }
+        }
+
+        @keyframes fly-line-vertical {
+          0% {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.4;
+          }
+          90% {
+            opacity: 0.4;
+          }
+          100% {
+            transform: translateY(calc(100vh + 100%));
+            opacity: 0;
+          }
+        }
+
+        @keyframes border-flow {
+          0% {
+            background-position: 0% 50%;
+          }
+          100% {
+            background-position: 100% 50%;
+          }
+        }
+      `}</style>
     </div>
   );
+
+  // Main render logic - New Flow: game-mode → role-auth → joining
+  if (step === 'game-mode') {
+    return renderGameModeSelection();
+  } else if (step === 'role-auth') {
+    return renderRoleAndAuth();
+  } else if (step === 'joining') {
+    return renderJoining();
+  }
+
+  return renderGameModeSelection();
 }
