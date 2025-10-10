@@ -287,51 +287,51 @@ private static isRoleUniqueViolation(err: any): boolean {
     }
   }
 
-  async joinGame(gameId: string, playerName: string, role?: RoleId): Promise<void> {
+    async joinGame(gameId: string, playerName: string, role?: RoleId): Promise<void> {
     try {
       // User prüfen
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Nicht authentifiziert');
 
-      // Prüfen ob schon im Spiel
-      const { data: existing, error: checkError } = await supabase
+      // Prüfen, ob User bereits im Spiel ist
+      const { data: existing } = await supabase
         .from('players')
         .select()
         .eq('game_id', gameId)
         .eq('user_id', user.id)
         .maybeSingle();
 
+      const finalRole = this.normalizeRole(role || existing?.role || 'CEO');
+
       if (existing) {
         console.log('Already in game, updating...');
-        // Update existing player - NUR mit existierenden Spalten
         const { error: updateError } = await supabase
           .from('players')
           .update({
-            role: (role || existing.role).toLowerCase(),
+            role: finalRole, // ← GROSSSCHRIFT (DB‑Constraint)
             display_name: playerName || existing.display_name,
             last_seen: new Date().toISOString()
           })
           .eq('id', existing.id);
 
         if (updateError) {
-  if (MultiplayerService.isRoleUniqueViolation(updateError)) {
-    throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-  }
-  throw updateError;
-}
+          if (MultiplayerService.isRoleUniqueViolation(updateError)) {
+            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+          }
+          throw updateError;
+        }
 
-        
         this.gameId = gameId;
         this.playerId = existing.id;
-        this.currentRole = (role || existing.role)?.toLowerCase() || null;
+        this.currentRole = finalRole;
       } else {
-        // Neuen Player erstellen - NUR mit existierenden Spalten
+        // Neuen Player erstellen
         const { data: player, error } = await supabase
           .from('players')
           .insert({
             game_id: gameId,
             user_id: user.id,
-            role: (role || 'CEO').toLowerCase(),
+            role: finalRole, // ← GROSSSCHRIFT (DB‑Constraint)
             display_name: playerName,
             is_ready: false,
             game_state: {}
@@ -341,14 +341,31 @@ private static isRoleUniqueViolation(err: any): boolean {
 
         if (error) {
           console.error('Join game error:', error);
+          if (MultiplayerService.isRoleUniqueViolation(error)) {
+            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+          }
+          throw error;
+        }
 
-          // Spezifische Behandlung für Unique-Constraint-Verletzung (Rolle bereits belegt)
-         if (error) {
-  if (MultiplayerService.isRoleUniqueViolation(error)) {
-    throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+        this.gameId = gameId;
+        this.playerId = player!.id;
+        this.currentRole = finalRole;
+      }
+
+      this.currentPlayerName = playerName;
+
+      // In localStorage speichern
+      localStorage.setItem('mp_current_game', gameId);
+      localStorage.setItem('mp_player_id', this.playerId!);
+      if (this.currentRole) localStorage.setItem('mp_current_role', this.currentRole);
+
+      console.log('Joined game successfully:', gameId);
+    } catch (error) {
+      console.error('Join game failed:', error);
+      throw error;
+    }
   }
-  throw error;
-}
+
 
 
         this.gameId = gameId;
