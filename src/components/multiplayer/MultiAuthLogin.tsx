@@ -1723,6 +1723,17 @@ const { data: existingPlayers, error: epErr } = await supabase
       if (selectedRole === 'TRAINER') {
         setLoading(true);
         try {
+
+           // Einfache Passwortprüfung innerhalb des Login-Flows
+          const entered = prompt('Trainer-Passwort eingeben');
+          if ((entered || '').trim() !== TRAINER_PASSWORD) {
+            setLoading(false);
+            setError('Falsches Trainer-Passwort');
+            return;
+          }
+          // Get anon session
+          let { data: { user } } = await supabase.auth.getUser();
+          
           // Get anon session
           let { data: { user } } = await supabase.auth.getUser();
           if (!user) {
