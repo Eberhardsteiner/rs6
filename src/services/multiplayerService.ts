@@ -927,18 +927,20 @@ private static isRoleUniqueViolation(err: any): boolean {
 
   /** Alle injizierten News eines Tages laden (ungefiltert nach Rolle) */
   async fetchInjectedNewsForDay(gameId: string, day: number): Promise<Array<DayNewsItem & { roles?: RoleId[] | null }>> {
-    if (!gameId) throw new Error('gameId required');
+  if (!gameId) throw new Error('gameId required');
+  const targetDay = Math.max(1, Math.min(14, Math.round(day)));
 
-    const { data, error } = await supabase
-  .from('game_scenario_overrides')
-  .select('action,overrides,updated_at') // <-- Geändert zu 'updated_at'
-  .eq('game_id', gameId)
-  .order('updated_at', { ascending: true }); // <-- Geändert zu 'updated_at'
+  const { data, error } = await supabase
+    .from('game_injected_news')
+    .select('id, day, title, content, source, severity, roles')
+    .eq('game_id', gameId)
+    .eq('day', targetDay)
+    .order('id', { ascending: true });
 
+  if (error) throw error;
+  return (data || []).map(r => Object.assign(this.mapInjectedRow(r), { roles: r.roles as RoleId[] | null }));
+}
 
-    if (error) throw error;
-    return (data || []).map(r => Object.assign(this.mapInjectedRow(r), { roles: r.roles as RoleId[] | null }));
-  }
 
   /**
    * Realtime-Abo: injizierte News für ein Spiel & Tag beobachten.
