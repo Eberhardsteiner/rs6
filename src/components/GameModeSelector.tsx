@@ -474,7 +474,7 @@ function GameModeSelector({ onSelectMode }: Props) {
       <footer className="gms-footer">
         <div className="gms-footer-inner">
           <div className="gms-footer-copyright">
-            © 2026 UVM-Institut Prof. Dr. Landes & Prof. Dr. Steiner Partnerschaftsgesellschaft v42a
+            © 2026 UVM-Institut Prof. Dr. Landes & Prof. Dr. Steiner Partnerschaftsgesellschaft v45
           </div>
           <div className="gms-footer-links">
             <button 
