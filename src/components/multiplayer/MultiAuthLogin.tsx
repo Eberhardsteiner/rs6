@@ -85,7 +85,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         try {
           await supabase.from('trainer_memberships').upsert({
             game_id: trainerGameId, user_id: user.id
-          });
+          }, { onConflict: 'game_id,user_id' });
         } catch (e) {
           console.warn('[TrainerMemberships] bypass upsert failed:', e);
         }
@@ -1716,7 +1716,7 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             await supabase.from('trainer_memberships').upsert({
               game_id: finalGameId,
               user_id: user.id
-            });
+            }, { onConflict: 'game_id,user_id' });
           } catch (e) {
             console.warn('Trainer membership upsert failed:', e);
           }
