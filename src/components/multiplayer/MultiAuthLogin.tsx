@@ -1707,18 +1707,21 @@ function isRoleUniqueViolation(err: any): boolean {
           }
 
           // Upsert trainer player
+                   // Upsert trainer player (DB verlangt UPPERCASE + Feld "name")
           const { data: playerRow, error: upErr } = await supabase
-  .from('players')
-  .upsert({
-    game_id: finalGameId,
-    user_id: user.id,
-    role: selectedRole.toLowerCase() as any, // Konsistent mit DB-Definition
-    display_name: playerName,
-    is_ready: false,
-    last_seen: new Date().toISOString()
-  }, { onConflict: 'game_id,user_id' })
-  .select()
-  .single();
+            .from('players')
+            .upsert({
+              game_id: finalGameId,
+              user_id: user.id,
+              role: toDbRole(selectedRole), // → 'TRAINER'
+              name: playerName,
+              is_gm: false,
+              is_active: true,
+              last_seen: new Date().toISOString()
+            }, { onConflict: 'game_id,user_id' })
+            .select()
+            .single();
+
 
 
           if (upErr) {
