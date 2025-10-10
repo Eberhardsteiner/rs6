@@ -1833,12 +1833,13 @@ function isRoleUniqueViolation(err: any): boolean {
           .select()
           .single();
 
-        if (upErr) {
-          if (upErr.code === '23505' && upErr.message?.includes('idx_players_game_role_unique')) {
-            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-          }
-          throw upErr;
-        }
+       if (upErr) {
+  if (isRoleUniqueViolation(upErr)) {
+    throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+  }
+  throw upErr;
+}
+
 
         localStorage.setItem('mp_current_game', finalGameId);
         localStorage.setItem('mp_current_role', selectedRole);
