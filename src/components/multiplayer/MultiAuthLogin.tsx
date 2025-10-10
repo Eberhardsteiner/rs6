@@ -61,8 +61,7 @@ function isRoleUniqueViolation(err: any): boolean {
       const isTrainerMode = localStorage.getItem('mp_trainer_mode') === 'true';
             // Trainer-Feature-Flag (vom AdminPanel gespiegelt) + Passwort
       const trainerFeatureEnabled = !!adminSettings?.features?.trainerAccess;
-      const TRAINER_PASSWORD = 'observer101';
-
+ 
       const trainerGameId = localStorage.getItem('mp_trainer_game_id');
       if (!isTrainerMode || !trainerGameId) return;
 
