@@ -9,6 +9,15 @@ interface MultiAuthLoginProps {
 }
 
 export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
+
+function isRoleUniqueViolation(err: any): boolean {
+  const codeMatch = err?.code === '23505'; // Postgres unique_violation
+  const msg = String(err?.message || '');
+  const nameMatch = /\b(uq_players_game_role|idx_players_game_role_unique)\b/i.test(msg);
+  const genericDup = /duplicate key value violates unique constraint/i.test(msg);
+  return Boolean(codeMatch || nameMatch || genericDup);
+}
+  
   // Load admin settings or from localStorage as fallback
 
   let adminSettings = (globalThis as any).__multiplayerSettings;
