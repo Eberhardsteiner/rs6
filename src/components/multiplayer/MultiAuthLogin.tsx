@@ -1715,11 +1715,12 @@ function isRoleUniqueViolation(err: any): boolean {
             .single();
 
           if (upErr) {
-            if (upErr.code === '23505') {
-              throw new Error('Fehler beim Beitreten als Trainer. Bitte versuche es erneut.');
-            }
-            throw upErr;
-          }
+  if (isRoleUniqueViolation(upErr)) {
+    throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+  }
+  throw upErr;
+}
+
 
           try {
             await supabase.from('trainer_memberships').upsert({
