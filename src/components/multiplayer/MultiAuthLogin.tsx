@@ -7,7 +7,8 @@ import '@/styles/onboarding.css';
 interface MultiAuthLoginProps {
   onSuccess: (gameId: string, role: RoleId) => void;
 }
-
+  // --- Trainer-Login: zentrale Definition, überall identisch ---
+  const TRAINER_PASSWORD = 'observer101';
 export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
 
 function isRoleUniqueViolation(err: any): boolean {
@@ -20,8 +21,7 @@ function isRoleUniqueViolation(err: any): boolean {
   
   // Load admin settings or from localStorage as fallback
 
-  // --- Trainer-Login: zentrale Definition, überall identisch ---
-  const TRAINER_PASSWORD = 'observer101';
+
 
   // DB verlangt Uppercase für role; Hilfsfunktion zur Absicherung
   const toDbRole = (r: RoleId) => (String(r).toUpperCase() as RoleId);
