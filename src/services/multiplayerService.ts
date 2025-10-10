@@ -5,6 +5,15 @@ import type { GameState, KPI, RoleId, DayNewsItem } from '@/core/models/domain';
 
 
 export class MultiplayerService {
+
+private static isRoleUniqueViolation(err: any): boolean {
+  const codeMatch = err?.code === '23505';
+  const msg = String(err?.message || '');
+  const nameMatch = /\b(uq_players_game_role|idx_players_game_role_unique)\b/i.test(msg);
+  const genericDup = /duplicate key value violates unique constraint/i.test(msg);
+  return Boolean(codeMatch || nameMatch || genericDup);
+}
+  
   private static instance: MultiplayerService;
   private gameId: string | null = null;
   private playerId: string | null = null;
