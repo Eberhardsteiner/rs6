@@ -7,61 +7,9 @@ import '@/styles/onboarding.css';
 interface MultiAuthLoginProps {
   onSuccess: (gameId: string, role: RoleId) => void;
 }
-  // --- Trainer-Login: zentrale Definition, überall identisch ---
-  const TRAINER_PASSWORD = 'observer101';
+
 export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
-
-function isRoleUniqueViolation(err: any): boolean {
-  const codeMatch = err?.code === '23505'; // Postgres unique_violation
-  const msg = String(err?.message || '');
-  // auf neue, bereinigte Indexnamen erweitert
-  const nameMatch = /\b(uq_players_active_core_roles|uq_players_game_user_active|uq_players_active_trainer_one_per_game)\b/i.test(msg);
-  const genericDup = /duplicate key value violates unique constraint/i.test(msg);
-  return Boolean(codeMatch || nameMatch || genericDup);
-}
-
-
-  async function resolveGameId(code: string, current?: string | null): Promise<string> {
-  const raw = (code || '').trim();
-  if (current && current.trim()) return current.trim();
-
-  // 1) RPC bevorzugen (robust gegen Formatunterschiede)
-  try {
-    const { data, error } = await supabase.rpc('join_game', { p_join_code: raw });
-    if (!error) {
-      const rpcId = Array.isArray(data) ? data?.[0]?.game_id : (data as any)?.game_id;
-      if (rpcId) return rpcId;
-    }
-  } catch { /* noop */ }
-
-  // 2) session_code
-  const { data: byCode } = await supabase
-    .from('games')
-    .select('id')
-    .eq('session_code', raw.toUpperCase())
-    .single();
-  if (byCode?.id) return byCode.id;
-
-  // 3) UUID?
-  const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw);
-  if (uuidLike) {
-    const { data: byId } = await supabase.from('games').select('id').eq('id', raw).single();
-    if (byId?.id) return byId.id;
-  }
-
-  // 4) nichts gefunden
-  return '';
-}
-
-  
   // Load admin settings or from localStorage as fallback
-
-
-
-  // DB verlangt Uppercase für role; Hilfsfunktion zur Absicherung
-  const toDbRole = (r: RoleId) => (String(r).toUpperCase() as RoleId);
-
-  
 
   let adminSettings = (globalThis as any).__multiplayerSettings;
   if (!adminSettings) {
@@ -96,7 +44,8 @@ function isRoleUniqueViolation(err: any): boolean {
       const isTrainerMode = localStorage.getItem('mp_trainer_mode') === 'true';
             // Trainer-Feature-Flag (vom AdminPanel gespiegelt) + Passwort
       const trainerFeatureEnabled = !!adminSettings?.features?.trainerAccess;
- 
+      const TRAINER_PASSWORD = 'observer101';
+
       const trainerGameId = localStorage.getItem('mp_trainer_game_id');
       if (!isTrainerMode || !trainerGameId) return;
 
@@ -177,26 +126,6 @@ function isRoleUniqueViolation(err: any): boolean {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const mpService = MultiplayerService.getInstance();
-
- // Auflösung des eingegebenen Codes: zuerst UUID (games.id), sonst session_code (Großschrift)
-  async function resolveGameIdFromInput(input: string): Promise<string> {
-    const raw = (input || '').trim();
-    if (!raw) throw new Error('Bitte Spiel-Code eingeben');
-
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-    if (uuidRe.test(raw)) {
-      const { data, error } = await supabase.from('games').select('id').eq('id', raw).single();
-      if (!error && data?.id) return data.id;
-    }
-
-    const code = raw.toUpperCase();
-    const { data: byCode } = await supabase.from('games').select('id').eq('session_code', code).single();
-    if (byCode?.id) return byCode.id;
-
-    // Kein Fallback auf "roh" – bewusst Fehler werfen (verhindert FK-Verletzung)
-    throw new Error('Spiel nicht gefunden oder Code ungültig.');
-  }
 
   
   // Trainer-spezifisch
@@ -450,23 +379,22 @@ function isRoleUniqueViolation(err: any): boolean {
 
       } else if (gameMode === 'join') {
         // Join existing game
-if (!joinCode) {
-  throw new Error('Bitte Spiel-Code eingeben');
-}
+        if (!joinCode) {
+          throw new Error('Bitte Spiel-Code eingeben');
+        }
 
-// Game-ID strikt ermitteln (kein Fallback auf Join-Code → vermeidet FK‑Fehler 23503)
-const gid = await resolveGameId(joinCode, currentGameId);
-if (!gid) {
-  throw new Error('Spiel nicht gefunden (Code/ID ungültig)');
-}
+        // Game-ID bestimmen
+        const gid = currentGameId || (await (async () => {
+          const { data: g } = await supabase.from('games').select('id').eq('session_code', joinCode).single();
+          return g?.id || joinCode; // Fallback
+        })());
 
-// FRISCHER SERVER-CHECK direkt vor dem Beitritt (vermeidet Race Conditions)
-const { data: existingPlayers, error: epErr } = await supabase
-  .from('players')
-  .select('id')
-  .eq('game_id', gid)
-  .eq('role', selectedRole);
-
+        // FRISCHER SERVER-CHECK direkt vor dem Beitritt (vermeidet Race Conditions)
+        const { data: existingPlayers, error: epErr } = await supabase
+          .from('players')
+          .select('id')
+          .eq('game_id', gid)
+          .eq('role', selectedRole);
 
         if (epErr) throw epErr;
         if ((existingPlayers || []).length > 0) {
@@ -1723,59 +1651,53 @@ const { data: existingPlayers, error: epErr } = await supabase
       if (selectedRole === 'TRAINER') {
         setLoading(true);
         try {
-
-           // Einfache Passwortprüfung innerhalb des Login-Flows
-          const entered = prompt('Trainer-Passwort eingeben');
-          if ((entered || '').trim() !== TRAINER_PASSWORD) {
-            setLoading(false);
-            setError('Falsches Trainer-Passwort');
-            return;
-          }
           // Get anon session
-let { data: { user } } = await supabase.auth.getUser();
-if (!user) {
-  const { data, error: authErr } = await supabase.auth.signInAnonymously();
-  if (authErr) throw authErr;
-  user = data.user!;
-}
+          let { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            const { data, error: authErr } = await supabase.auth.signInAnonymously();
+            if (authErr) throw authErr;
+            user = data.user!;
+          }
 
-let finalGameId: string;
+          let finalGameId: string;
 
-if (gameMode === 'create') {
-  // Create new game
-  const { data: newGame, error: createErr } = await supabase
-    .from('games')
-    .insert({
-      name: 'Trainer Game',
-      created_by: user.id,
-      host_id: user.id,
-      session_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-      status: 'waiting',
-      current_day: 1,
-      difficulty: 'medium',
-      game_mode: 'standard'
-    })
-    .select()
-    .single();
-  if (createErr) throw createErr;
-  finalGameId = newGame.id;
-} else {
-  // Join existing game – Code/UUID sicher auflösen
-  const gid = await resolveGameIdFromInput(joinCode);
-  finalGameId = gid;
-}
-
-
+          if (gameMode === 'create') {
+            // Create new game
+            const { data: newGame, error: createErr } = await supabase
+              .from('games')
+              .insert({
+                name: 'Trainer Game',
+                created_by: user.id,
+                host_id: user.id,
+                session_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+                status: 'waiting',
+                current_day: 1,
+                difficulty: 'medium',
+                game_mode: 'standard'
+              })
+              .select()
+              .single();
+            if (createErr) throw createErr;
+            finalGameId = newGame.id;
+          } else {
+            // Join existing game
+            const { data: existingGame, error: fetchErr } = await supabase
+              .from('games')
+              .select('id')
+              .eq('id', joinCode)
+              .single();
+            if (fetchErr || !existingGame) throw new Error('Spiel nicht gefunden');
+            finalGameId = existingGame.id;
+          }
 
           // Upsert trainer player
-                   // Upsert trainer player (DB verlangt UPPERCASE + Feld "name")
           const { data: playerRow, error: upErr } = await supabase
             .from('players')
             .upsert({
               game_id: finalGameId,
               user_id: user.id,
-              role: toDbRole(selectedRole), // → 'TRAINER'
-              name: playerName,
+              role: 'TRAINER',
+              name: 'Trainer',
               is_gm: false,
               is_active: true,
               last_seen: new Date().toISOString()
@@ -1783,15 +1705,12 @@ if (gameMode === 'create') {
             .select()
             .single();
 
-
-
           if (upErr) {
-  if (isRoleUniqueViolation(upErr)) {
-    throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-  }
-  throw upErr;
-}
-
+            if (upErr.code === '23505') {
+              throw new Error('Fehler beim Beitreten als Trainer. Bitte versuche es erneut.');
+            }
+            throw upErr;
+          }
 
           try {
             await supabase.from('trainer_memberships').upsert({
@@ -1905,13 +1824,12 @@ if (gameMode === 'create') {
           .select()
           .single();
 
-       if (upErr) {
-  if (isRoleUniqueViolation(upErr)) {
-    throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-  }
-  throw upErr;
-}
-
+        if (upErr) {
+          if (upErr.code === '23505' && upErr.message?.includes('idx_players_game_role_unique')) {
+            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+          }
+          throw upErr;
+        }
 
         localStorage.setItem('mp_current_game', finalGameId);
         localStorage.setItem('mp_current_role', selectedRole);
