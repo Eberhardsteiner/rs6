@@ -23,6 +23,7 @@ import { generateDailyRandomValues, type DailyRandomValues } from '@/core/engine
 import { makeRng } from '@/core/utils/prng';
 import { generateRandomNewsForDay } from '@/core/engine/randomNews';
 import RandomValuesDisplay from '@/components/hud/RandomValuesDisplay';
+import CFOCreditDisplay from '@/components/multiplayer/CFOCreditDisplay';
 
 // Szenario-Daten für 14 Tage
 import { day1Blocks, day1News }   from '@/data/scenario_day_01';
@@ -1886,6 +1887,7 @@ const sendBroadcastToAll = useCallback(async () => {
           <RandomValuesDisplay randomValues={dailyRandoms || undefined} day={currentDay} />
         </div>
 
+        <CFOCreditDisplay gameId={gameId} currentDay={currentDay} />
 
         {/* Entscheidungsblöcke des Tages – jetzt mit Optionen & KPI-Auswirkung */}
         <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
