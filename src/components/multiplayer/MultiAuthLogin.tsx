@@ -18,6 +18,39 @@ function isRoleUniqueViolation(err: any): boolean {
   const genericDup = /duplicate key value violates unique constraint/i.test(msg);
   return Boolean(codeMatch || nameMatch || genericDup);
 }
+
+  async function resolveGameId(code: string, current?: string | null): Promise<string> {
+  const raw = (code || '').trim();
+  if (current && current.trim()) return current.trim();
+
+  // 1) RPC bevorzugen (robust gegen Formatunterschiede)
+  try {
+    const { data, error } = await supabase.rpc('join_game', { p_join_code: raw });
+    if (!error) {
+      const rpcId = Array.isArray(data) ? data?.[0]?.game_id : (data as any)?.game_id;
+      if (rpcId) return rpcId;
+    }
+  } catch { /* noop */ }
+
+  // 2) session_code
+  const { data: byCode } = await supabase
+    .from('games')
+    .select('id')
+    .eq('session_code', raw.toUpperCase())
+    .single();
+  if (byCode?.id) return byCode.id;
+
+  // 3) UUID?
+  const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw);
+  if (uuidLike) {
+    const { data: byId } = await supabase.from('games').select('id').eq('id', raw).single();
+    if (byId?.id) return byId.id;
+  }
+
+  // 4) nichts gefunden
+  return '';
+}
+
   
   // Load admin settings or from localStorage as fallback
 
