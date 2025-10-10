@@ -886,11 +886,11 @@ export class MultiplayerService {
     if (!gameId) throw new Error('gameId required');
 
     const { data, error } = await supabase
-  .from('game_scenario_overrides')
-  .select('action,overrides,updated_at') // <-- Geändert zu 'updated_at'
-  .eq('game_id', gameId)
-  .order('updated_at', { ascending: true }); // <-- Geändert zu 'updated_at'
-
+      .from('game_injected_news')
+      .select('id,day,title,content,source,severity,roles,created_at')
+      .eq('game_id', gameId)
+      .eq('day', day)
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
     return (data || []).map(r => Object.assign(this.mapInjectedRow(r), { roles: r.roles as RoleId[] | null }));
@@ -992,11 +992,11 @@ export class MultiplayerService {
   async fetchMergedScenarioOverrides(gameId: string): Promise<Record<string, any>> {
     if (!gameId) throw new Error('gameId required');
 
-  const { data, error } = await supabase
-  .from('game_scenario_overrides')
-  .select('action,overrides,updated_at') // <-- Geändert zu 'updated_at'
-  .eq('game_id', gameId)
-  .order('updated_at', { ascending: true }); // <-- Geändert zu 'updated_at'
+    const { data, error } = await supabase
+      .from('game_scenario_overrides')
+      .select('action,overrides,created_at')
+      .eq('game_id', gameId)
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
 
