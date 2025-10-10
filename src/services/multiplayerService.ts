@@ -343,12 +343,13 @@ private static isRoleUniqueViolation(err: any): boolean {
           console.error('Join game error:', error);
 
           // Spezifische Behandlung für Unique-Constraint-Verletzung (Rolle bereits belegt)
-          if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('idx_players_game_role_unique')) {
-            throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
-          }
+         if (error) {
+  if (MultiplayerService.isRoleUniqueViolation(error)) {
+    throw new Error('Diese Rolle ist bereits belegt. Bitte wähle eine andere Rolle.');
+  }
+  throw error;
+}
 
-          throw new Error('Beitritt fehlgeschlagen: ' + error.message);
-        }
 
         this.gameId = gameId;
         this.playerId = player.id;
