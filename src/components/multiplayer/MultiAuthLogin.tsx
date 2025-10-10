@@ -178,6 +178,26 @@ function isRoleUniqueViolation(err: any): boolean {
 
   const mpService = MultiplayerService.getInstance();
 
+ // Auflösung des eingegebenen Codes: zuerst UUID (games.id), sonst session_code (Großschrift)
+  async function resolveGameIdFromInput(input: string): Promise<string> {
+    const raw = (input || '').trim();
+    if (!raw) throw new Error('Bitte Spiel-Code eingeben');
+
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    if (uuidRe.test(raw)) {
+      const { data, error } = await supabase.from('games').select('id').eq('id', raw).single();
+      if (!error && data?.id) return data.id;
+    }
+
+    const code = raw.toUpperCase();
+    const { data: byCode } = await supabase.from('games').select('id').eq('session_code', code).single();
+    if (byCode?.id) return byCode.id;
+
+    // Kein Fallback auf "roh" – bewusst Fehler werfen (verhindert FK-Verletzung)
+    throw new Error('Spiel nicht gefunden oder Code ungültig.');
+  }
+
   
   // Trainer-spezifisch
   const [trainerPassword, setTrainerPassword] = useState('');
