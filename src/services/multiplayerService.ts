@@ -385,24 +385,7 @@ private static isRoleUniqueViolation(err: any): boolean {
 
 
 
-        this.gameId = gameId;
-        this.playerId = player.id;
-        this.currentRole = role?.toLowerCase() || null;
-      }
-      
-      this.currentPlayerName = playerName;
-      
-      // In localStorage speichern
-      localStorage.setItem('mp_current_game', gameId);
-      localStorage.setItem('mp_player_id', this.playerId);
-      if (role) localStorage.setItem('mp_current_role', role);
-      
-      console.log('Joined game successfully:', gameId);
-    } catch (error) {
-      console.error('Join game failed:', error);
-      throw error;
-    }
-  }
+       
 
    async selectRole(role: RoleId): Promise<void> {
     if (!this.playerId) throw new Error('Not in game');
