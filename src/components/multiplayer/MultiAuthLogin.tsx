@@ -428,22 +428,23 @@ function isRoleUniqueViolation(err: any): boolean {
 
       } else if (gameMode === 'join') {
         // Join existing game
-        if (!joinCode) {
-          throw new Error('Bitte Spiel-Code eingeben');
-        }
+if (!joinCode) {
+  throw new Error('Bitte Spiel-Code eingeben');
+}
 
-        // Game-ID bestimmen
-        const gid = currentGameId || (await (async () => {
-          const { data: g } = await supabase.from('games').select('id').eq('session_code', joinCode).single();
-          return g?.id || joinCode; // Fallback
-        })());
+// Game-ID strikt ermitteln (kein Fallback auf Join-Code → vermeidet FK‑Fehler 23503)
+const gid = await resolveGameId(joinCode, currentGameId);
+if (!gid) {
+  throw new Error('Spiel nicht gefunden (Code/ID ungültig)');
+}
 
-        // FRISCHER SERVER-CHECK direkt vor dem Beitritt (vermeidet Race Conditions)
-        const { data: existingPlayers, error: epErr } = await supabase
-          .from('players')
-          .select('id')
-          .eq('game_id', gid)
-          .eq('role', selectedRole);
+// FRISCHER SERVER-CHECK direkt vor dem Beitritt (vermeidet Race Conditions)
+const { data: existingPlayers, error: epErr } = await supabase
+  .from('players')
+  .select('id')
+  .eq('game_id', gid)
+  .eq('role', selectedRole);
+
 
         if (epErr) throw epErr;
         if ((existingPlayers || []).length > 0) {
