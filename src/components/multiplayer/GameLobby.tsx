@@ -230,6 +230,26 @@ export default function GameLobby({
   }, [settings]);
 
   // ?game=<ID> in URL + Invite-Link erzeugen
+
+  // Normalisierung neuer Admin-Settings (Startmodus & Selbststart)
+  useEffect(() => {
+    const s: any = settings || {};
+    const trainerMode = String(s?.start?.mode || '').toLowerCase() === 'trainer';
+    const allowSelf = !!(s?.start?.allowPlayerSelfStart);
+
+    // Mappe allowPlayerSelfStart -> allowEarlyEntry (Backwards-Kompatibilität)
+    // UND: im Trainer-Modus kein Autostart
+    if ((allowSelf && !s.allowEarlyEntry) || (trainerMode && s.autoStartWhenReady)) {
+      setSettings({
+        ...s,
+        allowEarlyEntry: allowSelf || !!s.allowEarlyEntry,
+        autoStartWhenReady: trainerMode ? false : !!s.autoStartWhenReady,
+      });
+    }
+  }, [settings?.start]);
+
+
+  
   const ensureGameParam = useCallback(() => {
     if (!game?.id) return;
     try {
