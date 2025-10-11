@@ -25,6 +25,13 @@ type AdminSettings = {
     showTimer?: boolean;
     welcomeMessage?: string;
   };
+  start?: {
+    mode: 'trainer' | 'auto_all_ready' | 'scheduled' | 'free_for_all' | 'manual';
+    trainerCountdownSec: number;
+    allReadyCountdownSec: number;
+    scheduledAt?: string;
+    allowPlayerSelfStart: boolean;
+  };
 };
 
 const defaultSettings: AdminSettings = {
@@ -36,17 +43,42 @@ const defaultSettings: AdminSettings = {
     showTimer: true,
     welcomeMessage: 'Willkommen zur Crisis Management Simulation',
   },
+  start: {
+    mode: 'manual',
+    trainerCountdownSec: 5,
+    allReadyCountdownSec: 5,
+    allowPlayerSelfStart: false
+  },
 };
 
 /** Lade Settings aus globalThis oder localStorage (Fallback auf Default) */
 function loadSettings(): AdminSettings {
   const g: any = (globalThis as any).__multiplayerSettings;
-  if (g && typeof g === 'object') return { ...defaultSettings, ...g };
-  try {
-    const raw = globalThis.localStorage?.getItem('admin:multiplayer');
-    if (raw) return { ...defaultSettings, ...(JSON.parse(raw) as AdminSettings) };
-  } catch {}
-  return defaultSettings;
+  const startConfig: any = (globalThis as any).__startConfig;
+
+  let settings = { ...defaultSettings };
+
+  if (g && typeof g === 'object') {
+    settings = { ...settings, ...g };
+  } else {
+    try {
+      const raw = globalThis.localStorage?.getItem('admin:multiplayer');
+      if (raw) settings = { ...settings, ...(JSON.parse(raw) as AdminSettings) };
+    } catch {}
+  }
+
+  // Start-Config aus globalThis übernehmen (hat Priorität)
+  if (startConfig && typeof startConfig === 'object') {
+    settings.start = {
+      mode: startConfig.mode || 'manual',
+      trainerCountdownSec: startConfig.trainerCountdownSec || 5,
+      allReadyCountdownSec: startConfig.allReadyCountdownSec || 5,
+      scheduledAt: startConfig.scheduledAt,
+      allowPlayerSelfStart: !!startConfig.allowPlayerSelfStart
+    };
+  }
+
+  return settings;
 }
 
 /** Dynamischer Canvas-Hintergrund (nur Theme 'dynamic') */
@@ -177,8 +209,19 @@ export default function GameLobby({
         setSettings(loadSettings());
       }
     };
+
+    const onAdminSettings = (e: Event) => {
+      // Admin-Settings wurden geändert, neu laden
+      setSettings(loadSettings());
+    };
+
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener('admin:settings', onAdminSettings as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('admin:settings', onAdminSettings as EventListener);
+    };
   }, []);
 
   // Theme ableiten
@@ -220,11 +263,18 @@ export default function GameLobby({
   const allPlayersReady = (): boolean => {
     // Alle Spieler bereit Logik
     const everyoneReady = players.length > 0 && players.every(p => readyStatus.get(p.id));
-    // Wenn 'Früher Einstieg' aktiviert ist, darf bereits EIN Spieler ins Spiel (Einzelstart).
-    if (settings.allowEarlyEntry) {
+
+    // free_for_all oder allowPlayerSelfStart: Einzelstart erlaubt
+    if (settings.start?.mode === 'free_for_all' || settings.start?.allowPlayerSelfStart) {
       // Ein Spieler kann starten, sobald ER bereit ist – unabhängig von anderen.
       return !!(currentPlayer && readyStatus.get(currentPlayer.id));
     }
+
+    // Legacy: Früher Einstieg (allowEarlyEntry)
+    if (settings.allowEarlyEntry) {
+      return !!(currentPlayer && readyStatus.get(currentPlayer.id));
+    }
+
     // Standard: alle 4 Spieler müssen bereit sein
     return players.length === 4 && everyoneReady;
   };
@@ -702,6 +752,30 @@ export default function GameLobby({
             )}
           </div>
 
+          {/* Start Mode Indicator */}
+          {settings.start?.mode && settings.start.mode !== 'manual' && (
+            <div style={{
+              display: 'inline-block',
+              padding: '10px 20px',
+              background: settings.start.mode === 'free_for_all'
+                ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.1))'
+                : 'rgba(59, 130, 246, 0.1)',
+              border: settings.start.mode === 'free_for_all'
+                ? '1px solid rgba(34, 197, 94, 0.4)'
+                : '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: 30,
+              fontSize: 15,
+              color: settings.start.mode === 'free_for_all' ? '#22c55e' : '#60a5fa',
+              fontWeight: 600,
+              marginBottom: 12
+            }}>
+              {settings.start.mode === 'trainer' && '👨‍🏫 Trainer-Start aktiviert'}
+              {settings.start.mode === 'auto_all_ready' && '🤝 Auto-Start wenn alle bereit'}
+              {settings.start.mode === 'free_for_all' && '✨ Einzelstart für alle aktiviert'}
+              {settings.start.mode === 'scheduled' && '📅 Geplanter Start'}
+            </div>
+          )}
+
           {/* Timer Display */}
           {settings.lobbySettings?.showTimer && !isStarting && (
             <div style={{
@@ -845,11 +919,13 @@ export default function GameLobby({
               (new Date().getTime() - new Date(p.last_seen).getTime()) < 120000
             );
 
+            const isFreeForAll = settings.start?.mode === 'free_for_all' || settings.start?.allowPlayerSelfStart;
+
             if (activePlayers.length > 0) {
               return (
                 <div style={{
                   marginTop: 12,
-                  padding: '10px 14px',
+                  padding: '12px 16px',
                   background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.1))',
                   border: '1px solid rgba(34, 197, 94, 0.4)',
                   borderRadius: 8,
@@ -870,6 +946,7 @@ export default function GameLobby({
                   }} />
                   <span>
                     🎮 {activePlayers.length} Spieler aktiv im laufenden Spiel
+                    {isFreeForAll && ' - Du kannst jederzeit beitreten!'}
                   </span>
                   <div style={{ flex: 1 }} />
                   <span style={{ fontSize: 11, color: '#4ade80' }}>
@@ -945,37 +1022,52 @@ export default function GameLobby({
               </button>
             </div>
 
-            {/* Früher Eintritt - wenn Setting aktiviert */}
-            {settings.allowEarlyEntry && (
-              <div style={{ textAlign: 'center', marginTop: 12 }}>
-                <button
-                  onClick={onGameStart}
-                  style={{
-                    padding: '12px 40px',
-                    fontSize: 16,
-                    fontWeight: 700,
-                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 40,
-                    cursor: 'pointer',
-                    transform: 'scale(1)',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 8px 24px rgba(34, 197, 94, 0.35)',
-                    letterSpacing: '0.5px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'scale(1.03)';
-                    e.currentTarget.style.boxShadow = '0 12px 36px rgba(34, 197, 94, 0.45)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(34, 197, 94, 0.35)';
-                  }}
-                  title="Einzelstart: Du kannst schon ins Spiel, auch wenn andere noch nicht da sind."
-                >
-                  Jetzt alleine starten
-                </button>
+            {/* Einzelstart - wenn free_for_all oder allowPlayerSelfStart aktiviert */}
+            {(settings.start?.mode === 'free_for_all' || settings.start?.allowPlayerSelfStart || settings.allowEarlyEntry) && (
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <div style={{
+                  padding: '10px 20px',
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  border: '2px solid rgba(34, 197, 94, 0.4)',
+                  borderRadius: 12,
+                  marginBottom: 12,
+                  fontSize: 14,
+                  color: '#22c55e',
+                  fontWeight: 600,
+                  display: 'inline-block'
+                }}>
+                  ✨ Einzelstart aktiviert - Jeder kann unabhängig starten!
+                </div>
+                <div>
+                  <button
+                    onClick={onGameStart}
+                    style={{
+                      padding: '14px 50px',
+                      fontSize: 18,
+                      fontWeight: 700,
+                      background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 40,
+                      cursor: 'pointer',
+                      transform: 'scale(1)',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: '0 10px 30px rgba(34, 197, 94, 0.4)',
+                      letterSpacing: '0.5px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                      e.currentTarget.style.boxShadow = '0 15px 40px rgba(34, 197, 94, 0.6)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.boxShadow = '0 10px 30px rgba(34, 197, 94, 0.4)';
+                    }}
+                    title="Du kannst jetzt ins Spiel starten, auch wenn andere noch nicht bereit sind."
+                  >
+                    🚀 Einzelstart - Jetzt ins Spiel
+                  </button>
+                </div>
               </div>
             )}
 
