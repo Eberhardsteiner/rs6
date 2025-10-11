@@ -6,6 +6,8 @@ import type { RoleId } from '@/core/models/domain';
 import InfoModal from '@/components/info/InfoModal';
 import { infoContents } from '@/data/infoContent';
 import '@/styles/onboarding.css';
+import { supabase } from '@/services/supabaseClient';
+
 
 interface GameLobbyProps {
   game: Game;
