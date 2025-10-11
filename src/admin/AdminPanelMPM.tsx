@@ -303,14 +303,15 @@ function upgradeSettings(base: MultiplayerAdminSettings, raw: any): MultiplayerA
   s.gameSettings      = { ...base.gameSettings,      ...(raw?.gameSettings || {}) };
   s.creditSettings    = { ...base.creditSettings,    ...(raw?.creditSettings || {}) };
 
-  // NEU: Start-Container robust mergen
+  // NEU: Start-Container robust mergen + Legacy-Migration
   s.start = {
     ...(base.start || { mode: 'manual', allowPlayerSelfStart: false, delaySeconds: base.autoStartDelaySeconds }),
     ...(raw?.start || {})
   };
-  if (typeof s.start.delaySeconds !== 'number' || !isFinite(s.start.delaySeconds)) {
-    s.start.delaySeconds = base.autoStartDelaySeconds;
-  }
+  // Aus Legacy-Feldern migrieren (falls vorhanden)
+  if (raw?.allowEarlyEntry === true) s.start.allowPlayerSelfStart = true;
+  if (raw?.autoStartWhenReady === true) s.start.mode = 'auto_all_logged_in';
+  if (typeof raw?.autoStartDelaySeconds === 'number') s.start.delaySeconds = raw.autoStartDelaySeconds;
 
   // Arrays / optionale Felder defensiv übernehmen
   s.eventIntensityByDay = Array.isArray(raw?.eventIntensityByDay) ? raw.eventIntensityByDay : base.eventIntensityByDay;
@@ -327,6 +328,7 @@ function upgradeSettings(base: MultiplayerAdminSettings, raw: any): MultiplayerA
 
   return s as MultiplayerAdminSettings;
 }
+
 
 
 
