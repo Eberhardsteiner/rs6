@@ -237,13 +237,13 @@ function generatePassword(): string {
 function getDefaultSettings(): MultiplayerAdminSettings {
   return {
     authMode: 'name-only',
-    allowEarlyEntry: false,
+    allowEarlyEntry: false,             // Legacy: bleibt intern synchronisiert
     forceAllPlayersForAdvance: false,
-    autoStartWhenReady: false,
-    autoStartDelaySeconds: 5,
+    autoStartWhenReady: false,          // Legacy: bleibt intern synchronisiert
+    autoStartDelaySeconds: 5,           // Legacy: bleibt intern synchronisiert
     lobbyCountdownSeconds: 10,
 
-    /** NEU: Start-Defaults */
+    // NEU: Start-Defaults (UI-Sicht)
     start: {
       mode: 'manual',
       allowPlayerSelfStart: false,
@@ -288,6 +288,7 @@ function getDefaultSettings(): MultiplayerAdminSettings {
     insolvencyConfig: undefined,
   };
 }
+
 
 
 
