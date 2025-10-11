@@ -233,26 +233,34 @@ function DecisionStatusBar({ decisionsToday, players }: { decisionsToday: Array<
           };
         case 'present':
           return {
-            color: '#f59e0b',
-            bg: 'rgba(245,158,11,0.2)',
-            shadow: '0 0 6px rgba(245,158,11,0.5)',
+            color: '#ffffff',
+            bg: 'rgba(255,255,255,0.15)',
+            shadow: '0 0 6px rgba(255,255,255,0.5)',
             title: `${label}: Anwesend`,
             animate: false
           };
         case 'lobby':
           return {
             color: '#f59e0b',
-            bg: 'rgba(245,158,11,0.15)',
-            shadow: 'none',
+            bg: 'rgba(245,158,11,0.2)',
+            shadow: '0 0 6px rgba(245,158,11,0.5)',
             title: `${label}: In der Lobby`,
+            animate: false
+          };
+        case 'warning':
+          return {
+            color: '#ef4444',
+            bg: 'rgba(239,68,68,0.15)',
+            shadow: 'none',
+            title: `${label}: Inaktiv seit 5 Minuten (Warnung)`,
             animate: true
           };
         case 'left':
         default:
           return {
             color: '#ef4444',
-            bg: 'rgba(239,68,68,0.15)',
-            shadow: 'none',
+            bg: 'rgba(239,68,68,0.2)',
+            shadow: '0 0 6px rgba(239,68,68,0.5)',
             title: `${label}: Spiel verlassen/inaktiv`,
             animate: false
           };
@@ -277,14 +285,14 @@ function DecisionStatusBar({ decisionsToday, players }: { decisionsToday: Array<
             borderRadius: '50%',
             background: config.color,
             boxShadow: config.shadow,
-            animation: config.animate ? 'pulse-orange 2s ease-in-out infinite' : 'none'
+            animation: config.animate ? 'pulse-red 2s ease-in-out infinite' : 'none'
           }}
         />
         <span style={{ fontSize: 12, fontWeight: 700 }}>{label}</span>
         <style>{`
-          @keyframes pulse-orange {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.85); }
+          @keyframes pulse-red {
+            0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 rgba(239,68,68,0); }
+            50% { opacity: 0.6; transform: scale(0.9); box-shadow: 0 0 8px rgba(239,68,68,0.8); }
           }
         `}</style>
       </span>
