@@ -1237,6 +1237,39 @@ const sendBroadcastToAll = useCallback(async () => {
         </button>
       </div>
 
+   {/* Trainer-Start (nur wenn AdminPanelMPM -> start.mode = 'trainer') */}
+        {isTrainerStartMode && (
+          <button
+            onClick={startGameNow}
+            disabled={starting || started}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '16px 28px',
+              margin: '0 0 12px 0',
+              background: started
+                ? 'linear-gradient(135deg, #10b981, #059669)'
+                : 'linear-gradient(135deg, #22c55e, #16a34a)',
+              color: 'white',
+              fontWeight: 800,
+              fontSize: 18,
+              border: 'none',
+              borderRadius: 12,
+              cursor: starting ? 'wait' : 'pointer',
+              boxShadow: '0 10px 28px rgba(34,197,94,0.35)',
+              transform: 'translateZ(0)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.98)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            title="Startet das Spiel und holt alle Spieler in das Spiel"
+          >
+            {started ? 'Gestartet ✓' : (starting ? 'Starte …' : 'Spiel starten')}
+          </button>
+        )}
+
+
+      
 
       {/* Zugangsdaten (optional, aus AdminPanelMPM) */}
       {(() => {
