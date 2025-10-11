@@ -46,6 +46,22 @@ type MultiplayerAdminSettings = {
   autoStartDelaySeconds: number;
   lobbyCountdownSeconds: number;
   presetCredentials: {
+
+  /** NEU: Start-Optionen (zentraler Container) */
+  start?: {
+    /** Startmodus */
+    mode?: 'manual' | 'auto_all_logged_in' | 'scheduled' | 'trainer';
+    /** Freigabe: Spieler dürfen selbst starten (globale Wirkung) */
+    allowPlayerSelfStart?: boolean;
+    /** Optional: Geplante Startzeit (nur bei mode='scheduled'), ISO-String */
+    at?: string;
+    /** Optional: Geplante Startzeit als Epochenzeit (ms) – Redundanz/Fallback */
+    atMs?: number;
+    /** Optional: Countdown-Verzögerung (Sekunden) für auto_all_logged_in */
+    delaySeconds?: number;
+  };
+
+    
     CEO: { username: string; password: string };
     CFO: { username: string; password: string };
     OPS: { username: string; password: string };
