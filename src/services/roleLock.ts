@@ -21,7 +21,7 @@ export async function unclaimRole(gameId: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Optional: Realtime-Nachziehen; wenn RLS Select-Events nicht erlaubt, zusätzlich kurz poll’en. */
+/** Optionaler Realtime‑Listener; bei restriktiver RLS zusätzlich Polling nutzen. */
 export function subscribeRoleLocks(gameId: string, onChange: (locks: RoleLock[]) => void) {
   const ch = supabase
     .channel(`roles:${gameId}`)
