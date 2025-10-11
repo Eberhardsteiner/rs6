@@ -188,6 +188,32 @@ export default function GameLobby({
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
+
+  // Admin-Startmodus/-zeit robust aus Settings lesen
+  function getStartMode(): 'manual' | 'auto_all_logged_in' | 'scheduled' {
+    try {
+      const s: any = settings || {};
+      const m = s?.start?.mode || s?.lobbySettings?.startMode || (s?.autoStartWhenReady ? 'auto_all_logged_in' : 'manual');
+      if (m === 'manual' || m === 'scheduled') return m;
+      return 'auto_all_logged_in';
+    } catch { return 'manual'; }
+  }
+
+  function getStartDelaySeconds(): number {
+    const s: any = settings || {};
+    return Number(s?.start?.delaySeconds ?? s?.autoStartDelaySeconds ?? s?.lobbyCountdownSeconds ?? 5) || 5;
+  }
+
+  function getStartAtMs(): number | null {
+    const s: any = settings || {};
+    const raw = s?.start?.atMs ?? s?.start?.at ?? s?.lobbySettings?.startAt ?? s?.startTime;
+    if (!raw) return null;
+    if (typeof raw === 'number') return raw;
+    const t = Date.parse(String(raw));
+    return Number.isFinite(t) ? t : null;
+  }
+
+  
   // Theme ableiten
   useEffect(() => {
     const t = settings?.lobbySettings?.backgroundTheme;
