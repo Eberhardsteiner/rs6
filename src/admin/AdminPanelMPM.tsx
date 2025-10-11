@@ -67,6 +67,22 @@ type MultiplayerAdminSettings = {
     OPS: { username: string; password: string };
     HRLEGAL: { username: string; password: string };
   };
+
+  /** NEU: Spielstart-Optionen (UI sichtbar; Legacy-Felder bleiben nur intern synchronisiert) */
+  start?: {
+    /** "manual" | "auto_all_logged_in" | "scheduled" | "trainer" */
+    mode?: 'manual' | 'auto_all_logged_in' | 'scheduled' | 'trainer';
+    /** Freigabe: Spieler dürfen selbst starten (global wirksam) */
+    allowPlayerSelfStart?: boolean;
+    /** Countdown-Verzögerung in Sekunden (für auto_all_logged_in) */
+    delaySeconds?: number;
+    /** Geplanter Startzeitpunkt (nur bei "scheduled") */
+    at?: string;
+    atMs?: number;
+  };
+
+
+  
   lobbySettings: {
     showTimer: boolean;
     backgroundTheme: 'corporate' | 'dynamic' | 'minimal';
