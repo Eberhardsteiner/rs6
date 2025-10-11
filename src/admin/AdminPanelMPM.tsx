@@ -1766,7 +1766,8 @@ export default function AdminPanelMPM({ onClose }: { onClose?: () => void }) {
         </div>
       )}
             {/* Diagnose: Rollensperre */}
-      <SectionRoleLocksMP />
+      <SectionRolePickerDemoMP />
+
 
     </div>
   );
