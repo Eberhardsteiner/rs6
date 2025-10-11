@@ -1856,8 +1856,38 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
         <div style={{
           ...styles.panel,
           maxWidth: '600px',
-          margin: '0 auto'
+          margin: '0 auto',
+          position: 'relative'
         }}>
+          {/* Realtime indicator - only show when joining and roles are loaded */}
+          {gameMode === 'join' && currentGameId && (
+            <div style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 10px',
+              background: 'rgba(16,185,129,0.15)',
+              border: '1px solid rgba(16,185,129,0.3)',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: '600',
+              color: '#10b981'
+            }}>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: '#10b981',
+                animation: 'pulse-indicator 2s ease-in-out infinite',
+                boxShadow: '0 0 8px #10b981'
+              }} />
+              LIVE
+            </div>
+          )}
+
           <h2 style={{
             fontSize: '28px',
             fontWeight: '700',
@@ -1885,6 +1915,16 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
             marginBottom: '12px'
           }}>
             Wähle deine Rolle:
+            {occupiedRoles.size > 0 && (
+              <span style={{
+                fontSize: '12px',
+                color: '#94a3b8',
+                marginLeft: '8px',
+                fontWeight: 'normal'
+              }}>
+                ({occupiedRoles.size} bereits belegt)
+              </span>
+            )}
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
             {roles.map(role => {
@@ -1895,32 +1935,88 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
                   key={role}
                   onClick={() => !isOccupied && handleRoleSelect(role)}
                   disabled={isOccupied}
+                  title={isOccupied ? 'Rolle belegt – Auswahl gesperrt' : `Rolle ${role} wählen`}
                   style={{
                     padding: '16px',
                     position: 'relative',
+                    minHeight: '60px',
                     background: isSelected
                       ? 'linear-gradient(135deg, #14b8a6 0%, #0891b2 100%)'
                       : isOccupied
-                      ? 'repeating-linear-gradient(45deg, rgba(127,29,29,0.5), rgba(127,29,29,0.5) 10px, rgba(185,28,28,0.4) 10px, rgba(185,28,28,0.4) 20px)'
+                      ? 'repeating-linear-gradient(45deg, rgba(127,29,29,0.6), rgba(127,29,29,0.6) 10px, rgba(185,28,28,0.5) 10px, rgba(185,28,28,0.5) 20px)'
                       : 'rgba(15,23,42,0.8)',
                     border: isSelected
                       ? '2px solid #14b8a6'
                       : isOccupied
-                      ? '2px solid rgba(239,68,68,0.9)'
+                      ? '2px solid #ef4444'
                       : '1px solid rgba(20,184,166,0.3)',
-                    borderRadius: '8px',
+                    borderRadius: '12px',
                     color: isOccupied ? 'rgba(255,255,255,0.4)' : '#fff',
                     fontSize: '16px',
                     fontWeight: '600',
                     cursor: isOccupied ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease',
-                    opacity: isOccupied ? 0.7 : 1,
-                    filter: isOccupied ? 'grayscale(0.5) brightness(0.7)' : 'none',
+                    transition: 'all 0.3s ease',
+                    opacity: isOccupied ? 0.75 : 1,
+                    filter: isOccupied ? 'grayscale(0.6) brightness(0.65)' : 'none',
                     textDecoration: isOccupied ? 'line-through' : 'none',
-                    pointerEvents: isOccupied ? 'none' : 'auto'
+                    pointerEvents: isOccupied ? 'none' : 'auto',
+                    overflow: 'hidden',
+                    boxShadow: isOccupied
+                      ? 'inset 0 0 20px rgba(0,0,0,0.5), 0 0 15px rgba(239,68,68,0.4)'
+                      : isSelected
+                      ? '0 4px 12px rgba(20,184,166,0.3)'
+                      : 'none'
                   }}
                 >
-                  {role} {isOccupied && <span style={{ marginLeft: '8px', fontSize: '20px', animation: 'pulse 2s ease-in-out infinite' }}>🔒</span>}
+                  {/* Lock Icon in top-right corner */}
+                  {isOccupied && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        fontSize: '24px',
+                        filter: 'drop-shadow(0 0 8px rgba(239,68,68,1))',
+                        animation: 'pulse-lock 2.5s ease-in-out infinite'
+                      }}
+                    >
+                      🔒
+                    </div>
+                  )}
+
+                  {/* Role Text */}
+                  <div style={{
+                    fontSize: '16px',
+                    color: isOccupied ? 'rgba(255,255,255,0.4)' : '#ffffff',
+                    fontWeight: '600',
+                    zIndex: 1,
+                    position: 'relative'
+                  }}>
+                    {role}
+                  </div>
+
+                  {/* Overlay with "BELEGT" text */}
+                  {isOccupied && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '6px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      padding: '2px 8px',
+                      background: 'rgba(239,68,68,0.9)',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      color: '#ffffff',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      textShadow: '0 0 8px rgba(239,68,68,1)',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                      zIndex: 2
+                    }}>
+                      BELEGT
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -2154,6 +2250,17 @@ export default function MultiAuthLogin({ onSuccess }: MultiAuthLoginProps) {
           }
           50% {
             transform: scale(1.2);
+            opacity: 1;
+          }
+        }
+
+        @keyframes pulse-lock {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.9;
+          }
+          50% {
+            transform: scale(1.15);
             opacity: 1;
           }
         }
