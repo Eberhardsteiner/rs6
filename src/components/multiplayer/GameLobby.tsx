@@ -1148,6 +1148,48 @@ export default function GameLobby({
       </div>
 
       {/* Countdown Overlay */}
+
+      {/* CEO-Fallback: Wenn kein Autostart aktiv ist und kein Trainer-Startmodus gewählt wurde */}
+      {(!settings.autoStartWhenReady) &&
+       (String((settings as any)?.start?.mode || 'manual').toLowerCase() === 'manual') &&
+       (String(currentPlayer?.role || '').toUpperCase() === 'CEO') && (
+        <div style={{ textAlign: 'center', marginTop: 16 }}>
+          <button
+            onClick={onGameStart}
+            style={{
+              display: 'inline-block',
+              width: '100%',
+              maxWidth: 420,
+              padding: '16px 32px',
+              fontSize: 18,
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+              color: 'white',
+              border: 'none',
+              borderRadius: 12,
+              cursor: 'pointer',
+              boxShadow: '0 10px 30px rgba(34,197,94,0.35)',
+              transform: 'scale(1)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = 'scale(0.98)';
+              e.currentTarget.style.boxShadow = '0 6px 18px rgba(34,197,94,0.5)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 10px 30px rgba(34,197,94,0.35)';
+            }}
+            title="Startet das Spiel für alle (CEO-Freigabe)"
+          >
+            Spiel starten (CEO)
+          </button>
+        </div>
+      )}
+
+
+
+      
       {countdown !== null && (
         <div style={{
           position: 'fixed',
