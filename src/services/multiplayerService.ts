@@ -108,20 +108,24 @@ export class MultiplayerService {
 
   async signInAnonymously(playerName: string): Promise<void> {
     try {
-      // Erstelle einen temporären Account für den Spieler
-      const tempEmail = `player_${Date.now()}_${Math.random().toString(36).substring(7)}@temp.local`;
-      const tempPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-
-      const { data, error } = await supabase.auth.signUp({
-        email: tempEmail,
-        password: tempPassword,
+      // Use Supabase native anonymous sign-in
+      const { data, error } = await supabase.auth.signInAnonymously({
         options: {
-          data: { display_name: playerName }
+          data: {
+            display_name: playerName,
+            player_name: playerName
+          }
         }
       });
 
-      if (error) throw new Error('Anmeldung fehlgeschlagen: ' + error.message);
-      if (!data.user) throw new Error('Kein User nach Anmeldung');
+      if (error) {
+        console.error('Anonymous sign-in error:', error);
+        throw new Error('Anonyme Anmeldung fehlgeschlagen: ' + error.message);
+      }
+
+      if (!data.user) {
+        throw new Error('Kein User nach anonymer Anmeldung erstellt');
+      }
 
       this.userId = data.user.id;
       this.currentPlayerName = playerName;
@@ -129,8 +133,6 @@ export class MultiplayerService {
       // Speichern für Session-Wiederherstellung
       localStorage.setItem('mp_user_id', data.user.id);
       localStorage.setItem('mp_user_name', playerName);
-      localStorage.setItem('mp_temp_email', tempEmail);
-      localStorage.setItem('mp_temp_password', tempPassword);
 
       console.log('Anonymous sign in successful:', this.userId);
     } catch (error) {
