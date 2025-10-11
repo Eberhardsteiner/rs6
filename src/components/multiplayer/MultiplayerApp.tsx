@@ -230,6 +230,21 @@ useEffect(() => {
           setPlayers(updatedPlayers);
         }
       );
+
+      // Echtzeit: explizit auf Games-Updates hören (falls Polling zeitlich versetzt kommt)
+      const startCh = supabase
+        .channel(`game-start-${currentGameId}`)
+        .on('postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${currentGameId}` },
+          (payload: any) => {
+            const row: any = payload?.new || {};
+            if (row?.state === 'running' || row?.status === 'running') {
+              handleActualGameStart();
+            }
+          }
+        )
+        .subscribe();
+
       
       return () => {
         clearInterval(interval);
