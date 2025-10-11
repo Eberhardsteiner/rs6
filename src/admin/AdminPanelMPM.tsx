@@ -340,6 +340,15 @@ function applyToGlobals(s: MultiplayerAdminSettings) {
     const g: any = globalThis as any;
     // Spiel-/Lobby-Themes
     g.__multiplayerSettings = s;
+
+    // NEU: Start-Spiegelung (bequemer Zugriff für Clients)
+    g.__startMode = s.start?.mode || (s.autoStartWhenReady ? 'auto_all_logged_in' : 'manual');
+    g.__allowPlayerSelfStart = !!s.start?.allowPlayerSelfStart;
+    g.__scheduledStartAt = s.start?.at || (typeof s.start?.atMs === 'number' ? new Date(s.start!.atMs).toISOString() : undefined);
+    g.__autoStartDelaySeconds = typeof s.start?.delaySeconds === 'number'
+      ? s.start!.delaySeconds
+      : (typeof s.autoStartDelaySeconds === 'number' ? s.autoStartDelaySeconds : undefined);
+
     // Schwierigkeits-/Simulations-Flags
     g.__mpDifficulty = s.mpDifficulty;
     g.__npcDifficulty = s.mpDifficulty; // Kompatibilität
@@ -370,11 +379,10 @@ function applyToGlobals(s: MultiplayerAdminSettings) {
     // NEU: Insolvenzmodus
     g.__insolvencyMode = s.insolvencyMode ?? 'hard';
 
-
     // CFO-Kredit (Legacy‑Schalter)
     g.__mpAllowCredit = !!s.creditSettings?.enabled;
 
-    // NEU: Bank-Settings zusätzlich unter SP-kompatiblen Keys spiegeln
+    // Bank-Settings zusätzlich unter SP-kompatiblen Keys spiegeln
     if (s.creditSettings) {
       g.__bankSettings = {
         creditLineEUR: Number(s.creditSettings.creditLineEUR || 0),
@@ -400,6 +408,7 @@ function applyToGlobals(s: MultiplayerAdminSettings) {
     throw new Error('Anwenden der Einstellungen fehlgeschlagen.');
   }
 }
+
 
 const box: React.CSSProperties = { border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, background: '#fff', marginTop: 16 };
 
