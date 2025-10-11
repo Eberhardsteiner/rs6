@@ -1428,52 +1428,69 @@ function SectionMpInjectNews() {
   const [roles, setRoles] = React.useState<RoleId[]>([]);
   const [err, setErr] = React.useState<string>('');
 
-  function SectionRoleLocksMP() {
-  const [gameId, setGameId] = React.useState('');
-  const [locks, setLocks] = React.useState<{ role: RoleId; user_id: string | null }[]>([]);
-  const [busy, setBusy] = React.useState(false);
-  const roles: RoleId[] = ['CEO','CFO','OPS','HRLEGAL'] as any;
+  function SectionRolePickerDemoMP() {
+  const [gq, setGq] = React.useState<string>('');
+  const [gid, setGid] = React.useState<string>(() => {
+    try {
+      // Quelle 1: URL ?game=...
+      const u = new URL(window.location.href);
+      const q = u.searchParams.get('game') || u.searchParams.get('gid') || '';
+      if (q) return q;
+      // Quelle 2: bekannte Keys aus Admin/Panel
+      return localStorage.getItem('mp_current_game')
+          || localStorage.getItem('admin:lastGameId')
+          || '';
+    } catch { return ''; }
+  });
 
-  const refresh = async () => {
-    if (!gameId.trim()) return;
-    setBusy(true);
-    try { setLocks(await getLockedRoles(gameId.trim())); } catch (e) { console.error(e); } finally { setBusy(false); }
-  };
+  const trainerEnabled = (globalThis as any).__trainerAccessEnabled === true;
 
-  React.useEffect(() => { if (gameId.trim()) refresh(); }, [gameId]);
-
-  const isLocked = (r: RoleId) => !!locks.find(x => String(x.role).toUpperCase() === r);
   return (
     <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, background: '#fff', marginTop: 16 }}>
-      <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Diagnose – Rollensperre</h3>
+      <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Test‑Lobby: Rollen wählen (MP)</h3>
+
       <div style={{ display:'grid', gridTemplateColumns:'160px 1fr', gap:12, alignItems:'center' }}>
         <div style={{ fontWeight:600 }}>Game‑ID</div>
-        <input type="text" value={gameId} onChange={e=>setGameId((e.target as HTMLInputElement).value)}
-               placeholder="games.id (UUID)" style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }} />
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <input
+            type="text"
+            placeholder="games.id (UUID) – oder ?game=… in URL"
+            value={gq || gid}
+            onChange={e => setGq((e.target as HTMLInputElement).value)}
+            style={{ flex:1, padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }}
+          />
+          <button
+            onClick={() => { if (gq.trim()) { setGid(gq.trim()); try { localStorage.setItem('mp_current_game', gq.trim()); } catch {} setGq(''); } }}
+            style={{ padding:'6px 10px' }}
+            disabled={!gq.trim()}
+          >
+            Setzen
+          </button>
+        </div>
       </div>
-      <div style={{ marginTop: 12, display:'flex', gap:8, flexWrap:'wrap' }}>
-        {roles.map(r => (
-          <div key={r} style={{
-            padding:'10px 12px', borderRadius:8,
-            background: isLocked(r) ? '#fee2e2' : '#ecfdf5',
-            color: isLocked(r) ? '#991b1b' : '#065f46',
-            border: '1px solid #d1d5db', minWidth: 120, textAlign:'center', fontWeight:700
-          }}>
-            {isLocked(r) ? `🔒 ${r}` : `🟢 ${r} frei`}
-          </div>
-        ))}
-      </div>
-      <div style={{ marginTop:12 }}>
-        <button onClick={refresh} disabled={busy} style={{ padding:'6px 12px' }}>
-          {busy ? 'Aktualisiere…' : 'Aktualisieren'}
-        </button>
-      </div>
-      <div className="small" style={{ color:'#6b7280', marginTop:6 }}>
-        Nutzt RPC <code>get_locked_roles</code>. Die eigentliche Sperre erfolgt serverseitig per Unique‑Index + <code>claim_role</code>/<code>unclaim_role</code>.
+
+      {!gid && <div style={{ marginTop:8, color:'#b45309' }}>Bitte eine gültige Game‑ID setzen.</div>}
+
+      {gid && (
+        <div style={{ marginTop:12 }}>
+          <RolePickerMP
+            gameId={gid}
+            enableTrainer={trainerEnabled}
+            onClaimed={(role) => {
+              alert(`Rolle ${role} wurde für Spiel ${gid} reserviert (alle anderen sehen 🔒).`);
+              // Optional: hier könnte ein Navigate/State‑Wechsel erfolgen.
+            }}
+          />
+        </div>
+      )}
+
+      <div className="small" style={{ color:'#6b7280', marginTop:8 }}>
+        Gesperrte Rollen werden <strong>rot mit 🔒</strong> angezeigt (disabled). Freie Rollen sind <strong>grün</strong>.
       </div>
     </div>
   );
 }
+
 
 
 
