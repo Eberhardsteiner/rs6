@@ -172,6 +172,11 @@ export default function GameLobby({
   const countdownIntervalRef = useRef<NodeJS.Timeout>();
   const timerRef = useRef<NodeJS.Timeout>();
 
+  // Gemeinsame Zielzeit (Epoch ms) für synchronen Countdown + Realtime‑Channel
+  const startTargetRef = useRef<number | null>(null);
+  const lobbyChannelRef = useRef<any>(null);
+
+  
   // Settings-Liveupdates (Adminkonsole)
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
