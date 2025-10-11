@@ -705,19 +705,7 @@ function SectionMultiplayer({ settings, setSettings }: {
             <span>Countdown‑Timer beim Start anzeigen</span>
           </label>
 
-          {settings.lobbySettings.showTimer && (
-            <div style={{ marginLeft: 28, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <label>Countdown (Sekunden):</label>
-              <input
-                type="number"
-                min={3}
-                max={10}
-                value={settings.lobbyCountdownSeconds}
-                onChange={e => setSettings(s => ({ ...s, lobbyCountdownSeconds: parseInt(e.target.value) || 3 }))}
-                style={{ width: 80, padding: '4px 8px', borderRadius: 4 }}
-              />
-            </div>
-          )}
+         
 
           <div>
             <label style={{ fontWeight: 600, display: 'block', marginBottom: 8 }}>
