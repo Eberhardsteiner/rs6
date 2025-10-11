@@ -665,6 +665,46 @@ const copyGameId = useCallback(async () => {
     try { window.location.href = '/?multiplayer=0'; } catch {}
   }, [onLeave]);
 
+  // Trainer startet das Spiel (globale Umschaltung)
+  const startGameNow = useCallback(async () => {
+    if (!gameId) return;
+    try {
+      setStarting(true);
+
+      // Nutzer ermitteln (optional) für started_by
+      const { data: userRes } = await supabase.auth.getUser();
+      const startedBy = userRes?.user?.id || null;
+
+      // 1) DB-Status umschalten (Clients erkennen 'running' via Polling/Realtime)
+      await supabase
+        .from('games')
+        .update({
+          state: 'running',
+          status: 'running',
+          start_mode: 'trainer',          // Spalte per SQL-Patch unten
+          start_at: new Date().toISOString(),
+          started_by: startedBy
+        })
+        .eq('id', gameId);
+
+      // 2) Optional: Broadcast für Clients mit Lobby-Channel-Listener
+      try {
+        supabase
+          .channel(`lobby-${gameId}`)
+          .send({ type: 'broadcast', event: 'force-start', payload: { by: 'trainer' } });
+      } catch {}
+
+      setStarted(true);
+    } catch (e) {
+      console.error('[TrainerDashboard] startGameNow failed', e);
+      setError('Start fehlgeschlagen. Bitte erneut versuchen.');
+    } finally {
+      setStarting(false);
+    }
+  }, [gameId]);
+
+
+  
   // Daten laden
   const loadAllData = useCallback(async () => {
     try {
