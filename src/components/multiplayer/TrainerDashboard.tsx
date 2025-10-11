@@ -479,6 +479,20 @@ export default function TrainerDashboard({
   const [hintDrafts, setHintDrafts] = useState<Record<string, string>>({});
   const [isLoadingKpis, setIsLoadingKpis] = useState(true);
 
+  // Start-Button Status (visuelles Feedback)
+  const [starting, setStarting] = useState(false);
+  const [started, setStarted] = useState(false);
+
+  // Admin-Settings aus AdminPanelMPM lesen (globalThis oder localStorage)
+  const adminSettings: any =
+    (globalThis as any).__multiplayerSettings
+    || JSON.parse(localStorage.getItem('admin:multiplayer') || '{}');
+
+  // Neuer Startmodus: 'trainer' => Only-Trainer-Start
+  const isTrainerStartMode: boolean =
+    String(adminSettings?.start?.mode || '').toLowerCase() === 'trainer';
+
+  
     // --- Broadcast/Anzeige-Daten ---
     const [broadcastTargetRole, setBroadcastTargetRole] = useState<'ALL' | RoleId>('ALL');
 
