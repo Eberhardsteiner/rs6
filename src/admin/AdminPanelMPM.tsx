@@ -285,6 +285,15 @@ function upgradeSettings(base: MultiplayerAdminSettings, raw: any): MultiplayerA
   s.gameSettings      = { ...base.gameSettings,      ...(raw?.gameSettings || {}) };
   s.creditSettings    = { ...base.creditSettings,    ...(raw?.creditSettings || {}) };
 
+  // NEU: Start-Container robust mergen
+  s.start = {
+    ...(base.start || { mode: 'manual', allowPlayerSelfStart: false, delaySeconds: base.autoStartDelaySeconds }),
+    ...(raw?.start || {})
+  };
+  if (typeof s.start.delaySeconds !== 'number' || !isFinite(s.start.delaySeconds)) {
+    s.start.delaySeconds = base.autoStartDelaySeconds;
+  }
+
   // Arrays / optionale Felder defensiv übernehmen
   s.eventIntensityByDay = Array.isArray(raw?.eventIntensityByDay) ? raw.eventIntensityByDay : base.eventIntensityByDay;
   s.roundTimeMatrix     = raw?.roundTimeMatrix ?? base.roundTimeMatrix;
@@ -300,6 +309,7 @@ function upgradeSettings(base: MultiplayerAdminSettings, raw: any): MultiplayerA
 
   return s as MultiplayerAdminSettings;
 }
+
 
 
 function loadSettings(): MultiplayerAdminSettings {
