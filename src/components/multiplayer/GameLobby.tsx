@@ -260,51 +260,29 @@ export default function GameLobby({
   }, [isStarting, settings.lobbySettings?.showTimer, settings]);
 
 
-  // Auto-Start wenn alle bereit
+    // Auto-Start wenn alle eingeloggt (gemäß Admin-Startmodus)
   useEffect(() => {
-    if (settings.autoStartWhenReady && allPlayersReady() && !isStarting) {
+    if (getStartMode() !== 'auto_all_logged_in') return;
+    if (!isStarting && allPlayersReady()) {
+      // Broadcast des gemeinsamen Zielzeitpunkts; bei Race Conditions gewinnt das früheste Target
       initiateCountdown();
     }
-  }, [readyStatus, isStarting, settings.autoStartWhenReady]);
+  }, [players, settings, isStarting]);
 
   const allPlayersReady = (): boolean => {
+    // "Alle eingeloggt" = alle vier Pflichtrollen (CEO, CFO, OPS, HRLEGAL) sind belegt (case-insensitive)
+    const required = new Set(['CEO', 'CFO', 'OPS', 'HRLEGAL']);
+    const assigned = new Set((players || []).map(p => String(p.role || '').toUpperCase()));
+    const everyonePresent = [...required].every(r => assigned.has(r));
 
-  // Realtime: synchroner Countdown via Broadcast
-  useEffect(() => {
-    if (!game?.id) return;
-    const ch = supabase
-      .channel(`lobby-${game.id}`)
-      .on('broadcast', { event: 'countdown-start' }, (payload: any) => {
-        // Payload kann { targetMs } direkt oder in payload.targetMs enthalten
-        const t = Number(payload?.payload?.targetMs ?? payload?.targetMs);
-        if (!t || !Number.isFinite(t)) return;
-        // Das früheste bekannte Target gewinnt (idempotent)
-        if (!startTargetRef.current || t < (startTargetRef.current as number)) {
-          initiateCountdown(t);
-        }
-      })
-      .on('broadcast', { event: 'force-start' }, () => {
-        // Trainer/Host erzwingt sofortigen Start
-        initiateCountdown(Date.now());
-      })
-      .subscribe();
-
-    lobbyChannelRef.current = ch;
-    return () => { if (ch) supabase.removeChannel(ch); lobbyChannelRef.current = null; };
-  }, [game?.id]);
-
-
-    
-    // Alle Spieler bereit Logik
-    const everyoneReady = players.length > 0 && players.every(p => readyStatus.get(p.id));
-    // Wenn 'Früher Einstieg' aktiviert ist, darf bereits EIN Spieler ins Spiel (Einzelstart).
     if (settings.allowEarlyEntry) {
-      // Ein Spieler kann starten, sobald ER bereit ist – unabhängig von anderen.
-      return !!(currentPlayer && readyStatus.get(currentPlayer.id));
+      // Frühstart: aktueller Spieler darf alleine ins Spiel (wenn seine Rolle belegt ist)
+      const myRole = String(currentPlayer?.role || '').toUpperCase();
+      return assigned.has(myRole);
     }
-    // Standard: alle 4 Spieler müssen bereit sein
-    return players.length === 4 && everyoneReady;
+    return everyonePresent;
   };
+
 
   const initiateCountdown = () => {
     setIsStarting(true);
