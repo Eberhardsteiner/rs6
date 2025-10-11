@@ -1000,19 +1000,6 @@ export default function GameLobby({
           })()}
         </div>
 
-        {/* Rollenwahl (mit DB‑Sperre) – zeigt freie/gesperrte Rollen an */}
-        <div style={{ margin: '12px 0 24px' }}>
-          <RolePickerMP
-            gameId={game.id}
-            enableTrainer={(globalThis as any).__trainerAccessEnabled === true}
-            onClaimed={(role) => {
-              // Optional: Feedback/Weiterleitung; Belegung wird durch Supabase/Realtime/Polling verteilt.
-              try { localStorage.setItem('mp_current_role', String(role).toUpperCase()); } catch {}
-            }}
-          />
-        </div>
-
-        
         {/* Player Grid */}
         <div style={{
           display: 'grid',
