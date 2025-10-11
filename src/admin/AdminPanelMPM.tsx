@@ -40,11 +40,22 @@ type KPI = {
 type MultiplayerAdminSettings = {
   // Auth & Lobby
   authMode: 'email' | 'name-only' | 'preset-credentials';
-  allowEarlyEntry: boolean;
   forceAllPlayersForAdvance: boolean;
-  autoStartWhenReady: boolean;
-  autoStartDelaySeconds: number;
-  lobbyCountdownSeconds: number;
+
+  /** Start-Konfiguration (exklusiver Modus) */
+  start: {
+    /** 'trainer' | 'auto_all_ready' | 'scheduled' | 'free_for_all' | 'manual' */
+    mode: 'trainer' | 'auto_all_ready' | 'scheduled' | 'free_for_all' | 'manual';
+    /** Trainer-Start: Countdown (Sekunden) */
+    trainerCountdownSec: number;
+    /** Auto-Start (alle bereit): Countdown (Sekunden) */
+    allReadyCountdownSec: number;
+    /** Geplanter Startzeitpunkt (ISO, UTC empfohlen) */
+    scheduledAt?: string;
+    /** Einzelstart erlaubt (globaler Start durch alle) */
+    allowPlayerSelfStart: boolean;
+  };
+
   presetCredentials: {
     CEO: { username: string; password: string };
     CFO: { username: string; password: string };
@@ -90,18 +101,15 @@ type MultiplayerAdminSettings = {
     coach?: boolean;
     whatIfPreview: boolean;
     eventIntensity: boolean;
-    /** NEU: steuert Trainer-Rolle im Login */
     trainerAccess?: boolean;
-     /** NEU: rollenspezifische Zufalls-News (wirkt auch im MP-Client für Sicht) */
-   roleBasedRandomNews?: boolean;
+    roleBasedRandomNews?: boolean;
   };
 
-
-  
-  // Insolvenz (MP übernimmt Modus + lite-Regeln)
+  // Insolvenz (MP)
   insolvencyMode: InsolvencyMode;
   insolvencyConfig?: InsolvencyConfigLite;
 };
+
 
 
 const LS_KEY = 'admin:multiplayer';
