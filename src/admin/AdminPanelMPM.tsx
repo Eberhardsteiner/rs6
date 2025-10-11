@@ -308,18 +308,18 @@ function saveSettings(s: MultiplayerAdminSettings) {
 function applyToGlobals(s: MultiplayerAdminSettings) {
   try {
     const g: any = globalThis as any;
-    // Spiel-/Lobby-Themes
     g.__multiplayerSettings = s;
-    // Schwierigkeits-/Simulations-Flags
+
+    // Schwierigkeit / Zufalls-News
     g.__mpDifficulty = s.mpDifficulty;
-    g.__npcDifficulty = s.mpDifficulty; // Kompatibilität
+    g.__npcDifficulty = s.mpDifficulty;
     g.__randomNews = !!s.randomNews;
     g.__adaptiveDifficultyLightEnabled = !!s.adaptiveDifficultyLight;
-
-    // NEU: Difficulty-Kompatibilität
     g.__mode = s.mpDifficulty;
 
+    // Scoring
     g.__scoringWeights = normalizeWeights(s.scoringWeights);
+
     // Rundenzeiten
     g.__roundTimeMode = s.roundTimeMode || 'off';
     g.__roundTimeGlobalSec = typeof s.roundTimeGlobalSec === 'number' ? s.roundTimeGlobalSec : undefined;
@@ -334,17 +334,15 @@ function applyToGlobals(s: MultiplayerAdminSettings) {
     g.__featureEventIntensity = !!s.features?.eventIntensity;
     g.__roleBasedRandomNews   = !!s.features?.roleBasedRandomNews;
     g.__trainerAccessEnabled  = !!s.features?.trainerAccess;
-    // NEU: Event-Intensity (für GameView)
+
+    // Event-Intensity (für GameView)
     g.__eventIntensityByDay = Array.isArray(s.eventIntensityByDay) ? s.eventIntensityByDay : Array.from({ length: 14 }, () => 1);
 
-    // NEU: Insolvenzmodus
+    // Insolvenz
     g.__insolvencyMode = s.insolvencyMode ?? 'hard';
 
-
-    // CFO-Kredit (Legacy‑Schalter)
+    // Bank
     g.__mpAllowCredit = !!s.creditSettings?.enabled;
-
-    // NEU: Bank-Settings zusätzlich unter SP-kompatiblen Keys spiegeln
     if (s.creditSettings) {
       g.__bankSettings = {
         creditLineEUR: Number(s.creditSettings.creditLineEUR || 0),
@@ -354,12 +352,21 @@ function applyToGlobals(s: MultiplayerAdminSettings) {
       g.__bankInterestRatePct = g.__bankSettings.interestRatePct;
     }
 
-    // Insolvenzregeln (aus Einzelspieler‑Admin übernommen, falls vorhanden)
+    // Insolvenzregeln
     if (s.insolvencyConfig && s.insolvencyConfig.rules) {
       g.__insolvencyRules = s.insolvencyConfig.rules;
     }
 
-    // Event-Dispatch mit verbessertem Error Handling
+    // >>> Start-Konfiguration (NEU) <<<
+    g.__startConfig = {
+      mode: s.start?.mode || 'manual',
+      trainerCountdownSec: Number(s.start?.trainerCountdownSec || 0),
+      allReadyCountdownSec: Number(s.start?.allReadyCountdownSec || 0),
+      scheduledAt: s.start?.scheduledAt,
+      allowPlayerSelfStart: !!s.start?.allowPlayerSelfStart
+    };
+
+    // Admin-Broadcast
     try {
       window.dispatchEvent(new CustomEvent('admin:settings', { detail: { multiplayerSettings: s } }));
     } catch (eventError) {
@@ -370,6 +377,7 @@ function applyToGlobals(s: MultiplayerAdminSettings) {
     throw new Error('Anwenden der Einstellungen fehlgeschlagen.');
   }
 }
+
 
 const box: React.CSSProperties = { border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, background: '#fff', marginTop: 16 };
 
