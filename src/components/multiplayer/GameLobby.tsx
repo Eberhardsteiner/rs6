@@ -22,6 +22,15 @@ type AdminSettings = {
   autoStartDelaySeconds?: number;
   lobbyCountdownSeconds?: number;
   allowEarlyEntry?: boolean;
+
+  // NEU: Start-Optionen aus AdminPanelMPM
+  start?: {
+    mode?: 'manual' | 'auto_all_logged_in' | 'scheduled' | 'trainer';
+    allowPlayerSelfStart?: boolean; // wenn true, dürfen Spieler das Spiel starten (global)
+  };
+
+
+  
   lobbySettings?: {
     backgroundTheme?: 'corporate' | 'dynamic' | 'minimal';
     showTimer?: boolean;
