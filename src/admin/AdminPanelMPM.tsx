@@ -358,16 +358,25 @@ function saveSettings(s: MultiplayerAdminSettings) {
 function applyToGlobals(s: MultiplayerAdminSettings) {
   try {
     const g: any = globalThis as any;
-    // Spiel-/Lobby-Themes
-    g.__multiplayerSettings = s;
 
-    // NEU: Start-Spiegelung (bequemer Zugriff für Clients)
-    g.__startMode = s.start?.mode || (s.autoStartWhenReady ? 'auto_all_logged_in' : 'manual');
+    // Abwärtskompatibilität: Legacy-Felder aus start.* ableiten (ohne UI-Anzeige)
+    const reflectLegacy = {
+      ...s,
+      allowEarlyEntry: !!(s.start?.allowPlayerSelfStart ?? s.allowEarlyEntry),
+      autoStartWhenReady: (s.start?.mode === 'auto_all_logged_in') || !!s.autoStartWhenReady,
+      autoStartDelaySeconds: typeof s.start?.delaySeconds === 'number'
+        ? s.start!.delaySeconds
+        : (typeof s.autoStartDelaySeconds === 'number' ? s.autoStartDelaySeconds : 5),
+    };
+
+    // Spiel-/Lobby-Themes + Settings
+    g.__multiplayerSettings = reflectLegacy;
+
+    // NEU: Start-Spiegelung (bequemer Zugriff)
+    g.__startMode = s.start?.mode || (reflectLegacy.autoStartWhenReady ? 'auto_all_logged_in' : 'manual');
     g.__allowPlayerSelfStart = !!s.start?.allowPlayerSelfStart;
     g.__scheduledStartAt = s.start?.at || (typeof s.start?.atMs === 'number' ? new Date(s.start!.atMs).toISOString() : undefined);
-    g.__autoStartDelaySeconds = typeof s.start?.delaySeconds === 'number'
-      ? s.start!.delaySeconds
-      : (typeof s.autoStartDelaySeconds === 'number' ? s.autoStartDelaySeconds : undefined);
+    g.__autoStartDelaySeconds = reflectLegacy.autoStartDelaySeconds;
 
     // Schwierigkeits-/Simulations-Flags
     g.__mpDifficulty = s.mpDifficulty;
@@ -393,10 +402,11 @@ function applyToGlobals(s: MultiplayerAdminSettings) {
     g.__featureEventIntensity = !!s.features?.eventIntensity;
     g.__roleBasedRandomNews   = !!s.features?.roleBasedRandomNews;
     g.__trainerAccessEnabled  = !!s.features?.trainerAccess;
-    // NEU: Event-Intensity (für GameView)
+
+    // Event-Intensity (für GameView)
     g.__eventIntensityByDay = Array.isArray(s.eventIntensityByDay) ? s.eventIntensityByDay : Array.from({ length: 14 }, () => 1);
 
-    // NEU: Insolvenzmodus
+    // Insolvenzmodus
     g.__insolvencyMode = s.insolvencyMode ?? 'hard';
 
     // CFO-Kredit (Legacy‑Schalter)
@@ -419,7 +429,7 @@ function applyToGlobals(s: MultiplayerAdminSettings) {
 
     // Event-Dispatch mit verbessertem Error Handling
     try {
-      window.dispatchEvent(new CustomEvent('admin:settings', { detail: { multiplayerSettings: s } }));
+      window.dispatchEvent(new CustomEvent('admin:settings', { detail: { multiplayerSettings: reflectLegacy } }));
     } catch (eventError) {
       console.error('[AdminPanelMPM] Failed to dispatch admin:settings event:', eventError);
     }
