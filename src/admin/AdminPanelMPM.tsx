@@ -493,7 +493,106 @@ function SectionMultiplayer({ settings, setSettings }: {
         )}
       </div>
 
-     
+           {/* Startmodus (NEU) */}
+      <div style={box}>
+        <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Startmodus</h3>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:10 }}>
+          {/* Moduswahl (exklusiv) */}
+          <label style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <input
+              type="radio"
+              name="startmode"
+              checked={settings.start.mode === 'trainer'}
+              onChange={() => setSettings(s => ({ ...s, start: { ...s.start, mode: 'trainer', allowPlayerSelfStart: false } }))}
+            />
+            <span><strong>Trainer startet Spiel</strong> (Button im Trainer‑Cockpit)</span>
+          </label>
+
+          <div style={{ marginLeft: 28, display: settings.start.mode==='trainer' ? 'flex' : 'none', alignItems:'center', gap:8 }}>
+            <label>Countdown (Sekunden):</label>
+            <input
+              type="number"
+              min={0}
+              max={300}
+              value={Number(settings.start.trainerCountdownSec || 0)}
+              onChange={e => setSettings(s => ({ ...s, start: { ...s.start, trainerCountdownSec: Math.max(0, parseInt((e.target as HTMLInputElement).value) || 0) } }))}
+              style={{ width:96, padding:'4px 8px', borderRadius:4 }}
+            />
+            <span className="small" style={{ color:'#6b7280' }}>Der Trainer‑Button löst ein synchrones Startsignal aus.</span>
+          </div>
+
+          <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:6 }}>
+            <input
+              type="radio"
+              name="startmode"
+              checked={settings.start.mode === 'auto_all_ready'}
+              onChange={() => setSettings(s => ({ ...s, start: { ...s.start, mode: 'auto_all_ready' } }))}
+            />
+            <span><strong>Auto</strong>: sobald alle in der Lobby auf <em>bereit</em> geklickt haben</span>
+          </label>
+
+          <div style={{ marginLeft: 28, display: settings.start.mode==='auto_all_ready' ? 'flex' : 'none', alignItems:'center', gap:8 }}>
+            <label>Countdown (Sekunden):</label>
+            <input
+              type="number"
+              min={0}
+              max={300}
+              value={Number(settings.start.allReadyCountdownSec || 0)}
+              onChange={e => setSettings(s => ({ ...s, start: { ...s.start, allReadyCountdownSec: Math.max(0, parseInt((e.target as HTMLInputElement).value) || 0) } }))}
+              style={{ width:96, padding:'4px 8px', borderRadius:4 }}
+            />
+            <span className="small" style={{ color:'#6b7280' }}>Sobald alle bereit sind, setzt der Server das gemeinsame Startsignal.</span>
+          </div>
+
+          <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:6 }}>
+            <input
+              type="radio"
+              name="startmode"
+              checked={settings.start.mode === 'free_for_all'}
+              onChange={() => setSettings(s => ({ ...s, start: { ...s.start, mode: 'free_for_all', allowPlayerSelfStart: true } }))}
+            />
+            <span><strong>Einzelstart</strong> (alle dürfen selbst in das Spiel gehen)</span>
+          </label>
+
+          <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:6 }}>
+            <input
+              type="radio"
+              name="startmode"
+              checked={settings.start.mode === 'scheduled'}
+              onChange={() => setSettings(s => ({ ...s, start: { ...s.start, mode:'scheduled' } }))}
+            />
+            <span><strong>Geplant</strong> (Start zu Zeitpunkt)</span>
+          </label>
+
+          <div style={{ marginLeft: 28, display: settings.start.mode==='scheduled' ? 'grid':'none', gridTemplateColumns:'auto 1fr', gap:8, alignItems:'center' }}>
+            <label>Start‑Zeit (UTC ISO):</label>
+            <input
+              type="datetime-local"
+              value={settings.start.scheduledAt ? new Date(settings.start.scheduledAt).toISOString().slice(0,16) : ''}
+              onChange={e => {
+                const v = (e.target as HTMLInputElement).value;
+                const iso = v ? new Date(v).toISOString() : undefined;
+                setSettings(s => ({ ...s, start: { ...s.start, scheduledAt: iso } }));
+              }}
+              style={{ maxWidth: 260, padding:'6px 8px', borderRadius:6, border:'1px solid #d1d5db' }}
+            />
+            <span className="small" style={{ color:'#6b7280', gridColumn:'1 / -1' }}>
+              Der Server setzt <code>games.start_signal_at</code> auf diesen Zeitpunkt.
+            </span>
+          </div>
+
+          <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:6 }}>
+            <input
+              type="radio"
+              name="startmode"
+              checked={settings.start.mode === 'manual'}
+              onChange={() => setSettings(s => ({ ...s, start: { ...s.start, mode:'manual', allowPlayerSelfStart:false } }))}
+            />
+            <span><strong>Fallback:</strong> CEO darf starten (wenn alle in Lobby sind)</span>
+          </label>
+        </div>
+      </div>
+
 
       {/* MP‑Schwierigkeit */}
       <div style={box}>
