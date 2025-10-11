@@ -6,6 +6,8 @@ import type { RoleId } from '@/core/models/domain';
 // NEU
 import ScenarioEditor from '@/admin/ScenarioEditor';
 import { parseScenarioFromText, compileScenario } from '@/services/scenarioLoader';
+// Diagnose Rollensperre
+import { getLockedRoles, claimRole, unclaimRole } from '@/services/roleLock';
 
 
 /** Schlanke, vom Einzelspielermodus getrennte Adminoberfläche NUR für den Mehrspielermodus (MPM).
