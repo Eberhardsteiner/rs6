@@ -254,6 +254,16 @@ function upgradeSettings(base: MultiplayerAdminSettings, raw: any): MultiplayerA
   s.gameSettings      = { ...base.gameSettings,      ...(raw?.gameSettings || {}) };
   s.creditSettings    = { ...base.creditSettings,    ...(raw?.creditSettings || {}) };
 
+  // Start-Block (neue Struktur)
+  const rawStart = raw?.start || {};
+  s.start = {
+    mode: (['trainer','auto_all_ready','scheduled','free_for_all','manual'].includes(rawStart.mode) ? rawStart.mode : base.start.mode),
+    trainerCountdownSec: Number(rawStart.trainerCountdownSec ?? base.start.trainerCountdownSec) || 0,
+    allReadyCountdownSec: Number(rawStart.allReadyCountdownSec ?? base.start.allReadyCountdownSec) || 0,
+    scheduledAt: (typeof rawStart.scheduledAt === 'string' ? rawStart.scheduledAt : base.start.scheduledAt),
+    allowPlayerSelfStart: !!rawStart.allowPlayerSelfStart
+  };
+
   // Arrays / optionale Felder defensiv übernehmen
   s.eventIntensityByDay = Array.isArray(raw?.eventIntensityByDay) ? raw.eventIntensityByDay : base.eventIntensityByDay;
   s.roundTimeMatrix     = raw?.roundTimeMatrix ?? base.roundTimeMatrix;
@@ -264,11 +274,12 @@ function upgradeSettings(base: MultiplayerAdminSettings, raw: any): MultiplayerA
   s.insolvencyMode   = raw?.insolvencyMode   ?? base.insolvencyMode;
   s.insolvencyConfig = raw?.insolvencyConfig ?? base.insolvencyConfig;
 
-  // Kritisch: scoringWeights *immer* valide & normiert
+  // scoringWeights stabilisieren
   s.scoringWeights = normalizeWeights(raw?.scoringWeights);
 
   return s as MultiplayerAdminSettings;
 }
+
 
 
 function loadSettings(): MultiplayerAdminSettings {
