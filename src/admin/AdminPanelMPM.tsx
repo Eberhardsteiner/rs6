@@ -154,11 +154,28 @@ function validateSettings(s: MultiplayerAdminSettings): { valid: boolean; errors
     errors.push('Ungültige Event-Intensität-Daten');
   }
 
+  // NEU: Start-Validierung
+  const m = s.start?.mode;
+  if (m && !['manual','auto_all_logged_in','scheduled','trainer'].includes(m)) {
+    errors.push('Ungültiger Startmodus');
+  }
+  if (m === 'scheduled') {
+    const hasAt = !!s.start?.at || typeof s.start?.atMs === 'number';
+    if (!hasAt) errors.push('Startmodus "scheduled": Startzeit fehlt (start.at oder start.atMs).');
+  }
+  if (m === 'auto_all_logged_in') {
+    const d = s.start?.delaySeconds;
+    if (d !== undefined && (typeof d !== 'number' || d < 0 || !isFinite(d))) {
+      errors.push('Startmodus "auto_all_logged_in": delaySeconds ungültig.');
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors
   };
 }
+
 
 function normalizeWeights(w?: Partial<ScoringWeights> | null): ScoringWeights {
   const toNum = (n: any, fallback: number) => {
@@ -208,6 +225,15 @@ function getDefaultSettings(): MultiplayerAdminSettings {
     autoStartWhenReady: false,
     autoStartDelaySeconds: 5,
     lobbyCountdownSeconds: 10,
+
+    /** NEU: Start-Defaults */
+    start: {
+      mode: 'manual',
+      allowPlayerSelfStart: false,
+      delaySeconds: 5
+      // at/atMs optional
+    },
+
     presetCredentials: {
       CEO: { username: 'ceo', password: 'ceo123' },
       CFO: { username: 'cfo', password: 'cfo123' },
@@ -241,10 +267,11 @@ function getDefaultSettings(): MultiplayerAdminSettings {
 
     scoringWeights: { bankTrust: 25, publicPerception: 25, customerLoyalty: 25, workforceEngagement: 25 },
     eventIntensityByDay: Array.from({ length: 14 }, () => 1),
-        features: { saveLoadMenu: false, autoSave: false, coach: false, whatIfPreview: false, eventIntensity: false, trainerAccess: false, roleBasedRandomNews: false },
+    features: { saveLoadMenu: false, autoSave: false, coach: false, whatIfPreview: false, eventIntensity: false, trainerAccess: false, roleBasedRandomNews: false },
     insolvencyConfig: undefined,
   };
 }
+
 
 
 
