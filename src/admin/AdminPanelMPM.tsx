@@ -9,6 +9,7 @@ import { parseScenarioFromText, compileScenario } from '@/services/scenarioLoade
 // Diagnose Rollensperre
 import { getLockedRoles, claimRole, unclaimRole } from '@/services/roleLock';
 
+import RolePickerMP from '@/components/multiplayer/RolePickerMP';
 
 /** Schlanke, vom Einzelspielermodus getrennte Adminoberfläche NUR für den Mehrspielermodus (MPM).
  *  Persistiert ausschliesslich in localStorage('admin:multiplayer') und spiegelt in globalThis.__multiplayerSettings.
