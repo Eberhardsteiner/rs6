@@ -195,11 +195,16 @@ function generatePassword(): string {
 function getDefaultSettings(): MultiplayerAdminSettings {
   return {
     authMode: 'name-only',
-    allowEarlyEntry: false,
     forceAllPlayersForAdvance: false,
-    autoStartWhenReady: false,
-    autoStartDelaySeconds: 5,
-    lobbyCountdownSeconds: 10,
+
+    start: {
+      mode: 'manual',                 // Trainer/Auto/Scheduled/FreeForAll/Manual
+      trainerCountdownSec: 5,         // Option 1
+      allReadyCountdownSec: 5,        // Option 2
+      scheduledAt: undefined,         // Option 5
+      allowPlayerSelfStart: false     // Option 3
+    },
+
     presetCredentials: {
       CEO: { username: 'ceo', password: 'ceo123' },
       CFO: { username: 'cfo', password: 'cfo123' },
@@ -227,16 +232,15 @@ function getDefaultSettings(): MultiplayerAdminSettings {
     mpDifficulty: 'normal',
     randomNews: true,
     adaptiveDifficultyLight: false,
-
-    // ▼ neu
     insolvencyMode: 'hard',
 
     scoringWeights: { bankTrust: 25, publicPerception: 25, customerLoyalty: 25, workforceEngagement: 25 },
     eventIntensityByDay: Array.from({ length: 14 }, () => 1),
-        features: { saveLoadMenu: false, autoSave: false, coach: false, whatIfPreview: false, eventIntensity: false, trainerAccess: false, roleBasedRandomNews: false },
+    features: { saveLoadMenu: false, autoSave: false, coach: false, whatIfPreview: false, eventIntensity: false, trainerAccess: false, roleBasedRandomNews: false },
     insolvencyConfig: undefined,
   };
 }
+
 
 
 
