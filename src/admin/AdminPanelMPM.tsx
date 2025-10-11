@@ -1427,6 +1427,56 @@ function SectionMpInjectNews() {
   const [roles, setRoles] = React.useState<RoleId[]>([]);
   const [err, setErr] = React.useState<string>('');
 
+  function SectionRoleLocksMP() {
+  const [gameId, setGameId] = React.useState('');
+  const [locks, setLocks] = React.useState<{ role: RoleId; user_id: string | null }[]>([]);
+  const [busy, setBusy] = React.useState(false);
+  const roles: RoleId[] = ['CEO','CFO','OPS','HRLEGAL'] as any;
+
+  const refresh = async () => {
+    if (!gameId.trim()) return;
+    setBusy(true);
+    try { setLocks(await getLockedRoles(gameId.trim())); } catch (e) { console.error(e); } finally { setBusy(false); }
+  };
+
+  React.useEffect(() => { if (gameId.trim()) refresh(); }, [gameId]);
+
+  const isLocked = (r: RoleId) => !!locks.find(x => String(x.role).toUpperCase() === r);
+  return (
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, background: '#fff', marginTop: 16 }}>
+      <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Diagnose – Rollensperre</h3>
+      <div style={{ display:'grid', gridTemplateColumns:'160px 1fr', gap:12, alignItems:'center' }}>
+        <div style={{ fontWeight:600 }}>Game‑ID</div>
+        <input type="text" value={gameId} onChange={e=>setGameId((e.target as HTMLInputElement).value)}
+               placeholder="games.id (UUID)" style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6 }} />
+      </div>
+      <div style={{ marginTop: 12, display:'flex', gap:8, flexWrap:'wrap' }}>
+        {roles.map(r => (
+          <div key={r} style={{
+            padding:'10px 12px', borderRadius:8,
+            background: isLocked(r) ? '#fee2e2' : '#ecfdf5',
+            color: isLocked(r) ? '#991b1b' : '#065f46',
+            border: '1px solid #d1d5db', minWidth: 120, textAlign:'center', fontWeight:700
+          }}>
+            {isLocked(r) ? `🔒 ${r}` : `🟢 ${r} frei`}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop:12 }}>
+        <button onClick={refresh} disabled={busy} style={{ padding:'6px 12px' }}>
+          {busy ? 'Aktualisiere…' : 'Aktualisieren'}
+        </button>
+      </div>
+      <div className="small" style={{ color:'#6b7280', marginTop:6 }}>
+        Nutzt RPC <code>get_locked_roles</code>. Die eigentliche Sperre erfolgt serverseitig per Unique‑Index + <code>claim_role</code>/<code>unclaim_role</code>.
+      </div>
+    </div>
+  );
+}
+
+
+
+  
   const toggleRole = (r: RoleId) => setRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
 
   const inject = async (target: 'all' | 'roles') => {
