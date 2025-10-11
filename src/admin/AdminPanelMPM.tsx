@@ -193,6 +193,7 @@ function validateSettings(s: MultiplayerAdminSettings): { valid: boolean; errors
 }
 
 
+
 function normalizeWeights(w?: Partial<ScoringWeights> | null): ScoringWeights {
   const toNum = (n: any, fallback: number) => {
     const x = Number(n);
