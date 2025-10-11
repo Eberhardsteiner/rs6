@@ -493,52 +493,7 @@ function SectionMultiplayer({ settings, setSettings }: {
         )}
       </div>
 
-      {/* Spielstart‑Regeln */}
-      <div style={box}>
-        <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Spielstart‑Regeln</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={settings.allowEarlyEntry}
-              onChange={e => setSettings(s => ({ ...s, allowEarlyEntry: e.target.checked }))}
-            />
-            <span>Spieler können das SPIEL starten/beitreten, auch wenn nicht alle da sind (Einzelstart möglich)</span>
-          </label>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={settings.forceAllPlayersForAdvance}
-              onChange={e => setSettings(s => ({ ...s, forceAllPlayersForAdvance: e.target.checked }))}
-            />
-            <span>Alle Spieler müssen ihre Entscheidungen abgeben vor Tageswechsel</span>
-          </label>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={settings.autoStartWhenReady}
-              onChange={e => setSettings(s => ({ ...s, autoStartWhenReady: e.target.checked }))}
-            />
-            <span>Automatischer Start wenn alle bereit sind</span>
-          </label>
-
-          {settings.autoStartWhenReady && (
-            <div style={{ marginLeft: 28, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <label>Verzögerung (Sekunden):</label>
-              <input
-                type="number"
-                min={0}
-                max={60}
-                value={settings.autoStartDelaySeconds}
-                onChange={e => setSettings(s => ({ ...s, autoStartDelaySeconds: parseInt(e.target.value) || 0 }))}
-                style={{ width: 80, padding: '4px 8px', borderRadius: 4 }}
-              />
-            </div>
-          )}
-        </div>
-      </div>
+     
 
       {/* MP‑Schwierigkeit */}
       <div style={box}>
