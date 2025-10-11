@@ -1606,7 +1606,7 @@ export default function AdminPanelMPM({ onClose }: { onClose?: () => void }) {
 
   const showToast = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(''), 1600); };
 
-  const onApply = async () => {
+    const onApply = async () => {
     if (applyTimeoutId !== null) {
       window.clearTimeout(applyTimeoutId);
     }
@@ -1615,16 +1615,25 @@ export default function AdminPanelMPM({ onClose }: { onClose?: () => void }) {
       try {
         setBusy(true);
 
-        const next = { ...settings, scoringWeights: normalizeWeights((settings as any)?.scoringWeights) };
+        // Normierung + Legacy-Spiegelung (keine UI für alte Felder, aber intern konsistent)
+        const base = { ...settings, scoringWeights: normalizeWeights((settings as any)?.scoringWeights) };
+        const bridged = {
+          ...base,
+          allowEarlyEntry: !!(base.start?.allowPlayerSelfStart ?? base.allowEarlyEntry),
+          autoStartWhenReady: (base.start?.mode === 'auto_all_logged_in') || !!base.autoStartWhenReady,
+          autoStartDelaySeconds: typeof base.start?.delaySeconds === 'number'
+            ? base.start!.delaySeconds
+            : (typeof base.autoStartDelaySeconds === 'number' ? base.autoStartDelaySeconds : 5),
+        };
 
-        const validation = validateSettings(next);
+        const validation = validateSettings(bridged);
         if (!validation.valid) {
           alert('Einstellungen sind ungültig:\n' + validation.errors.join('\n'));
           return;
         }
 
-        saveSettings(next);
-        applyToGlobals(next);
+        saveSettings(bridged);
+        applyToGlobals(bridged);
 
         saveInvariantsLocal(inv);
         applyInvariantsGlobals(inv);
@@ -1642,6 +1651,7 @@ export default function AdminPanelMPM({ onClose }: { onClose?: () => void }) {
 
     setApplyTimeoutId(timeoutId);
   };
+
 
 
   return (
