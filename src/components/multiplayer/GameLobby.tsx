@@ -282,24 +282,58 @@ export default function GameLobby({
     }
     return everyonePresent;
   };
+  // Geplanter Start (scheduled): wenn Admin eine Startzeit setzt, Countdown sofort auf dieses Ziel synchronisieren
+  useEffect(() => {
+    if (getStartMode() !== 'scheduled') return;
+    const t = getStartAtMs();
+    if (!t || isStarting || startTargetRef.current) return;
+    // Falls Startzeit in der Zukunft liegt, synchronen Countdown auf diese Zeit setzen und broadcasten
+    if (t > Date.now()) {
+      initiateCountdown(t);
+    } else {
+      // Startzeit in Vergangenheit -> sofort starten
+      initiateCountdown(Date.now());
+    }
+  }, [settings, isStarting]);
 
 
-  const initiateCountdown = () => {
+    // Startet einen synchronen Countdown. Wenn targetMs übergeben wird, wird dieser Wert übernommen.
+  const initiateCountdown = (targetMs?: number) => {
+    if (isStarting && startTargetRef.current && !targetMs) return; // bereits aktiv
+    const seconds = getStartDelaySeconds();
+    const now = Date.now();
+    const target = Number.isFinite(targetMs as number) ? (targetMs as number) : (now + seconds * 1000);
+
+    startTargetRef.current = target;
     setIsStarting(true);
-    const seconds = (settings.autoStartDelaySeconds ?? settings.lobbyCountdownSeconds ?? 5);
-    setCountdown(seconds);
 
-    countdownIntervalRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev === null || prev <= 1) {
-          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-          onGameStart();
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    // Broadcast nur senden, wenn wir nicht durch Fremdsignal getriggert wurden
+    try {
+      if (!targetMs && game?.id) {
+        supabase.channel(`lobby-${game.id}`).send({
+          type: 'broadcast',
+          event: 'countdown-start',
+          payload: { targetMs: target, initiator: currentPlayer?.id, mode: getStartMode() }
+        });
+      }
+    } catch {}
+
+    const tick = () => {
+      const msLeft = (startTargetRef.current as number) - Date.now();
+      const secLeft = Math.max(0, Math.ceil(msLeft / 1000));
+      setCountdown(secLeft);
+      if (msLeft <= 0) {
+        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current as any);
+        startTargetRef.current = null;
+        onGameStart(); // Alle Clients springen gleichzeitig (db/state wird in MultiplayerApp gesetzt)
+      }
+    };
+
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current as any);
+    tick(); // sofort initialisieren
+    countdownIntervalRef.current = setInterval(tick, 250) as any; // feineres Ticking für Genauigkeit
   };
+
 
   const handleSetReady = () => {
     const newStatus = !readyStatus.get(currentPlayer.id);
