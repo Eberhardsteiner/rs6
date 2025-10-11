@@ -1,5 +1,5 @@
 import React from 'react';
-import { AdminPanelWithGate } from './AdminPanel';
+import UnifiedAdminPanel from './UnifiedAdminPanel';
 import { adminStyles } from './adminCommonStyles';
 
 export default function AdminFloatingButton() {
@@ -40,7 +40,7 @@ export default function AdminFloatingButton() {
       {open && (
         <div style={adminStyles.backdrop} onClick={() => setOpen(false)}>
           <div style={adminStyles.modal} onClick={e => e.stopPropagation()}>
-            <AdminPanelWithGate onClose={() => setOpen(false)} />
+            <UnifiedAdminPanel onClose={() => setOpen(false)} />
           </div>
         </div>
       )}
