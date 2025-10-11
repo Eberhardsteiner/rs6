@@ -234,14 +234,31 @@ export default function GameLobby({
   useEffect(() => { ensureGameParam(); }, [ensureGameParam]);
 
   // Timer countdown
+    // Timer-Anzeige: zeigt Restzeit bis geplanter Start (scheduled) oder bis aktivem Countdown-Target
   useEffect(() => {
-    if (settings.lobbySettings?.showTimer && !isStarting) {
-      timerRef.current = setInterval(() => {
-        setTimeToStart(prev => Math.max(0, prev - 1));
-      }, 1000);
+    if (!settings.lobbySettings?.showTimer || isStarting) {
+      if (timerRef.current) clearInterval(timerRef.current as any);
+      return;
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isStarting, settings.lobbySettings?.showTimer]);
+    const mode = getStartMode();
+    const planned = mode === 'scheduled' ? getStartAtMs() : null;
+    const target = planned ?? startTargetRef.current;
+
+    if (!target) {
+      // Kein Ziel bekannt -> Default-Anzeige (z. B. 5 Min.)
+      setTimeToStart(getStartDelaySeconds());
+      return;
+    }
+
+    const tick = () => {
+      const sec = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+      setTimeToStart(sec);
+    };
+    tick();
+    timerRef.current = setInterval(tick, 1000) as any;
+    return () => { if (timerRef.current) clearInterval(timerRef.current as any); };
+  }, [isStarting, settings.lobbySettings?.showTimer, settings]);
+
 
   // Auto-Start wenn alle bereit
   useEffect(() => {
