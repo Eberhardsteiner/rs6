@@ -246,10 +246,13 @@ useEffect(() => {
         .subscribe();
 
       
-      return () => {
+            return () => {
         clearInterval(interval);
+        // Realtime-Channel sauber entfernen
+        try { if (startCh) supabase.removeChannel(startCh); } catch {}
         mpService.unsubscribeAll();
       };
+
     }
   }, [gamePhase, currentGameId]);
 
