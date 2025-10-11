@@ -554,11 +554,11 @@ function SectionMultiplayer({ settings, setSettings }: {
         )}
       </div>
 
-          {/* Spielstart‑Regeln */}
+       {/* Spielstart‑Regeln */}
       <div style={box}>
         <h3 style={{ marginTop: 0, fontSize: 18, fontWeight: 700 }}>Spielstart‑Regeln</h3>
 
-        {/* NEU: Startmodus */}
+        {/* Startmodus */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
           <div style={{ fontWeight: 600 }}>Startmodus</div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -566,7 +566,7 @@ function SectionMultiplayer({ settings, setSettings }: {
               <input
                 type="radio"
                 name="start-mode"
-                checked={String(settings.start?.mode || (settings.autoStartWhenReady ? 'auto_all_logged_in' : 'manual')) === 'manual'}
+                checked={String(settings.start?.mode || 'manual') === 'manual'}
                 onChange={() => setSettings(s => ({ ...s, start: { ...(s.start||{}), mode: 'manual' } }))}
               />
               Manuell (kein Auto‑Start)
@@ -576,7 +576,7 @@ function SectionMultiplayer({ settings, setSettings }: {
               <input
                 type="radio"
                 name="start-mode"
-                checked={String(settings.start?.mode || (settings.autoStartWhenReady ? 'auto_all_logged_in' : 'manual')) === 'auto_all_logged_in'}
+                checked={String(settings.start?.mode || 'manual') === 'auto_all_logged_in'}
                 onChange={() => setSettings(s => ({ ...s, start: { ...(s.start||{}), mode: 'auto_all_logged_in' } }))}
               />
               Auto: sobald alle eingeloggt
@@ -586,7 +586,7 @@ function SectionMultiplayer({ settings, setSettings }: {
               <input
                 type="radio"
                 name="start-mode"
-                checked={String(settings.start?.mode || (settings.autoStartWhenReady ? 'auto_all_logged_in' : 'manual')) === 'scheduled'}
+                checked={String(settings.start?.mode || 'manual') === 'scheduled'}
                 onChange={() => setSettings(s => ({ ...s, start: { ...(s.start||{}), mode: 'scheduled' } }))}
               />
               Geplant um Zeitpunkt („scheduled“)
@@ -596,7 +596,7 @@ function SectionMultiplayer({ settings, setSettings }: {
               <input
                 type="radio"
                 name="start-mode"
-                checked={String(settings.start?.mode || (settings.autoStartWhenReady ? 'auto_all_logged_in' : 'manual')) === 'trainer'}
+                checked={String(settings.start?.mode || 'manual') === 'trainer'}
                 onChange={() => setSettings(s => ({ ...s, start: { ...(s.start||{}), mode: 'trainer' } }))}
               />
               Trainer startet Spiel
@@ -604,7 +604,7 @@ function SectionMultiplayer({ settings, setSettings }: {
           </div>
         </div>
 
-        {/* NEU: Freigabe – Spieler dürfen selbst starten (global) */}
+        {/* Freigabe – Spieler dürfen selbst starten (global) */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <input
             type="checkbox"
@@ -614,62 +614,28 @@ function SectionMultiplayer({ settings, setSettings }: {
           <span>Spieler dürfen selbst starten (freigegeben für alle)</span>
         </label>
 
-        {/* Bestehende Optionen bleiben erhalten (Kompatibilität/Feintuning) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={settings.allowEarlyEntry}
-              onChange={e => setSettings(s => ({ ...s, allowEarlyEntry: e.target.checked }))}
-            />
-            <span>Spieler können das SPIEL starten/beitreten, auch wenn nicht alle da sind (Einzelstart möglich)</span>
-          </label>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={settings.forceAllPlayersForAdvance}
-              onChange={e => setSettings(s => ({ ...s, forceAllPlayersForAdvance: e.target.checked }))}
-            />
-            <span>Alle Spieler müssen ihre Entscheidungen abgeben vor Tageswechsel</span>
-          </label>
-
-          {/* Legacy-Schalter: bleibt erhalten; wird bei start.mode='trainer' in der Lobby normalisiert/ignoriert */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={settings.autoStartWhenReady}
-              onChange={e => setSettings(s => ({ ...s, autoStartWhenReady: e.target.checked }))}
-            />
-            <span>Automatischer Start wenn alle bereit sind (Legacy)</span>
-          </label>
-        </div>
-
-        {/* NEU: Parameter – abhängig vom Modus */}
-        {/* Verzögerung bei Auto-All-Logged-In */}
-        {String(settings.start?.mode || (settings.autoStartWhenReady ? 'auto_all_logged_in' : 'manual')) === 'auto_all_logged_in' && (
-          <div style={{ marginTop: 12, marginLeft: 28, display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Parameter abhängig vom Modus */}
+        {String(settings.start?.mode || 'manual') === 'auto_all_logged_in' && (
+          <div style={{ marginTop: 8, marginLeft: 28, display: 'flex', alignItems: 'center', gap: 8 }}>
             <label>Verzögerung (Sekunden):</label>
             <input
               type="number"
               min={0}
               max={300}
-              value={typeof settings.start?.delaySeconds === 'number' ? settings.start!.delaySeconds : (settings.autoStartDelaySeconds||5)}
+              value={typeof settings.start?.delaySeconds === 'number' ? settings.start!.delaySeconds : 5}
               onChange={e => setSettings(s => ({ ...s, start: { ...(s.start||{}), delaySeconds: parseInt((e.target as HTMLInputElement).value) || 0 } }))}
               style={{ width: 100, padding: '4px 8px', borderRadius: 4 }}
             />
           </div>
         )}
 
-        {/* Startzeit bei Scheduled */}
-        {String(settings.start?.mode || (settings.autoStartWhenReady ? 'auto_all_logged_in' : 'manual')) === 'scheduled' && (
-          <div style={{ marginTop: 12, marginLeft: 28, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        {String(settings.start?.mode || 'manual') === 'scheduled' && (
+          <div style={{ marginTop: 8, marginLeft: 28, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <label>Startzeit (lokal):</label>
             <input
               type="datetime-local"
               value={(() => {
                 const v = settings.start?.at || '';
-                // Anzeige: wenn ISO vorhanden, in datetime-local ohne Sekunden umwandeln
                 try {
                   if (!v) return '';
                   const d = new Date(v);
